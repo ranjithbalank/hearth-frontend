@@ -5,10 +5,14 @@ import { RequireAccess } from "./shell/RequireAccess";
 import { Spinner } from "./design/ui";
 import { useApp } from "./lib/app-context";
 import { Accounting } from "./features/accounting/Accounting";
+import { Booking } from "./features/booking/Booking";
+import { Channel } from "./features/channel/Channel";
+import { Crm } from "./features/crm/Crm";
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { Engineering } from "./features/engineering/Engineering";
 import { Executive } from "./features/executive/Executive";
 import { Folios } from "./features/folio/Folios";
+import { Revenue } from "./features/revenue/Revenue";
 import { FrontDesk } from "./features/frontdesk/FrontDesk";
 import { Housekeeping } from "./features/housekeeping/Housekeeping";
 import { LiveGrid } from "./features/livegrid/LiveGrid";
@@ -41,6 +45,10 @@ export default function App() {
         <Route path="/reservations" element={<RequireAccess module="reservations"><Reservations /></RequireAccess>} />
         <Route path="/folios" element={<RequireAccess module="folio"><Folios /></RequireAccess>} />
         <Route path="/housekeeping" element={<RequireAccess module="housekeeping"><Housekeeping /></RequireAccess>} />
+        <Route path="/revenue" element={<RequireAccess module="revenue"><Revenue /></RequireAccess>} />
+        <Route path="/channel" element={<RequireAccess module="channel"><Channel /></RequireAccess>} />
+        <Route path="/booking" element={<RequireAccess module="booking"><Booking /></RequireAccess>} />
+        <Route path="/crm" element={<RequireAccess module="crm"><Crm /></RequireAccess>} />
         <Route path="/pos" element={<RequireAccess module="pos"><Pos /></RequireAccess>} />
         <Route path="/accounting" element={<RequireAccess module="accounting"><Accounting /></RequireAccess>} />
         <Route path="/tax" element={<RequireAccess module="tax"><TaxGst /></RequireAccess>} />

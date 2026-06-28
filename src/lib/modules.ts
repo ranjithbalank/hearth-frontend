@@ -53,6 +53,14 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    title: "Revenue",
+    items: [
+      { key: "revenue", label: "Revenue Manager", path: "/revenue" },
+      { key: "channel", label: "Channel Manager", path: "/channel" },
+      { key: "booking", label: "Booking Engine", path: "/booking" },
+    ],
+  },
+  {
     title: "Restaurant",
     items: [{ key: "pos", label: "Restaurant POS", path: "/pos" }],
   },
@@ -62,6 +70,7 @@ export const NAV: NavGroup[] = [
       { key: "accounting", label: "Accounting", path: "/accounting" },
       { key: "tax", label: "Tax & GST", path: "/tax" },
       { key: "engineering", label: "Engineering", path: "/engineering" },
+      { key: "crm", label: "Guest CRM", path: "/crm" },
       { key: "reports", label: "Reports", path: "/reports" },
       { key: "settings", label: "Settings", path: "/settings" },
     ],
