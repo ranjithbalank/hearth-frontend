@@ -13,6 +13,7 @@ export const MODULE_ENTITLEMENT: Record<string, keyof Entitlement | undefined> =
   roommaster: "hms",
   accounting: "hms",
   engineering: "hms",
+  hr: "hms",
   revenue: "rms",
   channel: "hms",
   booking: "hms",
@@ -50,6 +51,7 @@ export const NAV: NavGroup[] = [
       { key: "reservations", label: "Reservations", path: "/reservations" },
       { key: "folio", label: "Folios", path: "/folios" },
       { key: "housekeeping", label: "Housekeeping", path: "/housekeeping" },
+      { key: "banquets", label: "Banquets & Events", path: "/banquets" },
     ],
   },
   {
@@ -62,7 +64,12 @@ export const NAV: NavGroup[] = [
   },
   {
     title: "Restaurant",
-    items: [{ key: "pos", label: "Restaurant POS", path: "/pos" }],
+    items: [
+      { key: "pos", label: "Restaurant POS", path: "/pos" },
+      { key: "inventory", label: "Inventory & Stock", path: "/inventory" },
+      { key: "procurement", label: "Procurement", path: "/procurement" },
+      { key: "recipes", label: "Recipes & BOM", path: "/recipes" },
+    ],
   },
   {
     title: "Back office",
@@ -70,6 +77,7 @@ export const NAV: NavGroup[] = [
       { key: "accounting", label: "Accounting", path: "/accounting" },
       { key: "tax", label: "Tax & GST", path: "/tax" },
       { key: "engineering", label: "Engineering", path: "/engineering" },
+      { key: "hr", label: "HR & Staff", path: "/hr" },
       { key: "crm", label: "Guest CRM", path: "/crm" },
       { key: "reports", label: "Reports", path: "/reports" },
       { key: "settings", label: "Settings", path: "/settings" },

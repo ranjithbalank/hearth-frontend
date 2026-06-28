@@ -5,6 +5,7 @@ import { RequireAccess } from "./shell/RequireAccess";
 import { Spinner } from "./design/ui";
 import { useApp } from "./lib/app-context";
 import { Accounting } from "./features/accounting/Accounting";
+import { Banquets } from "./features/banquets/Banquets";
 import { Booking } from "./features/booking/Booking";
 import { Channel } from "./features/channel/Channel";
 import { Crm } from "./features/crm/Crm";
@@ -12,6 +13,10 @@ import { Dashboard } from "./features/dashboard/Dashboard";
 import { Engineering } from "./features/engineering/Engineering";
 import { Executive } from "./features/executive/Executive";
 import { Folios } from "./features/folio/Folios";
+import { Hr } from "./features/hr/Hr";
+import { Inventory } from "./features/inventory/Inventory";
+import { Procurement } from "./features/procurement/Procurement";
+import { Recipes } from "./features/recipes/Recipes";
 import { Revenue } from "./features/revenue/Revenue";
 import { FrontDesk } from "./features/frontdesk/FrontDesk";
 import { Housekeeping } from "./features/housekeeping/Housekeeping";
@@ -50,6 +55,11 @@ export default function App() {
         <Route path="/booking" element={<RequireAccess module="booking"><Booking /></RequireAccess>} />
         <Route path="/crm" element={<RequireAccess module="crm"><Crm /></RequireAccess>} />
         <Route path="/pos" element={<RequireAccess module="pos"><Pos /></RequireAccess>} />
+        <Route path="/inventory" element={<RequireAccess module="inventory"><Inventory /></RequireAccess>} />
+        <Route path="/procurement" element={<RequireAccess module="procurement"><Procurement /></RequireAccess>} />
+        <Route path="/recipes" element={<RequireAccess module="recipes"><Recipes /></RequireAccess>} />
+        <Route path="/banquets" element={<RequireAccess module="banquets"><Banquets /></RequireAccess>} />
+        <Route path="/hr" element={<RequireAccess module="hr"><Hr /></RequireAccess>} />
         <Route path="/accounting" element={<RequireAccess module="accounting"><Accounting /></RequireAccess>} />
         <Route path="/tax" element={<RequireAccess module="tax"><TaxGst /></RequireAccess>} />
         <Route path="/engineering" element={<RequireAccess module="engineering"><Engineering /></RequireAccess>} />
