@@ -1,0 +1,79 @@
+import { useState } from "react";
+
+import { Logo } from "../../design/ui";
+import { useApp } from "../../lib/app-context";
+
+const DEMO = [
+  { username: "md", role: "Managing Director" },
+  { username: "gm", role: "General Manager" },
+  { username: "frontoffice", role: "Front Office" },
+  { username: "cashier", role: "F&B Cashier" },
+  { username: "housekeeping", role: "Housekeeping" },
+];
+
+export function Login() {
+  const { login } = useApp();
+  const [username, setUsername] = useState("gm");
+  const [password, setPassword] = useState("hearth123");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    setError("");
+    try {
+      await login(username, password);
+    } catch {
+      setError("Invalid credentials");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="min-h-full flex items-center justify-center bg-ink p-6">
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col items-center gap-3 mb-8 text-white">
+          <Logo size={52} />
+          <div className="font-display text-3xl">Hearth</div>
+          <div className="text-sm text-white/50">Hotel &amp; Restaurant OS</div>
+        </div>
+
+        <div className="card p-6">
+          <label className="block text-xs font-semibold text-muted mb-1">Username</label>
+          <input className="input mb-4" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <label className="block text-xs font-semibold text-muted mb-1">Password</label>
+          <input
+            type="password"
+            className="input mb-4"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+          />
+          {error && <div className="text-sm text-clay mb-3">{error}</div>}
+          <button className="btn-primary w-full" onClick={submit} disabled={busy}>
+            {busy ? "Signing in…" : "Sign in"}
+          </button>
+
+          <div className="mt-5 border-t border-hairline pt-4">
+            <div className="text-[11px] uppercase tracking-wide text-muted mb-2">Demo roles</div>
+            <div className="flex flex-wrap gap-1.5">
+              {DEMO.map((d) => (
+                <button
+                  key={d.username}
+                  onClick={() => {
+                    setUsername(d.username);
+                    setPassword("hearth123");
+                  }}
+                  className="pill bg-hairline text-body hover:bg-pine-50 hover:text-pine"
+                >
+                  {d.role}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
