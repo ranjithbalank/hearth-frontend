@@ -12,6 +12,7 @@ export interface User {
   role: Role;
   email: string;
   allowed_modules: string[] | "*";
+  mfa_enabled?: boolean;
 }
 
 export interface Entitlement {

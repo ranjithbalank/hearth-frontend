@@ -15,7 +15,7 @@ interface AppState {
   user: User | null;
   property: Property | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<User>;
+  login: (username: string, password: string, otp?: string) => Promise<User>;
   logout: () => void;
   refreshProperty: () => Promise<void>;
   setup: (edition: string, name?: string) => Promise<void>;
@@ -50,8 +50,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  async function login(username: string, password: string) {
-    const { data } = await api.post("/auth/token/", { username, password });
+  async function login(username: string, password: string, otp?: string) {
+    const { data } = await api.post("/auth/token/", { username, password, otp });
     setTokens(data.access, data.refresh);
     setUser(data.user);
     await refreshProperty();

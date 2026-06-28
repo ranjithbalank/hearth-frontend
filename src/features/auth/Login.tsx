@@ -15,6 +15,8 @@ export function Login() {
   const { login } = useApp();
   const [username, setUsername] = useState("gm");
   const [password, setPassword] = useState("hearth123");
+  const [otp, setOtp] = useState("");
+  const [mfaNeeded, setMfaNeeded] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -22,9 +24,15 @@ export function Login() {
     setBusy(true);
     setError("");
     try {
-      await login(username, password);
-    } catch {
-      setError("Invalid credentials");
+      await login(username, password, otp || undefined);
+    } catch (e: any) {
+      const data = e?.response?.data;
+      if (data?.mfa_required) {
+        setMfaNeeded(true);
+        setError(data.detail || "Enter your authenticator code");
+      } else {
+        setError("Invalid credentials");
+      }
     } finally {
       setBusy(false);
     }
@@ -50,6 +58,18 @@ export function Login() {
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
           />
+          {mfaNeeded && (
+            <>
+              <label className="block text-xs font-semibold text-muted mb-1">Authenticator code</label>
+              <input
+                className="input mb-4"
+                placeholder="6-digit code"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+              />
+            </>
+          )}
           {error && <div className="text-sm text-clay mb-3">{error}</div>}
           <button className="btn-primary w-full" onClick={submit} disabled={busy}>
             {busy ? "Signing in…" : "Sign in"}

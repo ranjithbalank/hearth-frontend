@@ -22,6 +22,7 @@ import { Inventory } from "./features/inventory/Inventory";
 import { Procurement } from "./features/procurement/Procurement";
 import { Recipes } from "./features/recipes/Recipes";
 import { Revenue } from "./features/revenue/Revenue";
+import { CheckIn } from "./features/frontdesk/CheckIn";
 import { FrontDesk } from "./features/frontdesk/FrontDesk";
 import { Housekeeping } from "./features/housekeeping/Housekeeping";
 import { LiveGrid } from "./features/livegrid/LiveGrid";
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="/executive" element={<RequireAccess module="execdashboard"><Executive /></RequireAccess>} />
         <Route path="/dashboard" element={<RequireAccess module="dashboard"><Dashboard /></RequireAccess>} />
         <Route path="/frontdesk" element={<RequireAccess module="frontdesk"><FrontDesk /></RequireAccess>} />
+        <Route path="/checkin" element={<RequireAccess module="checkin"><CheckIn /></RequireAccess>} />
         <Route path="/livegrid" element={<RequireAccess module="livegrid"><LiveGrid /></RequireAccess>} />
         <Route path="/reservations" element={<RequireAccess module="reservations"><Reservations /></RequireAccess>} />
         <Route path="/folios" element={<RequireAccess module="folio"><Folios /></RequireAccess>} />

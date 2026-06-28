@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -16,9 +17,32 @@ const TONE: Record<string, "pine" | "info" | "amber"> = {
 };
 
 export function Crm() {
+  const qc = useQueryClient();
+  const [msg, setMsg] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => (await api.get<Customer[]>("/customers/")).data,
+  });
+
+  const exportData = useMutation({
+    mutationFn: async (c: Customer) => (await api.get(`/customers/${c.id}/export/`)).data,
+    onSuccess: (d) => {
+      const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `customer-${d.profile.id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setMsg("Data-subject export downloaded (DPDP).");
+    },
+  });
+  const erase = useMutation({
+    mutationFn: async (c: Customer) => (await api.post(`/customers/${c.id}/erase/`)).data,
+    onSuccess: () => {
+      setMsg("Customer PII anonymised (DPDP erasure).");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
   });
 
   if (isLoading || !data) return <Spinner />;
@@ -28,6 +52,7 @@ export function Crm() {
   return (
     <div>
       <PageHeader title="Guest CRM &amp; Loyalty" subtitle="Unified customer profiles" />
+      {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
       <div className="grid grid-cols-3 gap-4 mb-5">
         <Stat tone="dark" label="Customers" value={data.length} />
         <Stat label="Loyalty points" value={loyalty.toLocaleString("en-IN")} />
@@ -44,6 +69,7 @@ export function Crm() {
               <th className="text-left px-4 py-3">GSTIN</th>
               <th className="text-right px-4 py-3">Loyalty</th>
               <th className="text-right px-4 py-3">Outstanding</th>
+              <th className="text-right px-4 py-3">DPDP</th>
             </tr>
           </thead>
           <tbody>
@@ -55,6 +81,10 @@ export function Crm() {
                 <td className="px-4 py-3 text-muted">{c.gstin || "—"}</td>
                 <td className="px-4 py-3 text-right">{c.loyalty_points}</td>
                 <td className="px-4 py-3 text-right">{inr(c.outstanding)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap">
+                  <button className="btn-ghost text-xs py-1" onClick={() => exportData.mutate(c)}>Export</button>
+                  <button className="btn-ghost text-xs py-1 text-clay" onClick={() => erase.mutate(c)}>Erase</button>
+                </td>
               </tr>
             ))}
           </tbody>

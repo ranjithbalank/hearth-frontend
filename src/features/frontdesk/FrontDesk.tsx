@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -14,26 +14,11 @@ const SOURCE_TONE: Record<string, "pine" | "clay" | "amber" | "info"> = {
 };
 
 export function FrontDesk() {
-  const qc = useQueryClient();
-  const [done, setDone] = useState<string | null>(null);
+  const nav = useNavigate();
 
   const { data: arrivals, isLoading } = useQuery({
     queryKey: ["arrivals"],
     queryFn: async () => (await api.get<Reservation[]>("/reservations/arrivals/")).data,
-  });
-
-  const checkin = useMutation({
-    mutationFn: async (resv: Reservation) => {
-      const opts = (await api.get(`/reservations/${resv.id}/room_options/`)).data;
-      const room = opts[0];
-      const folio = (await api.post("/checkin/", { reservation: resv.id, room: room?.id })).data;
-      return { resv, room, folio };
-    },
-    onSuccess: ({ resv, room }) => {
-      setDone(`${resv.guest_name} checked in to room ${room?.number}`);
-      qc.invalidateQueries({ queryKey: ["arrivals"] });
-      qc.invalidateQueries({ queryKey: ["folios"] });
-    },
   });
 
   if (isLoading) return <Spinner />;
@@ -45,10 +30,6 @@ export function FrontDesk() {
         subtitle="Expected arrivals"
         action={<Badge tone="pine">{arrivals?.length ?? 0} arriving</Badge>}
       />
-
-      {done && (
-        <div className="card p-4 mb-4 bg-pine-50 border-pine/20 text-pine font-medium">{done}</div>
-      )}
 
       {!arrivals?.length ? (
         <EmptyState title="No pending arrivals" hint="All expected guests are checked in." />
@@ -67,8 +48,7 @@ export function FrontDesk() {
               {a.prepaid && <Badge tone="amber">Prepaid {inr(a.deposit)}</Badge>}
               <button
                 className="btn-primary"
-                disabled={checkin.isPending}
-                onClick={() => checkin.mutate(a)}
+                onClick={() => nav(`/checkin?reservation=${a.id}`)}
               >
                 Check in
               </button>
