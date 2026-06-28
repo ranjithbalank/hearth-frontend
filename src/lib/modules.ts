@@ -83,4 +83,13 @@ export const NAV: NavGroup[] = [
       { key: "settings", label: "Settings", path: "/settings" },
     ],
   },
+  {
+    title: "Configuration",
+    items: [
+      { key: "roommaster", label: "Room Master", path: "/config/rooms" },
+      { key: "menumaster", label: "Menu Master", path: "/config/menu" },
+      { key: "tablemaster", label: "Table Master", path: "/config/tables" },
+      { key: "roles", label: "Role Mapping", path: "/config/roles" },
+    ],
+  },
 ];

@@ -8,6 +8,10 @@ import { Accounting } from "./features/accounting/Accounting";
 import { Banquets } from "./features/banquets/Banquets";
 import { Booking } from "./features/booking/Booking";
 import { Channel } from "./features/channel/Channel";
+import { MenuMaster } from "./features/config/MenuMaster";
+import { RoleMatrix } from "./features/config/RoleMatrix";
+import { RoomMaster } from "./features/config/RoomMaster";
+import { TableMaster } from "./features/config/TableMaster";
 import { Crm } from "./features/crm/Crm";
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { Engineering } from "./features/engineering/Engineering";
@@ -65,6 +69,10 @@ export default function App() {
         <Route path="/engineering" element={<RequireAccess module="engineering"><Engineering /></RequireAccess>} />
         <Route path="/reports" element={<RequireAccess module="reports"><Reports /></RequireAccess>} />
         <Route path="/settings" element={<RequireAccess module="settings"><Settings /></RequireAccess>} />
+        <Route path="/config/rooms" element={<RequireAccess module="roommaster"><RoomMaster /></RequireAccess>} />
+        <Route path="/config/menu" element={<RequireAccess module="menumaster"><MenuMaster /></RequireAccess>} />
+        <Route path="/config/tables" element={<RequireAccess module="tablemaster"><TableMaster /></RequireAccess>} />
+        <Route path="/config/roles" element={<RequireAccess module="roles"><RoleMatrix /></RequireAccess>} />
         <Route path="*" element={<Navigate to={user.role === "Managing Director" ? "/executive" : "/dashboard"} replace />} />
       </Routes>
     </AppShell>
