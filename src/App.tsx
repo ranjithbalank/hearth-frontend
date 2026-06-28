@@ -19,6 +19,7 @@ import { Executive } from "./features/executive/Executive";
 import { Folios } from "./features/folio/Folios";
 import { Hr } from "./features/hr/Hr";
 import { Inventory } from "./features/inventory/Inventory";
+import { Notifications } from "./features/notifications/Notifications";
 import { Procurement } from "./features/procurement/Procurement";
 import { Recipes } from "./features/recipes/Recipes";
 import { Revenue } from "./features/revenue/Revenue";
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/channel" element={<RequireAccess module="channel"><Channel /></RequireAccess>} />
         <Route path="/booking" element={<RequireAccess module="booking"><Booking /></RequireAccess>} />
         <Route path="/crm" element={<RequireAccess module="crm"><Crm /></RequireAccess>} />
+        <Route path="/notifications" element={<RequireAccess module="notifications"><Notifications /></RequireAccess>} />
         <Route path="/pos" element={<RequireAccess module="pos"><Pos /></RequireAccess>} />
         <Route path="/inventory" element={<RequireAccess module="inventory"><Inventory /></RequireAccess>} />
         <Route path="/procurement" element={<RequireAccess module="procurement"><Procurement /></RequireAccess>} />

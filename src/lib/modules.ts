@@ -79,6 +79,7 @@ export const NAV: NavGroup[] = [
       { key: "engineering", label: "Engineering", path: "/engineering" },
       { key: "hr", label: "HR & Staff", path: "/hr" },
       { key: "crm", label: "Guest CRM", path: "/crm" },
+      { key: "notifications", label: "Notifications", path: "/notifications" },
       { key: "reports", label: "Reports", path: "/reports" },
       { key: "settings", label: "Settings", path: "/settings" },
     ],
