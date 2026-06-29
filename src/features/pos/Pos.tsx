@@ -107,8 +107,12 @@ export function Pos() {
   });
 
   const settle = useMutation({
-    mutationFn: async () => (await api.post(`/pos/orders/${orderId}/settle/`, { tender: "Cash" })).data,
-    onSuccess: () => { setMsg("Settled (Cash)"); reset(); },
+    mutationFn: async (tender: string) =>
+      (await api.post(`/pos/orders/${orderId}/settle/`, {
+        tender, token: tender === "Gateway" ? "tok_demo_card" : undefined,
+      })).data,
+    onSuccess: (_d, tender) => { setMsg(`Settled (${tender})`); reset(); },
+    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Payment failed"),
   });
 
   const postToRoom = useMutation({
@@ -316,9 +320,10 @@ export function Pos() {
               <div className="grid gap-2 mt-3">
                 <button className="btn-primary" onClick={() => fireKot.mutate()}>Fire KOT</button>
                 <div className="grid grid-cols-2 gap-2">
-                  <button className="btn-outline" onClick={() => settle.mutate()}>Settle cash</button>
-                  {hms && <button className="btn-outline" onClick={() => postToRoom.mutate()}>Post to room</button>}
+                  <button className="btn-outline" onClick={() => settle.mutate("Cash")}>Settle cash</button>
+                  <button className="btn-outline" onClick={() => settle.mutate("Gateway")}>Card (gateway)</button>
                 </div>
+                {hms && <button className="btn-outline" onClick={() => postToRoom.mutate()}>Post to room</button>}
               </div>
             </>
           ) : null}
