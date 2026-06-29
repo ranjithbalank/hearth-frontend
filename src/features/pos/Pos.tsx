@@ -37,13 +37,24 @@ export function Pos() {
     return o.id;
   }
 
+  const [picker, setPicker] = useState<MenuItem | null>(null);
+
   const addItem = useMutation({
-    mutationFn: async (item: MenuItem) => {
+    mutationFn: async (payload: { menu_item: number; qty: number; variant?: number; addons?: number[] }) => {
       const id = await ensureOrder();
-      return (await api.post(`/pos/orders/${id}/add_item/`, { menu_item: item.id, qty: 1 })).data;
+      return (await api.post(`/pos/orders/${id}/add_item/`, payload)).data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["order", orderId] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["order", orderId] }); setPicker(null); },
+    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Could not add item"),
   });
+
+  function onItemClick(item: MenuItem) {
+    if ((item.variants?.length ?? 0) > 0 || (item.addon_groups?.length ?? 0) > 0) {
+      setPicker(item);
+    } else {
+      addItem.mutate({ menu_item: item.id, qty: 1 });
+    }
+  }
 
   const setQty = useMutation({
     mutationFn: async ({ line, qty }: { line: number; qty: number }) =>
@@ -150,7 +161,7 @@ export function Pos() {
               <button
                 key={i.id}
                 disabled={mode === "dinein" && !table}
-                onClick={() => addItem.mutate(i)}
+                onClick={() => onItemClick(i)}
                 className="card p-3 text-left hover:bg-cream disabled:opacity-40"
               >
                 <div className="flex items-center gap-1.5">
@@ -244,6 +255,100 @@ export function Pos() {
               </div>
             </>
           ) : null}
+        </div>
+      </div>
+
+      {picker && (
+        <ItemPicker
+          item={picker}
+          onCancel={() => setPicker(null)}
+          onAdd={(variant, addons) => addItem.mutate({ menu_item: picker.id, qty: 1, variant, addons })}
+        />
+      )}
+    </div>
+  );
+}
+
+function ItemPicker({
+  item,
+  onCancel,
+  onAdd,
+}: {
+  item: MenuItem;
+  onCancel: () => void;
+  onAdd: (variant: number | undefined, addons: number[]) => void;
+}) {
+  const [variant, setVariant] = useState<number | undefined>(item.variants?.[0]?.id);
+  const [addons, setAddons] = useState<number[]>([]);
+
+  function toggle(id: number, group: { max_select: number; options: { id: number }[] }) {
+    setAddons((cur) => {
+      if (cur.includes(id)) return cur.filter((x) => x !== id);
+      const groupIds = group.options.map((o) => o.id);
+      const inGroup = cur.filter((x) => groupIds.includes(x));
+      if (group.max_select && inGroup.length >= group.max_select) {
+        return [...cur.filter((x) => !groupIds.includes(x)), id]; // replace within single-select
+      }
+      return [...cur, id];
+    });
+  }
+
+  const missing = (item.addon_groups ?? []).filter(
+    (g) => g.min_select > 0 && !g.options.some((o) => addons.includes(o.id)),
+  );
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
+      <div className="card p-5 w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-3">{item.name}</div>
+
+        {!!item.variants?.length && (
+          <div className="mb-4">
+            <div className="text-xs uppercase tracking-wide text-muted mb-2">Variant</div>
+            <div className="grid grid-cols-2 gap-2">
+              {item.variants.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => setVariant(v.id)}
+                  className={`rounded-card border p-2 text-left ${variant === v.id ? "border-pine bg-pine-50" : "border-hairline"}`}
+                >
+                  <div className="font-medium text-sm">{v.name}</div>
+                  <div className="text-xs text-muted">{inr(v.price)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(item.addon_groups ?? []).map((g) => (
+          <div key={g.id} className="mb-4">
+            <div className="text-xs uppercase tracking-wide text-muted mb-2">
+              {g.name} {g.min_select > 0 && <span className="text-clay">· required</span>}
+            </div>
+            <div className="grid gap-1.5">
+              {g.options.map((o) => (
+                <button
+                  key={o.id}
+                  onClick={() => toggle(o.id, g)}
+                  className={`flex justify-between rounded-lg border px-3 py-2 text-sm ${addons.includes(o.id) ? "border-pine bg-pine-50" : "border-hairline"}`}
+                >
+                  <span>{o.name}</span>
+                  <span className="text-muted">{Number(o.price) > 0 ? `+${inr(o.price)}` : "free"}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div className="flex gap-2 mt-2">
+          <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
+          <button
+            className="btn-primary flex-1"
+            disabled={missing.length > 0}
+            onClick={() => onAdd(variant, addons)}
+          >
+            {missing.length ? `Choose ${missing[0].name}` : "Add to order"}
+          </button>
         </div>
       </div>
     </div>

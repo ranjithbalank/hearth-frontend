@@ -87,6 +87,24 @@ export interface Folio {
   balance: string;
 }
 
+export interface Variant {
+  id: number;
+  name: string;
+  price: string;
+  short_code: string;
+}
+export interface AddOn {
+  id: number;
+  name: string;
+  price: string;
+}
+export interface AddOnGroup {
+  id: number;
+  name: string;
+  min_select: number;
+  max_select: number;
+  options: AddOn[];
+}
 export interface MenuItem {
   id: number;
   name: string;
@@ -97,6 +115,8 @@ export interface MenuItem {
   gst_rate: string;
   diet: string;
   available: boolean;
+  variants?: Variant[];
+  addon_groups?: AddOnGroup[];
 }
 
 export interface Table {
