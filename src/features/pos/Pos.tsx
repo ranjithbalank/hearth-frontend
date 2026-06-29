@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { inr } from "../../lib/money";
+import { cacheMenu, enqueue, getCachedMenu, uuid, type OfflineBill } from "../../lib/offline";
+import { useOnline } from "../../lib/useOnline";
 import type { Folio, MenuItem, Order, Table } from "../../lib/types";
 
 type Mode = "dinein" | "takeaway" | "delivery";
@@ -29,6 +31,10 @@ export function Pos() {
     queryFn: async () => (await api.get<Order>(`/pos/orders/${orderId}/`)).data,
     enabled: orderId !== null,
   });
+
+  const { online, queued, sync } = useOnline();
+  // Cache the menu so the POS keeps working through an outage (NFR-002).
+  useEffect(() => { if (items?.length) cacheMenu(items); }, [items]);
 
   async function ensureOrder(): Promise<number> {
     if (orderId) return orderId;
@@ -122,12 +128,40 @@ export function Pos() {
     qc.invalidateQueries({ queryKey: ["folios"] });
   }
 
-  if (isLoading) return <Spinner />;
+  if (isLoading && online) return <Spinner />;
   const shown = cat ? items?.filter((i) => i.category === cat) : items;
+
+  const banner = (!online || queued > 0) && (
+    <div className={`card p-3 mb-4 flex items-center gap-3 ${online ? "bg-amber-50" : "bg-clay/10"}`}>
+      <Badge tone={online ? "amber" : "clay"}>{online ? "Back online" : "Offline"}</Badge>
+      <span className="text-sm flex-1">
+        {online
+          ? `${queued} offline bill(s) waiting to sync.`
+          : "Billing continues locally — bills will sync automatically when the connection returns."}
+      </span>
+      {online && queued > 0 && (
+        <button className="btn-primary text-xs py-1" onClick={() => sync().then((n) => n && setMsg(`Synced ${n} offline bill(s)`))}>
+          Sync now ({queued})
+        </button>
+      )}
+    </div>
+  );
+
+  // Offline: render the self-contained offline-billing panel (NFR-002).
+  if (!online) {
+    return (
+      <div>
+        <PageHeader title="Restaurant POS" subtitle="Offline mode" />
+        {banner}
+        <OfflineBilling mode={mode} table={table} onQueued={() => setMsg("Bill saved offline")} />
+      </div>
+    );
+  }
 
   return (
     <div>
       <PageHeader title="Restaurant POS" subtitle="Orders · KOT · settlement" />
+      {banner}
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
       <div className="flex gap-2 mb-4">
@@ -390,4 +424,74 @@ function ItemPicker({
 
 function Row({ label, value }: { label: string; value: string }) {
   return <div className="flex justify-between text-muted"><span>{label}</span><span>{value}</span></div>;
+}
+
+/** Self-contained offline cart: uses the cached menu, bills are queued locally
+ *  and synced (idempotently) when connectivity returns. */
+function OfflineBilling({ mode, table, onQueued }: { mode: string; table: Table | null; onQueued: () => void }) {
+  const menu = getCachedMenu();
+  const [cart, setCart] = useState<Record<number, number>>({});
+  const lines = Object.entries(cart).map(([id, qty]) => {
+    const item = menu.find((m) => m.id === Number(id))!;
+    return { item, qty };
+  });
+  const total = lines.reduce((s, l) => s + Number(l.item.price) * l.qty * 1.05, 0); // approx incl 5%
+
+  if (!menu.length) {
+    return <div className="card p-6 text-muted text-sm">No cached menu available offline. Connect once to cache it.</div>;
+  }
+
+  function settle(tender: string) {
+    const bill: OfflineBill = {
+      client_uuid: uuid(),
+      mode,
+      table: table?.id ?? null,
+      lines: lines.map((l) => ({ menu_item: l.item.id, qty: l.qty, unit_price: String(l.item.price), name: l.item.name })),
+      tender,
+      settled: true,
+      total,
+    };
+    enqueue(bill);
+    window.dispatchEvent(new Event("storage"));
+    setCart({});
+    onQueued();
+  }
+
+  return (
+    <div className="grid grid-cols-[1fr_340px] gap-4">
+      <div className="grid grid-cols-3 gap-2">
+        {menu.filter((m) => m.available).map((m) => (
+          <button key={m.id} className="card p-3 text-left hover:bg-cream"
+            onClick={() => setCart((c) => ({ ...c, [m.id]: (c[m.id] ?? 0) + 1 }))}>
+            <div className="font-medium text-sm">{m.name}</div>
+            <div className="text-sm text-muted mt-1">{inr(m.price)}</div>
+          </button>
+        ))}
+      </div>
+      <div className="card p-4 h-fit">
+        <div className="font-semibold mb-3">Offline bill</div>
+        {!lines.length ? (
+          <div className="text-sm text-muted py-6 text-center">Tap items to add.</div>
+        ) : (
+          <>
+            <div className="space-y-1 mb-3">
+              {lines.map((l) => (
+                <div key={l.item.id} className="flex justify-between text-sm">
+                  <span>{l.qty}× {l.item.name}</span>
+                  <span>{inr(Number(l.item.price) * l.qty)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-between font-semibold border-t border-hairline pt-2">
+              <span>Total (incl. GST)</span><span>{inr(total)}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              <button className="btn-primary" onClick={() => settle("Cash")}>Settle cash</button>
+              <button className="btn-outline" onClick={() => settle("Card")}>Settle card</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
