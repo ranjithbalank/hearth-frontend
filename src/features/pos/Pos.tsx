@@ -89,6 +89,17 @@ export function Pos() {
     onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Invalid coupon"),
   });
 
+  const move = useMutation({
+    mutationFn: async (dest: number) => (await api.post(`/pos/orders/${orderId}/move/`, { table: dest })).data,
+    onSuccess: () => { setMsg("Order moved"); reset(); },
+  });
+  const voidOrder = useMutation({
+    mutationFn: async (override: string) =>
+      (await api.post(`/pos/orders/${orderId}/void/`, { override, reason: "voided at POS" })).data,
+    onSuccess: () => { setMsg("Order voided"); reset(); },
+    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Void failed"),
+  });
+
   const settle = useMutation({
     mutationFn: async () => (await api.post(`/pos/orders/${orderId}/settle/`, { tender: "Cash" })).data,
     onSuccess: () => { setMsg("Settled (Cash)"); reset(); },
@@ -243,6 +254,28 @@ export function Pos() {
                   }}
                 >
                   Coupon
+                </button>
+              </div>
+
+              <div className="flex gap-2 mt-2">
+                <button
+                  className="btn-ghost text-xs flex-1"
+                  onClick={() => {
+                    const name = window.prompt("Move to table (name):");
+                    const dest = tables?.find((t) => t.name.toLowerCase() === (name ?? "").toLowerCase());
+                    if (dest) move.mutate(dest.id); else if (name) setMsg("Table not found");
+                  }}
+                >
+                  Move
+                </button>
+                <button
+                  className="btn-ghost text-xs flex-1 text-clay"
+                  onClick={() => {
+                    const code = window.prompt("Void order — manager passcode:");
+                    if (code) voidOrder.mutate(code);
+                  }}
+                >
+                  Void
                 </button>
               </div>
 
