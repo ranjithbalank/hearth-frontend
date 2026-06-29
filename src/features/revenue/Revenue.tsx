@@ -23,6 +23,17 @@ export function Revenue() {
     queryKey: ["forecast"],
     queryFn: async () => (await api.get<Forecast[]>("/revenue/forecast/")).data,
   });
+  const { data: restrictions } = useQuery({
+    queryKey: ["restrictions"],
+    queryFn: async () => (await api.get("/revenue/restrictions/")).data as {
+      room_type: string; name: string; min_los: number; cta: boolean; ctd: boolean; stop_sell: boolean;
+    }[],
+  });
+
+  const setRestriction = useMutation({
+    mutationFn: async (body: object) => (await api.post("/revenue/restrictions/", body)).data,
+    onSuccess: () => { setMsg("Restriction pushed to channels"); qc.invalidateQueries({ queryKey: ["restrictions"] }); },
+  });
 
   const accept = useMutation({
     mutationFn: async (r: Rec) => (await api.post(`/revenue/${r.id}/accept/`)).data,
@@ -97,6 +108,38 @@ export function Revenue() {
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-pine inline-block" /> Weekday</span>
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-clay inline-block" /> Weekend</span>
             </div>
+          </Card>
+
+          <div className="text-sm font-semibold mt-4 mb-2">Rate restrictions</div>
+          <Card>
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm text-muted">MLOS · CTA/CTD · stop-sell — pushed to channels</span>
+              <button
+                className="btn-outline text-xs py-1"
+                onClick={() => {
+                  const code = window.prompt("Room type code (e.g. STD/DLX/STE):", "STD");
+                  if (!code) return;
+                  const mlos = Number(window.prompt("Minimum length of stay:", "2")) || 1;
+                  setRestriction.mutate({ room_type: code.toUpperCase(), min_los: mlos });
+                }}
+              >
+                Set MLOS
+              </button>
+            </div>
+            {restrictions?.length ? restrictions.map((r) => (
+              <div key={r.room_type} className="flex items-center justify-between py-2 border-t border-line text-sm">
+                <span>{r.name}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-muted text-xs">MLOS {r.min_los}{r.cta ? " · CTA" : ""}{r.stop_sell ? " · STOP" : ""}</span>
+                  <button
+                    className={`pill text-xs ${r.stop_sell ? "bg-clay text-white" : "bg-hairline text-muted"}`}
+                    onClick={() => setRestriction.mutate({ room_type: r.room_type, stop_sell: !r.stop_sell })}
+                  >
+                    {r.stop_sell ? "Stop-sell ON" : "Stop-sell"}
+                  </button>
+                </span>
+              </div>
+            )) : <div className="text-sm text-muted py-2">No restrictions set.</div>}
           </Card>
         </div>
       </div>

@@ -19,6 +19,8 @@ import { Executive } from "./features/executive/Executive";
 import { Folios } from "./features/folio/Folios";
 import { Hr } from "./features/hr/Hr";
 import { Inventory } from "./features/inventory/Inventory";
+import { Kds } from "./features/kds/Kds";
+import { MaterialRequests } from "./features/matreq/MaterialRequests";
 import { Notifications } from "./features/notifications/Notifications";
 import { Procurement } from "./features/procurement/Procurement";
 import { Recipes } from "./features/recipes/Recipes";
@@ -63,8 +65,10 @@ export default function App() {
         <Route path="/crm" element={<RequireAccess module="crm"><Crm /></RequireAccess>} />
         <Route path="/notifications" element={<RequireAccess module="notifications"><Notifications /></RequireAccess>} />
         <Route path="/pos" element={<RequireAccess module="pos"><Pos /></RequireAccess>} />
+        <Route path="/kds" element={<RequireAccess module="kds"><Kds /></RequireAccess>} />
         <Route path="/inventory" element={<RequireAccess module="inventory"><Inventory /></RequireAccess>} />
         <Route path="/procurement" element={<RequireAccess module="procurement"><Procurement /></RequireAccess>} />
+        <Route path="/material-requests" element={<RequireAccess module="matreq"><MaterialRequests /></RequireAccess>} />
         <Route path="/recipes" element={<RequireAccess module="recipes"><Recipes /></RequireAccess>} />
         <Route path="/banquets" element={<RequireAccess module="banquets"><Banquets /></RequireAccess>} />
         <Route path="/hr" element={<RequireAccess module="hr"><Hr /></RequireAccess>} />

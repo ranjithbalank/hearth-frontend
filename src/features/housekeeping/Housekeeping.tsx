@@ -30,6 +30,12 @@ export function Housekeeping() {
     },
   });
 
+  const minibar = useMutation({
+    mutationFn: async ({ room, item, amount }: { room: Room; item: string; amount: number }) =>
+      (await api.post(`/housekeeping/${room.id}/minibar/`, { item, amount })).data,
+    onError: () => alert("No open folio for this room"),
+  });
+
   if (isLoading || !rooms) return <Spinner />;
 
   const counts: Record<string, number> = {};
@@ -54,6 +60,19 @@ export function Housekeeping() {
             {CAN_ADVANCE.has(r.status) && (
               <button className="btn-outline w-full mt-3 text-xs py-1.5" onClick={() => advance.mutate(r)}>
                 Advance
+              </button>
+            )}
+            {r.status === "occupied" && (
+              <button
+                className="btn-ghost w-full mt-3 text-xs py-1.5"
+                onClick={() => {
+                  const item = window.prompt("Minibar item consumed:");
+                  if (!item) return;
+                  const amount = Number(window.prompt("Amount (₹):", "150"));
+                  if (amount > 0) minibar.mutate({ room: r, item, amount });
+                }}
+              >
+                Post minibar
               </button>
             )}
           </div>
