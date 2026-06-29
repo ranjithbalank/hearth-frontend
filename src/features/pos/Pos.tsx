@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Badge, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -54,6 +54,28 @@ export function Pos() {
   const fireKot = useMutation({
     mutationFn: async () => (await api.post(`/pos/orders/${orderId}/fire_kot/`)).data,
     onSuccess: (o: Order) => { setMsg(`KOT fired: ${o.kot_no}`); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+  });
+
+  const applyDiscount = useMutation({
+    mutationFn: async (body: { kind: string; value: number; reason: string; override?: string }) =>
+      (await api.post(`/pos/orders/${orderId}/apply_discount/`, body)).data,
+    onSuccess: () => { setMsg("Discount applied"); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+    onError: async (e: any) => {
+      if (e?.response?.data?.cap_exceeded) {
+        const code = window.prompt(`${e.response.data.detail}\nEnter manager passcode to override:`);
+        if (code) applyDiscount.mutate({ ...lastDiscount.current!, override: code });
+      } else {
+        setMsg(e?.response?.data?.detail ?? "Discount failed");
+      }
+    },
+  });
+  const lastDiscount = useRef<{ kind: string; value: number; reason: string } | null>(null);
+
+  const applyCoupon = useMutation({
+    mutationFn: async (code: string) =>
+      (await api.post(`/pos/orders/${orderId}/apply_coupon/`, { code })).data,
+    onSuccess: () => { setMsg("Coupon applied"); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Invalid coupon"),
   });
 
   const settle = useMutation({
@@ -173,6 +195,13 @@ export function Pos() {
           {order?.lines.length ? (
             <>
               <div className="border-t border-hairline pt-2 text-sm space-y-1">
+                <Row label="Subtotal" value={inr(order.totals.subtotal)} />
+                {Number(order.totals.discount) > 0 && (
+                  <div className="flex justify-between text-clay">
+                    <span>Discount{order.coupon_code ? ` (${order.coupon_code})` : ""}</span>
+                    <span>−{inr(order.totals.discount)}</span>
+                  </div>
+                )}
                 <Row label="Taxable" value={inr(order.totals.taxable)} />
                 <Row label="CGST" value={inr(order.totals.cgst)} />
                 <Row label="SGST" value={inr(order.totals.sgst)} />
@@ -180,7 +209,33 @@ export function Pos() {
                   <span>Total</span><span>{inr(order.totals.total)}</span>
                 </div>
               </div>
-              <div className="grid gap-2 mt-4">
+
+              <div className="flex gap-2 mt-3">
+                <button
+                  className="btn-ghost text-xs flex-1"
+                  onClick={() => {
+                    const v = Number(window.prompt("Discount % (within your cap):", "10"));
+                    if (!v) return;
+                    const reason = window.prompt("Reason for discount:") || "";
+                    if (!reason) { setMsg("A reason is required"); return; }
+                    lastDiscount.current = { kind: "percent", value: v, reason };
+                    applyDiscount.mutate({ kind: "percent", value: v, reason });
+                  }}
+                >
+                  % Discount
+                </button>
+                <button
+                  className="btn-ghost text-xs flex-1"
+                  onClick={() => {
+                    const code = window.prompt("Coupon code:");
+                    if (code) applyCoupon.mutate(code);
+                  }}
+                >
+                  Coupon
+                </button>
+              </div>
+
+              <div className="grid gap-2 mt-3">
                 <button className="btn-primary" onClick={() => fireKot.mutate()}>Fire KOT</button>
                 <div className="grid grid-cols-2 gap-2">
                   <button className="btn-outline" onClick={() => settle.mutate()}>Settle cash</button>

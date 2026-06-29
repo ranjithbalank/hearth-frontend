@@ -128,5 +128,10 @@ export interface Order {
   folio: number | null;
   kot_no: string;
   lines: OrderLine[];
-  totals: { taxable: string; cgst: string; sgst: string; tax: string; total: string };
+  coupon_code: string | null;
+  discount_kind: string;
+  totals: {
+    subtotal: string; discount: string; taxable: string;
+    cgst: string; sgst: string; tax: string; total: string;
+  };
 }
