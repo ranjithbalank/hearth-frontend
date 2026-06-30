@@ -5,6 +5,7 @@ import { api } from "../../lib/api";
 
 interface Ticket {
   id: number;
+  type: "order" | "beo";
   kot_no: string;
   kitchen_status: string;
   table: string;
@@ -20,7 +21,8 @@ export function Kds() {
   });
 
   const bump = useMutation({
-    mutationFn: async (t: Ticket) => (await api.post(`/kds/${t.id}/bump/`)).data,
+    mutationFn: async (t: Ticket) =>
+      (await api.post(`/kds/${t.id}/${t.type === "beo" ? "beo_bump" : "bump"}/`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["kds"] }),
   });
 
@@ -35,12 +37,19 @@ export function Kds() {
         <div className="grid grid-cols-4 gap-3">
           {data.map((t) => (
             <div
-              key={t.id}
-              className={`rounded-card border p-4 ${t.kitchen_status === "ready" ? "border-pine bg-pine-50" : "border-amber/40 bg-amber-50"}`}
+              key={`${t.type}-${t.id}`}
+              className={`rounded-card border p-4 ${
+                t.type === "beo"
+                  ? "border-clay/50 bg-clay/5"
+                  : t.kitchen_status === "ready" ? "border-pine bg-pine-50" : "border-amber/40 bg-amber-50"
+              }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="font-display text-lg">{t.kot_no}</span>
-                <Badge tone={t.kitchen_status === "ready" ? "pine" : "amber"}>{t.kitchen_status}</Badge>
+                <span className="flex items-center gap-1">
+                  {t.type === "beo" && <Badge tone="clay">BEO</Badge>}
+                  <Badge tone={t.kitchen_status === "ready" ? "pine" : "amber"}>{t.kitchen_status}</Badge>
+                </span>
               </div>
               <div className="text-xs text-muted mb-2">{t.table}</div>
               <div className="space-y-1 mb-3">
