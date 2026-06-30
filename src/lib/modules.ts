@@ -38,6 +38,8 @@ export interface NavItem {
 }
 export interface NavGroup {
   title: string;
+  /** accent colour for this group's outline icons (reads on the dark sidebar) */
+  color: string;
   items: NavItem[];
 }
 
@@ -45,10 +47,12 @@ export interface NavGroup {
 export const NAV: NavGroup[] = [
   {
     title: "Executive",
+    color: "#E0A23D",
     items: [{ key: "execdashboard", label: "Executive Overview", path: "/executive" }],
   },
   {
     title: "Rooms",
+    color: "#7FC6B3",
     items: [
       { key: "dashboard", label: "Dashboard", path: "/dashboard" },
       { key: "frontdesk", label: "Front Desk", path: "/frontdesk" },
@@ -62,6 +66,7 @@ export const NAV: NavGroup[] = [
   },
   {
     title: "Revenue",
+    color: "#E8B07A",
     items: [
       { key: "revenue", label: "Revenue Manager", path: "/revenue" },
       { key: "channel", label: "Channel Manager", path: "/channel" },
@@ -70,6 +75,7 @@ export const NAV: NavGroup[] = [
   },
   {
     title: "Restaurant",
+    color: "#E89B6C",
     items: [
       { key: "pos", label: "Restaurant POS", path: "/pos" },
       { key: "kds", label: "Kitchen Display", path: "/kds" },
@@ -82,6 +88,7 @@ export const NAV: NavGroup[] = [
   },
   {
     title: "Back office",
+    color: "#9FB6D4",
     items: [
       { key: "accounting", label: "Accounting", path: "/accounting" },
       { key: "tax", label: "Tax & GST", path: "/tax" },
@@ -95,6 +102,7 @@ export const NAV: NavGroup[] = [
   },
   {
     title: "Masters",
+    color: "#C7A8DA",
     items: [
       { key: "customers", label: "Customers", path: "/masters/customers" },
       { key: "suppliers", label: "Suppliers", path: "/masters/suppliers" },
@@ -105,6 +113,7 @@ export const NAV: NavGroup[] = [
   },
   {
     title: "Configuration",
+    color: "#A9C5A2",
     items: [
       { key: "roommaster", label: "Room Master", path: "/config/rooms" },
       { key: "menumaster", label: "Menu Master", path: "/config/menu" },

@@ -1,11 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useState, type ReactNode } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
+import { NavIcon } from "../design/NavIcon";
 import { Logo } from "../design/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/app-context";
 import { NAV } from "../lib/modules";
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      className={`transition-transform ${open ? "rotate-180" : ""}`}>
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
 
 function NotificationBell() {
   const nav = useNavigate();
@@ -35,66 +46,125 @@ function NotificationBell() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, property, canAccess, logout } = useApp();
+  const location = useLocation();
+  const [open, setOpen] = useState(true); // sidebar shown
+  const [hover, setHover] = useState<{ label: string; y: number } | null>(null);
 
   const groups = NAV.map((g) => ({
     ...g,
     items: g.items.filter((i) => canAccess(i.key)),
   })).filter((g) => g.items.length > 0);
 
+  // Accordion: the group containing the current route starts expanded.
+  const activeTitle = groups.find((g) => g.items.some((i) => i.path === location.pathname))?.title;
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
+    () => (activeTitle ? { [activeTitle]: true } : {}),
+  );
+  const toggleGroup = (t: string) => setOpenGroups((s) => ({ ...s, [t]: !s[t] }));
+
   return (
     <div className="flex h-full">
       {/* Sidebar */}
-      <aside className="w-60 shrink-0 bg-ink text-white flex flex-col">
-        <div className="flex items-center gap-3 px-5 py-5">
+      <aside
+        className={`${open ? "w-60" : "w-[68px]"} shrink-0 bg-ink text-white flex flex-col overflow-hidden transition-[width] duration-200`}
+      >
+        <div className={`flex items-center gap-3 py-5 ${open ? "px-5" : "px-0 justify-center"}`}>
           <Logo size={34} />
-          <div>
-            <div className="font-display text-xl leading-none">Hearth</div>
-            <div className="text-[10px] tracking-[0.18em] text-white/45 mt-1">
-              {property?.name?.toUpperCase()}
+          {open && (
+            <div>
+              <div className="font-display text-xl leading-none">Hearth</div>
+              <div className="text-[10px] tracking-[0.18em] text-white/45 mt-1">
+                {property?.name?.toUpperCase()}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 pb-4">
-          {groups.map((g) => (
-            <div key={g.title} className="mb-5">
-              <div className="px-3 text-[10px] uppercase tracking-wider text-white/35 font-semibold mb-1">
-                {g.title}
-              </div>
-              {g.items.map((i) => (
-                <NavLink
-                  key={i.key}
-                  to={i.path}
-                  className={({ isActive }) =>
-                    `block rounded-lg px-3 py-2 text-sm transition-colors ${
-                      isActive ? "bg-pine text-white" : "text-white/70 hover:bg-white/5"
-                    }`
-                  }
+        {open ? (
+          /* Expanded — collapsible groups */
+          <nav className="flex-1 overflow-y-auto px-3 pb-4">
+            {groups.map((g) => {
+              const expanded = openGroups[g.title] ?? false;
+              return (
+                <div key={g.title} className="mb-1.5">
+                  <button
+                    onClick={() => toggleGroup(g.title)}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] uppercase tracking-wider font-semibold text-white/45 hover:bg-white/5"
+                  >
+                    <span className="text-white/70"><NavIcon name={g.items[0].key} /></span>
+                    <span className="flex-1 text-left">{g.title}</span>
+                    <Chevron open={expanded} />
+                  </button>
+                  {expanded && (
+                    <div className="mt-0.5 ml-2 pl-2 border-l border-white/10">
+                      {g.items.map((i) => (
+                        <NavLink
+                          key={i.key}
+                          to={i.path}
+                          className={({ isActive }) =>
+                            `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+                              isActive ? "bg-pine text-white" : "text-white/75 hover:bg-white/5"
+                            }`
+                          }
+                        >
+                          <span className="shrink-0"><NavIcon name={i.key} /></span>
+                          <span className="flex-1">{i.label}</span>
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+        ) : (
+          /* Collapsed — one icon per main heading (group); hover shows its name */
+          <nav className="flex-1 overflow-y-auto py-2 flex flex-col items-center gap-1.5">
+            {groups.map((g) => {
+              const activeHere = g.items.some((i) => i.path === location.pathname);
+              return (
+                <button
+                  key={g.title}
+                  onMouseEnter={(e) => setHover({ label: g.title, y: e.currentTarget.getBoundingClientRect().top })}
+                  onMouseLeave={() => setHover(null)}
+                  onClick={() => { setOpen(true); setOpenGroups((s) => ({ ...s, [g.title]: true })); }}
+                  className={`grid place-items-center h-10 w-10 rounded-lg transition-colors ${
+                    activeHere ? "bg-pine text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
+                  }`}
                 >
-                  {i.label}
-                </NavLink>
-              ))}
-            </div>
-          ))}
-        </nav>
+                  <NavIcon name={g.items[0].key} />
+                </button>
+              );
+            })}
+          </nav>
+        )}
 
-        <div className="border-t border-white/10 p-4 flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-clay/90 flex items-center justify-center text-sm font-bold">
+        <div className={`border-t border-white/10 ${open ? "p-4 flex items-center gap-3" : "py-3 flex flex-col items-center gap-2"}`}>
+          <div className="h-9 w-9 rounded-full bg-clay/90 flex items-center justify-center text-sm font-bold shrink-0" title={user?.name}>
             {user?.name?.split(" ").map((w) => w[0]).slice(0, 2).join("")}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-sm truncate">{user?.name}</div>
-            <div className="text-[11px] text-white/45 truncate">{user?.role}</div>
-          </div>
-          <button onClick={logout} className="text-white/50 hover:text-white text-xs" title="Sign out">
-            ⎋
-          </button>
+          {open && (
+            <div className="min-w-0 flex-1">
+              <div className="text-sm truncate">{user?.name}</div>
+              <div className="text-[11px] text-white/45 truncate">{user?.role}</div>
+            </div>
+          )}
+          <button onClick={logout} className="text-white/50 hover:text-white text-xs" title="Sign out">⎋</button>
         </div>
       </aside>
 
       {/* Main */}
       <main className="flex-1 overflow-y-auto flex flex-col">
-        <header className="flex items-center gap-3 px-8 py-3 border-b border-hairline bg-surface/60 backdrop-blur sticky top-0 z-10">
+        <header className="flex items-center gap-3 px-6 py-3 border-b border-hairline bg-surface/60 backdrop-blur sticky top-0 z-10">
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="p-2 -ml-2 rounded-lg hover:bg-hairline/60 text-body"
+            title={open ? "Hide menu" : "Show menu"}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
           <div className="text-sm text-muted">
             {property?.name}
             {property?.business_date && <span className="ml-2 text-xs">· business date {property.business_date}</span>}
@@ -106,6 +176,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
         <div className="mx-auto w-full max-w-[1180px] px-8 py-8">{children}</div>
       </main>
+
+      {/* Instant name tooltip for the collapsed icon rail */}
+      {!open && hover && (
+        <div
+          className="fixed z-50 bg-ink text-white text-xs font-medium px-2.5 py-1.5 rounded-lg shadow-pop pointer-events-none whitespace-nowrap"
+          style={{ left: 74, top: hover.y + 4 }}
+        >
+          {hover.label}
+        </div>
+      )}
     </div>
   );
 }
