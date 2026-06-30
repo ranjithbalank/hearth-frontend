@@ -55,10 +55,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     items: g.items.filter((i) => canAccess(i.key)),
   })).filter((g) => g.items.length > 0);
 
-  // Accordion: the group containing the current route starts expanded.
-  const activeTitle = groups.find((g) => g.items.some((i) => i.path === location.pathname))?.title;
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
-    () => (activeTitle ? { [activeTitle]: true } : {}),
+  // Accordion default: collapse everything for big menus (MD/GM) so it's tidy;
+  // for small menus (≤2 groups, e.g. Housekeeping) collapsing isn't needed — open all.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    groups.length <= 2 ? Object.fromEntries(groups.map((g) => [g.title, true])) : {},
   );
   const toggleGroup = (t: string) => setOpenGroups((s) => ({ ...s, [t]: !s[t] }));
 
