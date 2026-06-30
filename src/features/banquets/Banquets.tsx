@@ -7,8 +7,9 @@ import { inr } from "../../lib/money";
 
 interface Space { id: number; name: string; capacity: number }
 interface Event {
-  id: number; title: string; host: string; space: string; event_date: string;
-  covers: number; package_amount: string; status: string; billed: boolean;
+  id: number; title: string; host: string; contact: string; event_type: string;
+  space: string; event_date: string; covers: number; deposit: string;
+  package_amount: string; status: string; billed: boolean;
 }
 
 const TONE: Record<string, "amber" | "info" | "pine"> = {
@@ -20,6 +21,7 @@ const TONE: Record<string, "amber" | "info" | "pine"> = {
 export function Banquets() {
   const qc = useQueryClient();
   const [msg, setMsg] = useState<string | null>(null);
+  const [booking, setBooking] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["banquets"],
@@ -42,8 +44,30 @@ export function Banquets() {
 
   return (
     <div>
-      <PageHeader title="Banquets & Events" subtitle="Function space &amp; BEOs" />
+      <PageHeader
+        title="Banquets & Events"
+        subtitle="Function space &amp; BEOs"
+        action={<button className="btn-primary" onClick={() => setBooking(true)}>+ New booking</button>}
+      />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
+
+      {booking && (
+        <BookingForm
+          spaces={data.spaces}
+          onCancel={() => setBooking(false)}
+          onCreated={() => { setBooking(false); setMsg("Event enquiry booked (tentative)"); qc.invalidateQueries({ queryKey: ["banquets"] }); }}
+        />
+      )}
+
+      {/* Walk-in enquiry — dedicated area */}
+      <div className="rounded-card border-2 border-dashed border-clay/30 bg-clay/5 p-5 mb-6 flex items-center gap-4">
+        <div className="h-12 w-12 rounded-xl bg-clay flex items-center justify-center text-white text-xl">＋</div>
+        <div className="flex-1">
+          <div className="font-semibold text-ink">Walk-in enquiry</div>
+          <div className="text-sm text-muted">A customer wants to book a function? Capture the enquiry and hold a hall.</div>
+        </div>
+        <button className="btn-primary" onClick={() => setBooking(true)}>Book an event</button>
+      </div>
 
       <div className="flex flex-wrap gap-2 mb-5">
         {data.spaces.map((s) => (
@@ -55,9 +79,9 @@ export function Banquets() {
         {data.events.map((e) => (
           <Card key={e.id} className="flex items-center gap-4">
             <div className="flex-1">
-              <div className="font-semibold">{e.title}</div>
+              <div className="font-semibold">{e.title} {e.event_type && <span className="text-muted font-normal">· {e.event_type}</span>}</div>
               <div className="text-sm text-muted">
-                {e.space} · {e.event_date} · {e.covers} covers · {e.host}
+                {e.space} · {e.event_date} · {e.covers} covers · {e.host}{e.contact ? ` (${e.contact})` : ""}
               </div>
             </div>
             <div className="font-medium">{inr(e.package_amount)}</div>
@@ -70,6 +94,95 @@ export function Banquets() {
             )}
           </Card>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function BookingForm({ spaces, onCancel, onCreated }: { spaces: Space[]; onCancel: () => void; onCreated: () => void }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [f, setF] = useState({
+    title: "", host: "", contact: "", event_type: "Wedding",
+    space: "", event_date: today, covers: "", package_amount: "", deposit: "",
+  });
+  const [err, setErr] = useState<string | null>(null);
+  const create = useMutation({
+    mutationFn: async () => (await api.post("/banquets/", {
+      title: f.title, host: f.host, contact: f.contact, event_type: f.event_type,
+      space: Number(f.space), event_date: f.event_date, covers: Number(f.covers || 0),
+      package_amount: f.package_amount || 0, deposit: f.deposit || 0,
+    })).data,
+    onSuccess: onCreated,
+    onError: (e: any) => setErr(e?.response?.data?.detail ?? "Could not book"),
+  });
+  const set = (k: string, v: string) => setF({ ...f, [k]: v });
+  const space = spaces.find((s) => s.id === Number(f.space));
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
+      <div className="card p-5 w-[520px] max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-4">New event booking</div>
+        {err && <div className="text-sm text-clay mb-3">{err}</div>}
+
+        <label className="block text-xs font-semibold text-muted mb-1">Event title</label>
+        <input className="input mb-3" placeholder="e.g. Sharma Wedding Reception" value={f.title} onChange={(e) => set("title", e.target.value)} />
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Host / customer</label>
+            <input className="input" value={f.host} onChange={(e) => set("host", e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Contact</label>
+            <input className="input" value={f.contact} onChange={(e) => set("contact", e.target.value)} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Event type</label>
+            <select className="input" value={f.event_type} onChange={(e) => set("event_type", e.target.value)}>
+              {["Wedding", "Corporate", "Birthday", "Conference", "Other"].map((t) => <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Date</label>
+            <input type="date" className="input" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Function space</label>
+            <select className="input" value={f.space} onChange={(e) => set("space", e.target.value)}>
+              <option value="">Select hall…</option>
+              {spaces.map((s) => <option key={s.id} value={s.id}>{s.name} ({s.capacity} pax)</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Covers (guests)</label>
+            <input className="input" value={f.covers} onChange={(e) => set("covers", e.target.value)} />
+            {space && Number(f.covers) > space.capacity && <div className="text-xs text-clay mt-1">Exceeds {space.capacity} capacity</div>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Package amount (₹)</label>
+            <input className="input" value={f.package_amount} onChange={(e) => set("package_amount", e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Advance / deposit (₹)</label>
+            <input className="input" value={f.deposit} onChange={(e) => set("deposit", e.target.value)} />
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-5">
+          <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary flex-1" disabled={!f.title || !f.space || create.isPending} onClick={() => create.mutate()}>
+            Book event (tentative)
+          </button>
+        </div>
       </div>
     </div>
   );
