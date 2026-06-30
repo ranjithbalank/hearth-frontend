@@ -35,6 +35,12 @@ export function Folios() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["folios"] }),
   });
 
+  const emailInvoice = useMutation({
+    mutationFn: async (id: number) => (await api.post(`/folios/${id}/email_invoice/`)).data,
+    onSuccess: (d: { channel: string; to: string }) => alert(`Invoice sent via ${d.channel} to ${d.to}`),
+    onError: (e: any) => alert(e?.response?.data?.detail ?? "Could not send"),
+  });
+
   if (isLoading) return <Spinner />;
   if (!folios?.length) return <><PageHeader title="Folios" /><EmptyState title="No folios yet" hint="Check in a guest from Front Desk." /></>;
 
@@ -76,6 +82,12 @@ export function Folios() {
                   onClick={() => printInvoice(sel, property?.name ?? "Hearth", property?.gstin ?? "")}
                 >
                   Print invoice
+                </button>
+                <button
+                  className="btn-ghost text-xs py-1"
+                  onClick={() => emailInvoice.mutate(sel.id)}
+                >
+                  Email
                 </button>
               </div>
             </div>

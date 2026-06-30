@@ -68,6 +68,57 @@ export function printInvoice(folio: Folio, propertyName: string, gstin: string) 
   openAndPrint(html);
 }
 
+export function printKot(order: Order, propertyName: string) {
+  // Group fired lines by station (kitchen/bar).
+  const fired = order.lines.filter((l) => l.kot_fired);
+  const lines = (fired.length ? fired : order.lines).map((l) =>
+    `<tr><td class="r" style="width:34px">${l.qty}</td><td>${l.name}${l.note ? ` <i>(${l.note})</i>` : ""}</td></tr>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${order.kot_no || "KOT"}</title>
+  <style>${BASE_CSS}
+    body { width: 300px; }
+    .kt { font-family: 'JetBrains Mono', monospace; }
+    h1 { font-size:16px; margin:0; }
+    td { font-size:14px; padding:6px 6px; border-bottom:1px dashed #DDD5C7; }
+  </style></head><body>
+    <div style="text-align:center; border-bottom:2px dashed #16221F; padding-bottom:8px;">
+      <h1>KITCHEN ORDER · KOT</h1>
+      <div class="muted kt">${order.kot_no || "#" + order.id} · ${order.table_name ? "Table " + order.table_name : (order.mode || "")}</div>
+      <div class="muted kt">${new Date().toLocaleString("en-IN")}</div>
+    </div>
+    <table class="kt"><tbody>${lines}</tbody></table>
+    <div class="foot kt">${propertyName} · expedite</div>
+  </body></html>`;
+  openAndPrint(html, 360);
+}
+
+export interface ZReport {
+  tenders: { tender: string; amount: string; count: number; tip: string }[];
+  total: string;
+  tips: string;
+}
+
+export function printZReport(z: ZReport, propertyName: string) {
+  const rows = z.tenders.map((t) =>
+    `<tr><td>${t.tender}</td><td class="r">${t.count}</td><td class="r">${inr(t.tip)}</td><td class="r">${inr(t.amount)}</td></tr>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Day-end Z</title>
+  <style>${BASE_CSS} body{width:420px;}</style></head><body>
+    <div class="head" style="border-bottom-width:2px;">
+      <div><div class="brand">${propertyName}</div><div class="muted">Day-end (Z) settlement</div></div>
+      <div class="doc"><h1 style="font-size:14px;">Z-REPORT</h1><div class="muted">${new Date().toLocaleDateString("en-IN")}</div></div>
+    </div>
+    <table>
+      <thead><tr><th>Tender</th><th class="r">Txns</th><th class="r">Tips</th><th class="r">Amount</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="4">No collections</td></tr>'}</tbody>
+    </table>
+    <div class="tot" style="width:100%;">
+      <div><span>Total tips</span><span>${inr(z.tips)}</span></div>
+      <div class="grand"><span>Total collected</span><span>${inr(z.total)}</span></div>
+    </div>
+    <div class="foot">${propertyName} · cashier reconciliation · count cash against this figure</div>
+  </body></html>`;
+  openAndPrint(html, 480);
+}
+
 export function printBill(order: Order, propertyName: string) {
   const rows = order.lines.map((l) => `
     <tr><td>${l.name}</td><td class="r">${l.qty}</td>

@@ -8,7 +8,7 @@ import { inr } from "../../lib/money";
 import { cacheMenu, enqueue, getCachedMenu, uuid, type OfflineBill } from "../../lib/offline";
 import { useOnline } from "../../lib/useOnline";
 import type { Folio, MenuItem, Order, Table } from "../../lib/types";
-import { printBill } from "../print/documents";
+import { printBill, printKot } from "../print/documents";
 
 type Mode = "dinein" | "takeaway" | "delivery";
 interface Category { id: number; name: string }
@@ -325,9 +325,14 @@ export function Pos() {
                   <button className="btn-outline" onClick={() => settle.mutate("Gateway")}>Card (gateway)</button>
                 </div>
                 {hms && <button className="btn-outline" onClick={() => postToRoom.mutate()}>Post to room</button>}
-                <button className="btn-ghost text-xs" onClick={() => order && printBill(order, property?.name ?? "Hearth")}>
-                  Print bill
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button className="btn-ghost text-xs" onClick={() => order && printKot(order, property?.name ?? "Hearth")}>
+                    Print KOT
+                  </button>
+                  <button className="btn-ghost text-xs" onClick={() => order && printBill(order, property?.name ?? "Hearth")}>
+                    Print bill
+                  </button>
+                </div>
               </div>
             </>
           ) : null}
