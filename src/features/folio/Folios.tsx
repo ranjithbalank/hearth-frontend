@@ -3,13 +3,16 @@ import { useEffect, useState } from "react";
 
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
 import { inr, num } from "../../lib/money";
 import type { Folio } from "../../lib/types";
+import { printInvoice } from "../print/documents";
 
 const TENDERS = ["Cash", "Card", "UPI", "BTC"];
 
 export function Folios() {
   const qc = useQueryClient();
+  const { property } = useApp();
   const [selId, setSelId] = useState<number | null>(null);
   const [tender, setTender] = useState("Card");
 
@@ -66,7 +69,15 @@ export function Folios() {
                   Room {sel.room_number ?? "—"} {sel.invoice_no && `· ${sel.invoice_no}`}
                 </div>
               </div>
-              <Badge tone={sel.status === "open" ? "pine" : "muted"}>{sel.status}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge tone={sel.status === "open" ? "pine" : "muted"}>{sel.status}</Badge>
+                <button
+                  className="btn-ghost text-xs py-1"
+                  onClick={() => printInvoice(sel, property?.name ?? "Hearth", property?.gstin ?? "")}
+                >
+                  Print invoice
+                </button>
+              </div>
             </div>
 
             <table className="w-full text-sm mb-4">
