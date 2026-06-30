@@ -28,6 +28,7 @@ import { Inventory } from "./features/inventory/Inventory";
 import { Kds } from "./features/kds/Kds";
 import { MaterialRequests } from "./features/matreq/MaterialRequests";
 import { Notifications } from "./features/notifications/Notifications";
+import { OnlineOrders } from "./features/online/OnlineOrders";
 import { Procurement } from "./features/procurement/Procurement";
 import { Recipes } from "./features/recipes/Recipes";
 import { Revenue } from "./features/revenue/Revenue";
@@ -80,6 +81,7 @@ export default function App() {
         <Route path="/notifications" element={<RequireAccess module="notifications"><Notifications /></RequireAccess>} />
         <Route path="/pos" element={<RequireAccess module="pos"><Pos /></RequireAccess>} />
         <Route path="/kds" element={<RequireAccess module="kds"><Kds /></RequireAccess>} />
+        <Route path="/online-orders" element={<RequireAccess module="online"><OnlineOrders /></RequireAccess>} />
         <Route path="/inventory" element={<RequireAccess module="inventory"><Inventory /></RequireAccess>} />
         <Route path="/procurement" element={<RequireAccess module="procurement"><Procurement /></RequireAccess>} />
         <Route path="/material-requests" element={<RequireAccess module="matreq"><MaterialRequests /></RequireAccess>} />

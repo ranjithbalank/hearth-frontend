@@ -20,6 +20,7 @@ export const MODULE_ENTITLEMENT: Record<string, keyof Entitlement | undefined> =
   banquets: "banquets",
   pos: "restaurant",
   kds: "restaurant",
+  online: "restaurant",
   matreq: "restaurant",
   inventory: "restaurant",
   procurement: "restaurant",
@@ -72,6 +73,7 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "pos", label: "Restaurant POS", path: "/pos" },
       { key: "kds", label: "Kitchen Display", path: "/kds" },
+      { key: "online", label: "Online Orders", path: "/online-orders" },
       { key: "inventory", label: "Inventory & Stock", path: "/inventory" },
       { key: "procurement", label: "Procurement", path: "/procurement" },
       { key: "matreq", label: "Material Requests", path: "/material-requests" },

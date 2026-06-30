@@ -32,11 +32,12 @@ export function Reports() {
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Quick exports</div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           {[
             { key: "sales", label: "Sales summary" },
             { key: "tax", label: "GST summary" },
             { key: "occupancy", label: "Room status" },
+            { key: "accounting", label: "Accounting (ERP)" },
           ].map((r) => (
             <div key={r.key} className="rounded-card border border-hairline p-3">
               <div className="font-medium text-sm mb-2">{r.label}</div>

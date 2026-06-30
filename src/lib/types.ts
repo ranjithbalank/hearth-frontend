@@ -150,6 +150,9 @@ export interface Order {
   lines: OrderLine[];
   coupon_code: string | null;
   discount_kind: string;
+  source_platform: string;
+  online_status: string;
+  prepaid: boolean;
   totals: {
     subtotal: string; discount: string; taxable: string;
     cgst: string; sgst: string; tax: string; total: string;
