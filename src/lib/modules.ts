@@ -51,7 +51,6 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "dashboard", label: "Dashboard", path: "/dashboard" },
       { key: "frontdesk", label: "Front Desk", path: "/frontdesk" },
-      { key: "checkin", label: "Check-In", path: "/checkin" },
       { key: "checkout", label: "Check-Out", path: "/checkout" },
       { key: "livegrid", label: "Live Grid", path: "/livegrid" },
       { key: "reservations", label: "Reservations", path: "/reservations" },
