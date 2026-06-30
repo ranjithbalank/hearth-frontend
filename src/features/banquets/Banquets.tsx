@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
 import { inr } from "../../lib/money";
 
 interface Space { id: number; name: string; capacity: number }
@@ -10,6 +11,7 @@ interface Event {
   id: number; title: string; host: string; contact: string; event_type: string;
   space: string; event_date: string; covers: number; deposit: string;
   package_amount: string; status: string; billed: boolean;
+  food_covers: number; food_pref: string;
 }
 
 const TONE: Record<string, "amber" | "info" | "pine"> = {
@@ -20,6 +22,7 @@ const TONE: Record<string, "amber" | "info" | "pine"> = {
 
 export function Banquets() {
   const qc = useQueryClient();
+  const { property } = useApp();
   const [msg, setMsg] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
 
@@ -54,6 +57,7 @@ export function Banquets() {
       {booking && (
         <BookingForm
           spaces={data.spaces}
+          restaurant={!!property?.entitlement.restaurant}
           onCancel={() => setBooking(false)}
           onCreated={() => { setBooking(false); setMsg("Event enquiry booked (tentative)"); qc.invalidateQueries({ queryKey: ["banquets"] }); }}
         />
@@ -83,6 +87,11 @@ export function Banquets() {
               <div className="text-sm text-muted">
                 {e.space} · {e.event_date} · {e.covers} covers · {e.host}{e.contact ? ` (${e.contact})` : ""}
               </div>
+              {e.food_covers > 0 && (
+                <div className="text-xs text-pine mt-1">
+                  🍽 Catering: ~{e.food_covers} plates{e.food_pref ? ` · ${e.food_pref}` : ""}
+                </div>
+              )}
             </div>
             <div className="font-medium">{inr(e.package_amount)}</div>
             <Badge tone={TONE[e.status] ?? "muted"}>{e.status}</Badge>
@@ -99,11 +108,12 @@ export function Banquets() {
   );
 }
 
-function BookingForm({ spaces, onCancel, onCreated }: { spaces: Space[]; onCancel: () => void; onCreated: () => void }) {
+function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Space[]; restaurant: boolean; onCancel: () => void; onCreated: () => void }) {
   const today = new Date().toISOString().slice(0, 10);
   const [f, setF] = useState({
     title: "", host: "", contact: "", event_type: "Wedding",
     space: "", event_date: today, covers: "", package_amount: "", deposit: "",
+    food_covers: "", food_pref: "veg",
   });
   const [err, setErr] = useState<string | null>(null);
   const create = useMutation({
@@ -111,6 +121,7 @@ function BookingForm({ spaces, onCancel, onCreated }: { spaces: Space[]; onCance
       title: f.title, host: f.host, contact: f.contact, event_type: f.event_type,
       space: Number(f.space), event_date: f.event_date, covers: Number(f.covers || 0),
       package_amount: f.package_amount || 0, deposit: f.deposit || 0,
+      food_covers: Number(f.food_covers || 0), food_pref: f.food_covers ? f.food_pref : "",
     })).data,
     onSuccess: onCreated,
     onError: (e: any) => setErr(e?.response?.data?.detail ?? "Could not book"),
@@ -176,6 +187,26 @@ function BookingForm({ spaces, onCancel, onCreated }: { spaces: Space[]; onCance
             <input className="input" value={f.deposit} onChange={(e) => set("deposit", e.target.value)} />
           </div>
         </div>
+
+        {restaurant && (
+          <div className="mt-4 rounded-card border border-pine/20 bg-pine-50/50 p-3">
+            <div className="text-xs font-semibold text-pine mb-2">Catering (optional · F&amp;B)</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-muted mb-1">Approx. food plates</label>
+                <input className="input" placeholder="e.g. 120" value={f.food_covers} onChange={(e) => set("food_covers", e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-muted mb-1">Preference</label>
+                <select className="input" value={f.food_pref} onChange={(e) => set("food_pref", e.target.value)} disabled={!f.food_covers}>
+                  <option value="veg">Veg</option>
+                  <option value="nonveg">Non-veg</option>
+                  <option value="both">Both (veg + non-veg)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2 mt-5">
           <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
