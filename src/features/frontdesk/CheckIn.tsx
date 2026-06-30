@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { Card, PageHeader, Spinner } from "../../design/ui";
+import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
 import type { Reservation, Room } from "../../lib/types";
@@ -46,7 +46,7 @@ export function CheckIn() {
     onSuccess: (folio) => setDone(`Checked in to room ${folio.room_number} · folio #${folio.id}`),
   });
 
-  if (!resvId) return <Card>No reservation selected.</Card>;
+  if (!resvId) return <ArrivalPicker />;
   if (isLoading || !resv) return <Spinner />;
 
   if (done) {
@@ -153,6 +153,36 @@ export function CheckIn() {
           )}
         </div>
       </Card>
+    </div>
+  );
+}
+
+function ArrivalPicker() {
+  const nav = useNavigate();
+  const { data: arrivals, isLoading } = useQuery({
+    queryKey: ["arrivals"],
+    queryFn: async () => (await api.get<Reservation[]>("/reservations/arrivals/")).data,
+  });
+  if (isLoading) return <Spinner />;
+  return (
+    <div>
+      <PageHeader title="Check-In" subtitle="Select an arrival to begin" />
+      {!arrivals?.length ? (
+        <EmptyState title="No pending arrivals" hint="All expected guests are checked in." />
+      ) : (
+        <div className="space-y-3">
+          {arrivals.map((a) => (
+            <Card key={a.id} className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="font-semibold">{a.guest_name}</div>
+                <div className="text-sm text-muted">{a.room_type_code} · {a.nights}n · {inr(a.rate)}/night</div>
+              </div>
+              <Badge tone="info">{a.source_label}</Badge>
+              <button className="btn-primary" onClick={() => nav(`/checkin?reservation=${a.id}`)}>Begin check-in</button>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

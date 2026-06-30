@@ -23,6 +23,8 @@ export const MODULE_ENTITLEMENT: Record<string, keyof Entitlement | undefined> =
   matreq: "restaurant",
   inventory: "restaurant",
   procurement: "restaurant",
+  pomanage: "restaurant",
+  suppliers: "restaurant",
   recipes: "restaurant",
   tablemaster: "restaurant",
   menumaster: "restaurant",
@@ -49,6 +51,8 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "dashboard", label: "Dashboard", path: "/dashboard" },
       { key: "frontdesk", label: "Front Desk", path: "/frontdesk" },
+      { key: "checkin", label: "Check-In", path: "/checkin" },
+      { key: "checkout", label: "Check-Out", path: "/checkout" },
       { key: "livegrid", label: "Live Grid", path: "/livegrid" },
       { key: "reservations", label: "Reservations", path: "/reservations" },
       { key: "folio", label: "Folios", path: "/folios" },
@@ -89,11 +93,22 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    title: "Masters",
+    items: [
+      { key: "customers", label: "Customers", path: "/masters/customers" },
+      { key: "suppliers", label: "Suppliers", path: "/masters/suppliers" },
+      { key: "vendors", label: "Vendors", path: "/masters/vendors" },
+      { key: "employees", label: "Employees", path: "/masters/employees" },
+      { key: "pomanage", label: "Purchase Orders", path: "/masters/purchase-orders" },
+    ],
+  },
+  {
     title: "Configuration",
     items: [
       { key: "roommaster", label: "Room Master", path: "/config/rooms" },
       { key: "menumaster", label: "Menu Master", path: "/config/menu" },
       { key: "tablemaster", label: "Table Master", path: "/config/tables" },
+      { key: "gstmaster", label: "GST Master", path: "/config/gst" },
       { key: "roles", label: "Role Mapping", path: "/config/roles" },
     ],
   },

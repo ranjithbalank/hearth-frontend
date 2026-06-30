@@ -8,11 +8,17 @@ import { Accounting } from "./features/accounting/Accounting";
 import { Banquets } from "./features/banquets/Banquets";
 import { Booking } from "./features/booking/Booking";
 import { Channel } from "./features/channel/Channel";
+import { GstMaster } from "./features/config/GstMaster";
 import { MenuMaster } from "./features/config/MenuMaster";
 import { RoleMatrix } from "./features/config/RoleMatrix";
 import { RoomMaster } from "./features/config/RoomMaster";
 import { TableMaster } from "./features/config/TableMaster";
 import { Crm } from "./features/crm/Crm";
+import { Customers } from "./features/masters/Customers";
+import { Employees } from "./features/masters/Employees";
+import { PurchaseOrders } from "./features/masters/PurchaseOrders";
+import { Suppliers } from "./features/masters/Suppliers";
+import { Vendors } from "./features/masters/Vendors";
 import { Dashboard } from "./features/dashboard/Dashboard";
 import { Engineering } from "./features/engineering/Engineering";
 import { Executive } from "./features/executive/Executive";
@@ -26,6 +32,7 @@ import { Procurement } from "./features/procurement/Procurement";
 import { Recipes } from "./features/recipes/Recipes";
 import { Revenue } from "./features/revenue/Revenue";
 import { CheckIn } from "./features/frontdesk/CheckIn";
+import { CheckOut } from "./features/frontdesk/CheckOut";
 import { FrontDesk } from "./features/frontdesk/FrontDesk";
 import { Housekeeping } from "./features/housekeeping/Housekeeping";
 import { LiveGrid } from "./features/livegrid/LiveGrid";
@@ -55,6 +62,13 @@ export default function App() {
         <Route path="/dashboard" element={<RequireAccess module="dashboard"><Dashboard /></RequireAccess>} />
         <Route path="/frontdesk" element={<RequireAccess module="frontdesk"><FrontDesk /></RequireAccess>} />
         <Route path="/checkin" element={<RequireAccess module="checkin"><CheckIn /></RequireAccess>} />
+        <Route path="/checkout" element={<RequireAccess module="checkout"><CheckOut /></RequireAccess>} />
+        <Route path="/masters/customers" element={<RequireAccess module="customers"><Customers /></RequireAccess>} />
+        <Route path="/masters/suppliers" element={<RequireAccess module="suppliers"><Suppliers /></RequireAccess>} />
+        <Route path="/masters/vendors" element={<RequireAccess module="vendors"><Vendors /></RequireAccess>} />
+        <Route path="/masters/employees" element={<RequireAccess module="employees"><Employees /></RequireAccess>} />
+        <Route path="/masters/purchase-orders" element={<RequireAccess module="pomanage"><PurchaseOrders /></RequireAccess>} />
+        <Route path="/config/gst" element={<RequireAccess module="gstmaster"><GstMaster /></RequireAccess>} />
         <Route path="/livegrid" element={<RequireAccess module="livegrid"><LiveGrid /></RequireAccess>} />
         <Route path="/reservations" element={<RequireAccess module="reservations"><Reservations /></RequireAccess>} />
         <Route path="/folios" element={<RequireAccess module="folio"><Folios /></RequireAccess>} />
