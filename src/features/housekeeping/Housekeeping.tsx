@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { Badge, PageHeader, Spinner } from "../../design/ui";
+import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import type { Room } from "../../lib/types";
 
@@ -78,6 +78,58 @@ export function Housekeeping() {
           </div>
         ))}
       </div>
+
+      <div className="mt-8">
+        <LostFound />
+      </div>
     </div>
+  );
+}
+
+interface LostItem { id: number; description: string; location: string; status: string }
+
+function LostFound() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["lost-found"],
+    queryFn: async () => (await api.get<LostItem[]>("/housekeeping/lost_found/")).data,
+  });
+  const add = useMutation({
+    mutationFn: async (body: object) => (await api.post("/housekeeping/lost_found/", body)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lost-found"] }),
+  });
+  const claim = useMutation({
+    mutationFn: async (id: number) => (await api.post(`/housekeeping/${id}/lost_found_claim/`, { status: "claimed" })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lost-found"] }),
+  });
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-semibold">Lost &amp; Found</div>
+        <button
+          className="btn-outline text-xs py-1"
+          onClick={() => {
+            const description = window.prompt("Found item description:");
+            if (!description) return;
+            const location = window.prompt("Where was it found?") || "";
+            add.mutate({ description, location });
+          }}
+        >
+          + Log item
+        </button>
+      </div>
+      {!data?.length ? (
+        <div className="text-sm text-muted py-2">No items logged.</div>
+      ) : (
+        data.map((i) => (
+          <div key={i.id} className="flex items-center gap-3 py-2 border-t border-line text-sm">
+            <span className="flex-1">{i.description} <span className="text-muted">· {i.location || "—"}</span></span>
+            <Badge tone={i.status === "stored" ? "amber" : "pine"}>{i.status}</Badge>
+            {i.status === "stored" && <button className="btn-ghost text-xs py-1" onClick={() => claim.mutate(i.id)}>Mark claimed</button>}
+          </div>
+        ))
+      )}
+    </Card>
   );
 }
