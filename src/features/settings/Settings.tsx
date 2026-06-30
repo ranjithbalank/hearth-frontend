@@ -89,6 +89,16 @@ export function Settings() {
     }
   }
 
+  async function setEdition(edition: string) {
+    setSaving(edition);
+    try {
+      await api.post("/auth/setup/", { edition });
+      await refreshProperty();
+    } finally {
+      setSaving(null);
+    }
+  }
+
   if (isLoading) return <Spinner />;
 
   return (
@@ -96,6 +106,27 @@ export function Settings() {
       <PageHeader title="Settings" subtitle={`${property?.name} · edition: ${property?.edition}`} />
 
       <MfaPanel />
+
+      <Card className="mb-4">
+        <div className="font-semibold mb-1">Edition</div>
+        <div className="text-sm text-muted mb-3">
+          Switch the whole property between Hotel, Restaurant, or both — this re-applies the
+          module entitlements below.
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { k: "hotel", label: "Hotel only", desc: "Rooms, front office, distribution" },
+            { k: "restaurant", label: "Restaurant only", desc: "Standalone POS — no rooms" },
+            { k: "both", label: "Hotel + Restaurant", desc: "Everything on one core" },
+          ].map((e) => (
+            <button key={e.k} onClick={() => setEdition(e.k)} disabled={saving === e.k}
+              className={`text-left rounded-card border p-4 ${property?.edition === e.k ? "border-pine bg-pine-50" : "border-hairline"}`}>
+              <div className="font-semibold">{e.label}</div>
+              <div className="text-sm text-muted mt-1">{e.desc}</div>
+            </button>
+          ))}
+        </div>
+      </Card>
 
       <Card className="mb-4">
         <div className="font-semibold mb-1">Edition entitlements</div>
