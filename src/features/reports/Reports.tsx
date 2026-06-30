@@ -38,6 +38,7 @@ export function Reports() {
             { key: "tax", label: "GST summary" },
             { key: "occupancy", label: "Room status" },
             { key: "accounting", label: "Accounting (ERP)" },
+            { key: "guests", label: "Guest report (statutory)" },
           ].map((r) => (
             <div key={r.key} className="rounded-card border border-hairline p-3">
               <div className="font-medium text-sm mb-2">{r.label}</div>
