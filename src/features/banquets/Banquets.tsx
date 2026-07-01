@@ -5,6 +5,7 @@ import { PhoneInput, joinPhone } from "../../design/PhoneInput";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { amount, digits } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 import { downloadBeoPdf } from "../print/documents";
 
@@ -177,7 +178,7 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Covers (guests)</label>
-            <input className="input" value={f.covers} onChange={(e) => set("covers", e.target.value)} />
+            <input className="input" inputMode="numeric" value={f.covers} onChange={(e) => set("covers", digits(e.target.value, 5))} />
             {space && Number(f.covers) > space.capacity && <div className="text-xs text-clay mt-1">Exceeds {space.capacity} capacity</div>}
           </div>
         </div>
@@ -185,11 +186,11 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
         <div className="grid grid-cols-2 gap-3 mt-3">
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Package amount (₹)</label>
-            <input className="input" value={f.package_amount} onChange={(e) => set("package_amount", e.target.value)} />
+            <input className="input" inputMode="decimal" value={f.package_amount} onChange={(e) => set("package_amount", amount(e.target.value))} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Advance / deposit (₹)</label>
-            <input className="input" value={f.deposit} onChange={(e) => set("deposit", e.target.value)} />
+            <input className="input" inputMode="decimal" value={f.deposit} onChange={(e) => set("deposit", amount(e.target.value))} />
           </div>
         </div>
 
@@ -199,7 +200,7 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-muted mb-1">Approx. food plates</label>
-                <input className="input" placeholder="e.g. 120" value={f.food_covers} onChange={(e) => set("food_covers", e.target.value)} />
+                <input className="input" inputMode="numeric" placeholder="e.g. 120" value={f.food_covers} onChange={(e) => set("food_covers", digits(e.target.value, 5))} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted mb-1">Preference</label>

@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { amount } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 import type { MenuItem } from "../../lib/types";
 
@@ -48,7 +49,7 @@ export function MenuMaster() {
             <option value="">Category…</option>
             {cats?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <input className="input" placeholder="Price" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          <input className="input" inputMode="decimal" placeholder="Price" value={form.price} onChange={(e) => setForm({ ...form, price: amount(e.target.value) })} />
           <select className="input" value={form.gst_rate} onChange={(e) => setForm({ ...form, gst_rate: e.target.value })}>
             <option value="5">5% GST</option>
             <option value="12">12% GST</option>

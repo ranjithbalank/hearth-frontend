@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { PhoneInput, joinPhone } from "../../design/PhoneInput";
 import { api } from "../../lib/api";
+import { digits } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 import type { Reservation } from "../../lib/types";
 
@@ -21,7 +22,7 @@ export function WalkInForm({ onCancel, onCreated }: { onCancel: () => void; onCr
     mutationFn: async () => (await api.post("/reservations/walkin/", {
       guest_name: form.guest_name,
       mobile: joinPhone(form.code, form.mobile),
-      room_type: form.room_type, nights: Number(form.nights),
+      room_type: form.room_type, nights: Number(form.nights) || 1,
     })).data as Reservation,
     onSuccess: (r) => onCreated(r.id),
   });
@@ -55,7 +56,8 @@ export function WalkInForm({ onCancel, onCreated }: { onCancel: () => void; onCr
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Nights</label>
-            <input className="input" value={form.nights} onChange={(e) => setForm({ ...form, nights: e.target.value })} />
+            <input className="input" inputMode="numeric" value={form.nights}
+              onChange={(e) => setForm({ ...form, nights: digits(e.target.value, 3) })} />
           </div>
         </div>
         {picked && <div className="text-sm text-muted mt-3">Estimated room: {inr(Number(picked.base_rate) * Number(form.nights || 1))} + GST</div>}

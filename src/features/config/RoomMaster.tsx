@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { amount, digits } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 
 interface RoomType {
@@ -40,10 +41,11 @@ export function RoomMaster() {
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add room type</div>
         <div className="grid grid-cols-5 gap-2">
-          <input className="input" placeholder="Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+          <input className="input font-mono" placeholder="Code" value={form.code}
+            onChange={(e) => setForm({ ...form, code: e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 8) })} />
           <input className="input" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input className="input" placeholder="Base rate" value={form.base_rate} onChange={(e) => setForm({ ...form, base_rate: e.target.value })} />
-          <input className="input" placeholder="Occupancy" value={form.max_occupancy} onChange={(e) => setForm({ ...form, max_occupancy: e.target.value })} />
+          <input className="input" inputMode="decimal" placeholder="Base rate" value={form.base_rate} onChange={(e) => setForm({ ...form, base_rate: amount(e.target.value) })} />
+          <input className="input" inputMode="numeric" placeholder="Occupancy" value={form.max_occupancy} onChange={(e) => setForm({ ...form, max_occupancy: digits(e.target.value, 2) })} />
           <select className="input" value={form.gst_slab} onChange={(e) => setForm({ ...form, gst_slab: e.target.value })}>
             <option value="12">12% GST</option>
             <option value="18">18% GST</option>

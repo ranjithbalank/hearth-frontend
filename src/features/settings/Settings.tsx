@@ -5,6 +5,7 @@ import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
+import { amount, digits, gstin as gstinFilter } from "../../lib/inputs";
 import { useApp } from "../../lib/app-context";
 import type { Entitlement, Role, User } from "../../lib/types";
 
@@ -42,13 +43,13 @@ function UsersPanel() {
           {ROLES.map((r) => <option key={r}>{r}</option>)}
         </select>
         <input className="input" placeholder="Password" type="password" value={f.password} onChange={(e) => set("password", e.target.value)} />
-        <input className="input" placeholder="POS passcode" value={f.passcode} onChange={(e) => set("passcode", e.target.value)} />
+        <input className="input" inputMode="numeric" placeholder="POS passcode" value={f.passcode} onChange={(e) => set("passcode", digits(e.target.value, 6))} />
         <select className="input" value={f.discount_cap_type} onChange={(e) => set("discount_cap_type", e.target.value)}>
           <option value="none">No discount cap</option>
           <option value="percent">% cap</option>
           <option value="fixed">Fixed cap</option>
         </select>
-        <input className="input" placeholder="Cap value" value={f.discount_cap_value} onChange={(e) => set("discount_cap_value", e.target.value)} disabled={f.discount_cap_type === "none"} />
+        <input className="input" inputMode="decimal" placeholder="Cap value" value={f.discount_cap_value} onChange={(e) => set("discount_cap_value", amount(e.target.value))} disabled={f.discount_cap_type === "none"} />
       </div>
       <button className="btn-primary mb-4" disabled={!f.username || !f.password || create.isPending} onClick={() => create.mutate()}>
         Add user
@@ -148,7 +149,11 @@ function PropertyPanel() {
         </div>
         <div>
           <label className="block text-xs font-semibold text-muted mb-1">GSTIN</label>
-          <input className="input" value={f.gstin} onChange={(e) => setF({ ...f, gstin: e.target.value })} />
+          <input className="input font-mono" placeholder="22AAAAA0000A1Z5" value={f.gstin}
+            onChange={(e) => setF({ ...f, gstin: gstinFilter(e.target.value) })} />
+          {f.gstin.length > 0 && f.gstin.length !== 15 && (
+            <div className="text-xs text-clay mt-1">GSTIN is 15 characters ({f.gstin.length}/15)</div>
+          )}
         </div>
         <div>
           <label className="block text-xs font-semibold text-muted mb-1">Address</label>
