@@ -47,8 +47,15 @@ function NotificationBell() {
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, property, canAccess, logout } = useApp();
   const location = useLocation();
-  const [open, setOpen] = useState(true); // sidebar shown
+  const [open, setOpen] = useState(true);       // desktop: expanded vs rail
+  const [mobileOpen, setMobileOpen] = useState(false); // mobile: drawer open
   const [hover, setHover] = useState<{ label: string; y: number } | null>(null);
+
+  // Hamburger: on phones/tablets toggle the drawer; on desktop toggle the rail.
+  const toggleNav = () =>
+    window.matchMedia("(max-width: 767px)").matches
+      ? setMobileOpen((v) => !v)
+      : setOpen((v) => !v);
 
   const groups = NAV.map((g) => ({
     ...g,
@@ -64,9 +71,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-full">
-      {/* Sidebar */}
+      {/* Mobile drawer backdrop */}
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-ink/40 z-30 md:hidden" onClick={() => setMobileOpen(false)} />
+      )}
+
+      {/* Sidebar — off-canvas drawer on mobile, static rail/expanded on desktop */}
       <aside
-        className={`${open ? "w-60" : "w-[68px]"} shrink-0 bg-ink text-white flex flex-col overflow-hidden transition-[width] duration-200`}
+        className={`fixed inset-y-0 left-0 z-40 w-60 transform transition-transform duration-200
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+          md:static md:z-auto md:translate-x-0 md:transition-[width]
+          ${open ? "md:w-60" : "md:w-[68px]"}
+          shrink-0 bg-ink text-white flex flex-col overflow-hidden`}
       >
         <div className={`flex items-center gap-3 py-5 ${open ? "px-5" : "px-0 justify-center"}`}>
           <Logo size={34} />
@@ -101,6 +117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         <NavLink
                           key={i.key}
                           to={i.path}
+                          onClick={() => setMobileOpen(false)}
                           className={({ isActive }) =>
                             `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
                               isActive ? "bg-pine text-white" : "text-white/75 hover:bg-white/5"
@@ -157,24 +174,24 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="flex-1 overflow-y-auto flex flex-col">
         <header className="flex items-center gap-3 px-6 py-3 border-b border-hairline bg-surface/60 backdrop-blur sticky top-0 z-10">
           <button
-            onClick={() => setOpen((o) => !o)}
+            onClick={toggleNav}
             className="p-2 -ml-2 rounded-lg hover:bg-hairline/60 text-body"
-            title={open ? "Hide menu" : "Show menu"}
+            title="Toggle menu"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
               <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <div className="text-sm text-muted">
+          <div className="text-sm text-muted truncate">
             {property?.name}
-            {property?.business_date && <span className="ml-2 text-xs">· business date {property.business_date}</span>}
+            {property?.business_date && <span className="ml-2 text-xs hidden sm:inline">· business date {property.business_date}</span>}
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <span className="pill bg-pine-50 text-pine capitalize">{property?.edition} edition</span>
+            <span className="pill bg-pine-50 text-pine capitalize hidden sm:inline-flex">{property?.edition} edition</span>
             <NotificationBell />
           </div>
         </header>
-        <div className="mx-auto w-full max-w-[1180px] px-8 py-8">{children}</div>
+        <div className="mx-auto w-full max-w-[1180px] px-4 md:px-8 py-6 md:py-8">{children}</div>
       </main>
 
       {/* Instant name tooltip for the collapsed icon rail */}

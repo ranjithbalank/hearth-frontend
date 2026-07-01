@@ -29,6 +29,8 @@ export interface Property {
   setup_done: boolean;
   business_date: string | null;
   gstin: string;
+  address: string;
+  phone: string;
   currency: string;
   entitlement: Entitlement;
 }

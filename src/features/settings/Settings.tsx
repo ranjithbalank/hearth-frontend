@@ -6,6 +6,57 @@ import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import type { Entitlement, User } from "../../lib/types";
 
+function PropertyPanel() {
+  const { property, refreshProperty } = useApp();
+  const [f, setF] = useState({
+    name: property?.name ?? "", gstin: property?.gstin ?? "",
+    address: property?.address ?? "", phone: property?.phone ?? "",
+  });
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch("/auth/property/", f);
+      await refreshProperty();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="mb-4">
+      <div className="font-semibold mb-1">Property details</div>
+      <div className="text-sm text-muted mb-3">Business name, GSTIN and address — these print on tax invoices.</div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-semibold text-muted mb-1">Business name</label>
+          <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-muted mb-1">GSTIN</label>
+          <input className="input" value={f.gstin} onChange={(e) => setF({ ...f, gstin: e.target.value })} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-muted mb-1">Address</label>
+          <input className="input" value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-muted mb-1">Phone</label>
+          <input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+        </div>
+      </div>
+      <div className="flex items-center gap-3 mt-3">
+        <button className="btn-primary" onClick={save} disabled={saving}>Save details</button>
+        {saved && <span className="text-sm text-pine">Saved ✓</span>}
+      </div>
+    </Card>
+  );
+}
+
 function MfaPanel() {
   const { user, refreshProperty } = useApp();
   const [secret, setSecret] = useState<string | null>(null);
@@ -104,6 +155,8 @@ export function Settings() {
   return (
     <div>
       <PageHeader title="Settings" subtitle={`${property?.name} · edition: ${property?.edition}`} />
+
+      <PropertyPanel />
 
       <MfaPanel />
 
