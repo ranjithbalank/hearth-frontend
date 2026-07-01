@@ -2,11 +2,24 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
-import { api } from "../../lib/api";
+import { api, getAccess } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { inr, num } from "../../lib/money";
 import type { Folio } from "../../lib/types";
 import { printInvoice } from "../print/documents";
+
+async function downloadInvoicePdf(folio: Folio) {
+  const res = await fetch(`/api/folios/${folio.id}/invoice_pdf/`, {
+    headers: { Authorization: `Bearer ${getAccess()}` },
+  });
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${folio.invoice_no || "folio-" + folio.id}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const TENDERS = ["Cash", "Card", "UPI", "BTC"];
 
@@ -79,9 +92,16 @@ export function Folios() {
                 <Badge tone={sel.status === "open" ? "pine" : "muted"}>{sel.status}</Badge>
                 <button
                   className="btn-ghost text-xs py-1"
-                  onClick={() => printInvoice(sel, property?.name ?? "Hearth", property?.gstin ?? "")}
+                  onClick={() => downloadInvoicePdf(sel)}
                 >
-                  Print invoice
+                  Invoice PDF
+                </button>
+                <button
+                  className="btn-ghost text-xs py-1"
+                  onClick={() => printInvoice(sel, property?.name ?? "Hearth", property?.gstin ?? "")}
+                  title="Open print preview"
+                >
+                  Print
                 </button>
                 <button
                   className="btn-ghost text-xs py-1"
