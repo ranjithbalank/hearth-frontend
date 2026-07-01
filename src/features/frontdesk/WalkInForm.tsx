@@ -9,15 +9,18 @@ export interface RoomTypeOpt { code: string; name: string; base_rate: string; av
 
 /** Modal form to register a guest who arrived without a booking, then proceed
  *  to check-in. Used from both Front Desk and the Check-In screen. */
+const DIAL_CODES = ["+91", "+1", "+44", "+971", "+65", "+61", "+49", "+33", "+94", "+880", "+977"];
+
 export function WalkInForm({ onCancel, onCreated }: { onCancel: () => void; onCreated: (id: number) => void }) {
-  const [form, setForm] = useState({ guest_name: "", mobile: "", room_type: "", nights: "1" });
+  const [form, setForm] = useState({ guest_name: "", code: "+91", mobile: "", room_type: "", nights: "1" });
   const { data: types } = useQuery({
     queryKey: ["walkin-room-types"],
     queryFn: async () => (await api.get<RoomTypeOpt[]>("/reservations/room_types/")).data,
   });
   const create = useMutation({
     mutationFn: async () => (await api.post("/reservations/walkin/", {
-      guest_name: form.guest_name, mobile: form.mobile,
+      guest_name: form.guest_name,
+      mobile: form.mobile ? `${form.code} ${form.mobile}` : "",
       room_type: form.room_type, nights: Number(form.nights),
     })).data as Reservation,
     onSuccess: (r) => onCreated(r.id),
@@ -31,7 +34,18 @@ export function WalkInForm({ onCancel, onCreated }: { onCancel: () => void; onCr
         <label className="block text-xs font-semibold text-muted mb-1">Guest name</label>
         <input className="input mb-3" value={form.guest_name} onChange={(e) => setForm({ ...form, guest_name: e.target.value })} />
         <label className="block text-xs font-semibold text-muted mb-1">Mobile</label>
-        <input className="input mb-3" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
+        <div className="flex gap-2 mb-3">
+          <select className="input w-24" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })}>
+            {DIAL_CODES.map((c) => <option key={c}>{c}</option>)}
+          </select>
+          <input
+            className="input flex-1"
+            inputMode="numeric"
+            placeholder="Mobile number"
+            value={form.mobile}
+            onChange={(e) => setForm({ ...form, mobile: e.target.value.replace(/\D/g, "").slice(0, 12) })}
+          />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Room type</label>
