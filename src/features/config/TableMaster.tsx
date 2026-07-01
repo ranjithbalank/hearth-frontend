@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { digits } from "../../lib/inputs";
 import type { Table } from "../../lib/types";
 
 export function TableMaster() {
   const qc = useQueryClient();
+  const toast = useToast();
   const empty = { name: "", section: "AC", seats: "4" };
   const [form, setForm] = useState(empty);
 
@@ -17,8 +20,9 @@ export function TableMaster() {
 
   const create = useMutation({
     mutationFn: async () =>
-      (await api.post("/pos/tables/", { name: form.name, section: form.section, seats: Number(form.seats) })).data,
-    onSuccess: () => { setForm(empty); qc.invalidateQueries({ queryKey: ["tables"] }); },
+      (await api.post("/pos/tables/", { name: form.name, section: form.section, seats: Number(form.seats) || 1 })).data,
+    onSuccess: () => { setForm(empty); toast("Table added"); qc.invalidateQueries({ queryKey: ["tables"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add table", "error"),
   });
 
   if (isLoading || !data) return <Spinner />;
@@ -34,7 +38,7 @@ export function TableMaster() {
         <div className="grid grid-cols-3 gap-2">
           <input className="input" placeholder="Name (e.g. A7)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className="input" placeholder="Section" value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} />
-          <input className="input" placeholder="Seats" value={form.seats} onChange={(e) => setForm({ ...form, seats: e.target.value })} />
+          <input className="input" inputMode="numeric" placeholder="Seats" value={form.seats} onChange={(e) => setForm({ ...form, seats: digits(e.target.value, 3) })} />
         </div>
         <button className="btn-primary mt-3" disabled={!form.name || create.isPending} onClick={() => create.mutate()}>
           Add table

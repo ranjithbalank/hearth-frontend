@@ -68,8 +68,9 @@ export function Login() {
               <input
                 className="input mb-4"
                 placeholder="6-digit code"
+                inputMode="numeric"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 onKeyDown={(e) => e.key === "Enter" && submit()}
               />
             </>

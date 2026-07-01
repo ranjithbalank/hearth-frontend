@@ -218,7 +218,7 @@ function MfaPanel() {
           <code className="block text-sm bg-cream px-3 py-2 rounded-lg break-all">{secret}</code>
           <div className="text-[11px] text-muted break-all">{uri}</div>
           <div className="flex gap-2">
-            <input className="input w-40" placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value)} />
+            <input className="input w-40" inputMode="numeric" placeholder="6-digit code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} />
             <button className="btn-primary" onClick={verify}>Verify &amp; enable</button>
           </div>
         </div>
