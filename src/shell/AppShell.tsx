@@ -85,13 +85,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           shrink-0 bg-ink text-white flex flex-col overflow-hidden`}
       >
         <div className={`flex items-center gap-3 py-5 ${open ? "px-5" : "px-0 justify-center"}`}>
-          <Logo size={34} />
+          {property?.logo
+            ? <img src={property.logo} alt="" className="h-9 w-9 rounded-[28%] object-cover bg-white/10 shrink-0" />
+            : <Logo size={34} />}
           {open && (
-            <div>
-              <div className="font-display text-xl leading-none">Hearth</div>
-              <div className="text-[10px] tracking-[0.18em] text-white/45 mt-1">
-                {property?.name?.toUpperCase()}
-              </div>
+            <div className="min-w-0">
+              <div className="font-display text-lg leading-tight truncate">{property?.name || "Hearth"}</div>
+              <div className="text-[9px] tracking-[0.16em] text-white/40 mt-0.5">POWERED BY HEARTH</div>
             </div>
           )}
         </div>

@@ -93,13 +93,23 @@ function PropertyPanel() {
     name: property?.name ?? "", gstin: property?.gstin ?? "",
     address: property?.address ?? "", phone: property?.phone ?? "",
   });
+  const [logo, setLogo] = useState(property?.logo ?? "");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  function onLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 400_000) return alert("Please use a logo under 400 KB.");
+    const reader = new FileReader();
+    reader.onload = () => setLogo(String(reader.result));
+    reader.readAsDataURL(file);
+  }
 
   async function save() {
     setSaving(true);
     try {
-      await api.patch("/auth/property/", f);
+      await api.patch("/auth/property/", { ...f, logo });
       await refreshProperty();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -110,8 +120,23 @@ function PropertyPanel() {
 
   return (
     <Card className="mb-4">
-      <div className="font-semibold mb-1">Property details</div>
-      <div className="text-sm text-muted mb-3">Business name, GSTIN and address — these print on tax invoices.</div>
+      <div className="font-semibold mb-1">Property details &amp; branding</div>
+      <div className="text-sm text-muted mb-3">Your hotel's name, logo, GSTIN and address — the name/logo appear in the app and print on invoices.</div>
+
+      <div className="flex items-center gap-4 mb-4">
+        <div className="h-16 w-16 rounded-xl bg-cream border border-hairline overflow-hidden flex items-center justify-center">
+          {logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : <span className="text-xs text-muted">No logo</span>}
+        </div>
+        <div>
+          <label className="btn-outline text-xs cursor-pointer inline-block">
+            Upload logo
+            <input type="file" accept="image/*" className="hidden" onChange={onLogo} />
+          </label>
+          {logo && <button className="btn-ghost text-xs ml-2" onClick={() => setLogo("")}>Remove</button>}
+          <div className="text-xs text-muted mt-1">PNG/JPG, square, under 400 KB.</div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-semibold text-muted mb-1">Business name</label>

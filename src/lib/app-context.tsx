@@ -8,7 +8,7 @@ import {
 } from "react";
 
 import { api, clearTokens, setTokens } from "./api";
-import { MODULE_ENTITLEMENT } from "./modules";
+import { MODULE_ENTITLEMENT, NAV } from "./modules";
 import type { Entitlement, Property, User } from "./types";
 
 interface AppState {
@@ -20,6 +20,7 @@ interface AppState {
   refreshProperty: () => Promise<void>;
   setup: (edition: string, name?: string) => Promise<void>;
   canAccess: (module: string) => boolean;
+  landing: () => string;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -79,8 +80,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return ent ? Boolean(ent[flag]) : true;
   }
 
+  /** Role-appropriate landing page after login. Falls back to the first screen
+   *  the user can actually reach if their preferred one isn't enabled. */
+  function landing(): string {
+    const prefs: Record<string, [string, string]> = {
+      "Managing Director": ["execdashboard", "/executive"],
+      "General Manager": ["dashboard", "/dashboard"],
+      "Front Office": ["frontdesk", "/frontdesk"],
+      "F&B Cashier": ["pos", "/pos"],
+      "Housekeeping": ["housekeeping", "/housekeeping"],
+    };
+    const pref = user ? prefs[user.role] : undefined;
+    if (pref && canAccess(pref[0])) return pref[1];
+    if (canAccess("dashboard")) return "/dashboard";
+    for (const g of NAV) for (const i of g.items) if (canAccess(i.key)) return i.path;
+    return "/dashboard";
+  }
+
   const value = useMemo<AppState>(
-    () => ({ user, property, loading, login, logout, refreshProperty, setup, canAccess }),
+    () => ({ user, property, loading, login, logout, refreshProperty, setup, canAccess, landing }),
     [user, property, loading],
   );
 

@@ -46,7 +46,7 @@ import { Setup } from "./features/auth/Setup";
 import { TaxGst } from "./features/tax/TaxGst";
 
 export default function App() {
-  const { loading, property, user } = useApp();
+  const { loading, property, user, landing } = useApp();
 
   if (loading) return <Spinner />;
 
@@ -97,7 +97,7 @@ export default function App() {
         <Route path="/config/menu" element={<RequireAccess module="menumaster"><MenuMaster /></RequireAccess>} />
         <Route path="/config/tables" element={<RequireAccess module="tablemaster"><TableMaster /></RequireAccess>} />
         <Route path="/config/roles" element={<RequireAccess module="roles"><RoleMatrix /></RequireAccess>} />
-        <Route path="*" element={<Navigate to={user.role === "Managing Director" ? "/executive" : "/dashboard"} replace />} />
+        <Route path="*" element={<Navigate to={landing()} replace />} />
       </Routes>
     </AppShell>
   );

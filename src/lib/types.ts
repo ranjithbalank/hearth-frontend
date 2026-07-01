@@ -35,6 +35,7 @@ export interface Property {
   gstin: string;
   address: string;
   phone: string;
+  logo: string;
   currency: string;
   entitlement: Entitlement;
 }
