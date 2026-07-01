@@ -143,34 +143,3 @@ export function printZReport(z: ZReport, propertyName: string) {
   </body></html>`;
   openAndPrint(html, 480);
 }
-
-export function printBill(order: Order, propertyName: string) {
-  const rows = order.lines.map((l) => `
-    <tr><td>${l.name}</td><td class="r">${l.qty}</td>
-        <td class="r">${inr(l.unit_price)}</td>
-        <td class="r">${inr(Number(l.unit_price) * l.qty)}</td></tr>`).join("");
-  const t = order.totals;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Bill ${order.kot_no || order.id}</title>
-  <style>${BASE_CSS}
-    body { width: 320px; }
-    .brand { font-size:20px; }
-  </style></head><body>
-    <div class="head" style="border-bottom-width:2px;">
-      <div><div class="brand">${propertyName}</div><div class="muted">${order.table_name ? "Table " + order.table_name : (order.mode || "")}</div></div>
-      <div class="doc"><h1 style="font-size:14px;">BILL</h1><div class="muted">${order.kot_no || ("#" + order.id)}</div></div>
-    </div>
-    <table>
-      <thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amt</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="tot" style="width:100%;">
-      <div><span>Subtotal</span><span>${inr(t.subtotal)}</span></div>
-      ${Number(t.discount) > 0 ? `<div><span>Discount</span><span>-${inr(t.discount)}</span></div>` : ""}
-      <div><span>CGST</span><span>${inr(t.cgst)}</span></div>
-      <div><span>SGST</span><span>${inr(t.sgst)}</span></div>
-      <div class="grand"><span>Total</span><span>${inr(t.total)}</span></div>
-    </div>
-    <div class="foot">Thank you · ${propertyName}</div>
-  </body></html>`;
-  openAndPrint(html, 420);
-}

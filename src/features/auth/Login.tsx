@@ -12,7 +12,7 @@ const DEMO = [
 ];
 
 export function Login() {
-  const { login } = useApp();
+  const { login, property } = useApp();
   const [username, setUsername] = useState("gm");
   const [password, setPassword] = useState("hearth123");
   const [otp, setOtp] = useState("");
@@ -42,9 +42,13 @@ export function Login() {
     <div className="min-h-full flex items-center justify-center bg-ink p-6">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-3 mb-8 text-white">
-          <Logo size={52} />
-          <div className="font-display text-3xl">Hearth</div>
-          <div className="text-sm text-white/50">Hotel &amp; Restaurant OS</div>
+          {property?.logo
+            ? <img src={property.logo} alt="" className="h-14 w-14 rounded-2xl object-cover bg-white/10" />
+            : <Logo size={52} />}
+          <div className="font-display text-3xl text-center">{property?.name || "Hearth"}</div>
+          <div className="text-sm text-white/50">
+            {property?.name ? "powered by Hearth" : "Hotel & Restaurant OS"}
+          </div>
         </div>
 
         <div className="card p-6">
