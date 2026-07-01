@@ -45,6 +45,8 @@ export function Pos() {
   }
 
   const [picker, setPicker] = useState<MenuItem | null>(null);
+  const [showDiscount, setShowDiscount] = useState(false);
+  const [showCoupon, setShowCoupon] = useState(false);
 
   const addItem = useMutation({
     mutationFn: async (payload: { menu_item: number; qty: number; variant?: number; addons?: number[] }) => {
@@ -77,7 +79,7 @@ export function Pos() {
   const applyDiscount = useMutation({
     mutationFn: async (body: { kind: string; value: number; reason: string; override?: string }) =>
       (await api.post(`/pos/orders/${orderId}/apply_discount/`, body)).data,
-    onSuccess: () => { setMsg("Discount applied"); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+    onSuccess: () => { setMsg("Discount applied"); setShowDiscount(false); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
     onError: async (e: any) => {
       if (e?.response?.data?.cap_exceeded) {
         const code = window.prompt(`${e.response.data.detail}\nEnter manager passcode to override:`);
@@ -92,7 +94,7 @@ export function Pos() {
   const applyCoupon = useMutation({
     mutationFn: async (code: string) =>
       (await api.post(`/pos/orders/${orderId}/apply_coupon/`, { code })).data,
-    onSuccess: () => { setMsg("Coupon applied"); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+    onSuccess: () => { setMsg("Coupon applied"); setShowCoupon(false); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
     onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Invalid coupon"),
   });
 
@@ -272,26 +274,10 @@ export function Pos() {
               </div>
 
               <div className="flex gap-2 mt-3">
-                <button
-                  className="btn-ghost text-xs flex-1"
-                  onClick={() => {
-                    const v = Number(window.prompt("Discount % (within your cap):", "10"));
-                    if (!v) return;
-                    const reason = window.prompt("Reason for discount:") || "";
-                    if (!reason) { setMsg("A reason is required"); return; }
-                    lastDiscount.current = { kind: "percent", value: v, reason };
-                    applyDiscount.mutate({ kind: "percent", value: v, reason });
-                  }}
-                >
-                  % Discount
+                <button className="btn-ghost text-xs flex-1" onClick={() => setShowDiscount(true)}>
+                  Discount
                 </button>
-                <button
-                  className="btn-ghost text-xs flex-1"
-                  onClick={() => {
-                    const code = window.prompt("Coupon code:");
-                    if (code) applyCoupon.mutate(code);
-                  }}
-                >
+                <button className="btn-ghost text-xs flex-1" onClick={() => setShowCoupon(true)}>
                   Coupon
                 </button>
               </div>
@@ -346,6 +332,62 @@ export function Pos() {
           onAdd={(variant, addons) => addItem.mutate({ menu_item: picker.id, qty: 1, variant, addons })}
         />
       )}
+
+      {showDiscount && (
+        <DiscountModal
+          onCancel={() => setShowDiscount(false)}
+          onApply={(kind, value, reason) => {
+            lastDiscount.current = { kind, value, reason };
+            applyDiscount.mutate({ kind, value, reason });
+          }}
+        />
+      )}
+
+      {showCoupon && (
+        <CouponModal onCancel={() => setShowCoupon(false)} onApply={(code) => applyCoupon.mutate(code)} />
+      )}
+    </div>
+  );
+}
+
+function DiscountModal({ onCancel, onApply }: { onCancel: () => void; onApply: (kind: string, value: number, reason: string) => void }) {
+  const [kind, setKind] = useState("percent");
+  const [value, setValue] = useState("10");
+  const [reason, setReason] = useState("");
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
+      <div className="card p-5 w-[360px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-4">Apply discount</div>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
+            <option value="percent">Percentage %</option>
+            <option value="fixed">Fixed ₹</option>
+          </select>
+          <input className="input" type="number" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value" />
+        </div>
+        <input className="input mb-1" placeholder="Reason (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <div className="text-xs text-muted mb-4">Over your cap? A manager passcode will be requested.</div>
+        <div className="flex gap-2">
+          <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary flex-1" disabled={!value || !reason} onClick={() => onApply(kind, Number(value), reason)}>Apply</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CouponModal({ onCancel, onApply }: { onCancel: () => void; onApply: (code: string) => void }) {
+  const [code, setCode] = useState("");
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
+      <div className="card p-5 w-[340px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-4">Apply coupon</div>
+        <input className="input mb-4" placeholder="Coupon code (e.g. WELCOME10)" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
+        <div className="flex gap-2">
+          <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary flex-1" disabled={!code} onClick={() => onApply(code)}>Apply</button>
+        </div>
+      </div>
     </div>
   );
 }

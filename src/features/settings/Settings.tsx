@@ -1,10 +1,91 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { Card, PageHeader, Spinner } from "../../design/ui";
+import { useToast } from "../../design/Toast";
+import { Card, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import type { Entitlement, User } from "../../lib/types";
+import type { Entitlement, Role, User } from "../../lib/types";
+
+const ROLES: Role[] = ["Managing Director", "General Manager", "Front Office", "F&B Cashier", "Housekeeping"];
+
+function UsersPanel() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const empty = { username: "", first_name: "", last_name: "", role: "F&B Cashier" as Role,
+    password: "", passcode: "", discount_cap_type: "none", discount_cap_value: "0" };
+  const [f, setF] = useState(empty);
+  const { data: users } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => (await api.get<User[]>("/auth/users/")).data,
+  });
+  const create = useMutation({
+    mutationFn: async () => (await api.post("/auth/users/", f)).data,
+    onSuccess: () => { setF(empty); toast("User created"); qc.invalidateQueries({ queryKey: ["users"] }); },
+    onError: (e: any) => toast(e?.response?.data?.username?.[0] ?? "Could not create user", "error"),
+  });
+  const toggle = useMutation({
+    mutationFn: async (u: User) => (await api.patch(`/auth/users/${u.id}/`, { is_active: !u.is_active })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+  const set = (k: string, v: string) => setF({ ...f, [k]: v });
+
+  return (
+    <Card>
+      <div className="font-semibold mb-3">Users &amp; roles</div>
+      <div className="grid grid-cols-4 gap-2 mb-2">
+        <input className="input" placeholder="Username" value={f.username} onChange={(e) => set("username", e.target.value)} />
+        <input className="input" placeholder="First name" value={f.first_name} onChange={(e) => set("first_name", e.target.value)} />
+        <input className="input" placeholder="Last name" value={f.last_name} onChange={(e) => set("last_name", e.target.value)} />
+        <select className="input" value={f.role} onChange={(e) => set("role", e.target.value)}>
+          {ROLES.map((r) => <option key={r}>{r}</option>)}
+        </select>
+        <input className="input" placeholder="Password" type="password" value={f.password} onChange={(e) => set("password", e.target.value)} />
+        <input className="input" placeholder="POS passcode" value={f.passcode} onChange={(e) => set("passcode", e.target.value)} />
+        <select className="input" value={f.discount_cap_type} onChange={(e) => set("discount_cap_type", e.target.value)}>
+          <option value="none">No discount cap</option>
+          <option value="percent">% cap</option>
+          <option value="fixed">Fixed cap</option>
+        </select>
+        <input className="input" placeholder="Cap value" value={f.discount_cap_value} onChange={(e) => set("discount_cap_value", e.target.value)} disabled={f.discount_cap_type === "none"} />
+      </div>
+      <button className="btn-primary mb-4" disabled={!f.username || !f.password || create.isPending} onClick={() => create.mutate()}>
+        Add user
+      </button>
+
+      <table className="w-full text-sm">
+        <thead className="text-muted text-xs uppercase">
+          <tr>
+            <th className="text-left py-2">Name</th><th className="text-left py-2">Username</th>
+            <th className="text-left py-2">Role</th><th className="text-left py-2">Cap</th>
+            <th className="text-right py-2">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users?.map((u) => (
+            <tr key={u.id} className="border-t border-line">
+              <td className="py-2 font-medium">{u.name}</td>
+              <td className="py-2 font-mono text-xs">{u.username}</td>
+              <td className="py-2">{u.role}</td>
+              <td className="py-2 text-muted">
+                {u.discount_cap_type === "percent" ? `${Number(u.discount_cap_value)}%`
+                  : u.discount_cap_type === "fixed" ? `₹${Number(u.discount_cap_value)}` : "—"}
+              </td>
+              <td className="py-2 text-right">
+                <button
+                  className={`pill ${u.is_active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
+                  onClick={() => toggle.mutate(u)}
+                >
+                  {u.is_active ? "Active" : "Inactive"}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
 
 function PropertyPanel() {
   const { property, refreshProperty } = useApp();
@@ -124,11 +205,6 @@ export function Settings() {
   const { property, refreshProperty } = useApp();
   const [saving, setSaving] = useState<string | null>(null);
 
-  const { data: users, isLoading } = useQuery({
-    queryKey: ["users"],
-    queryFn: async () => (await api.get<User[]>("/auth/users/")).data,
-  });
-
   async function toggle(flag: keyof Entitlement) {
     if (!property) return;
     setSaving(flag);
@@ -149,8 +225,6 @@ export function Settings() {
       setSaving(null);
     }
   }
-
-  if (isLoading) return <Spinner />;
 
   return (
     <div>
@@ -209,23 +283,7 @@ export function Settings() {
         </div>
       </Card>
 
-      <Card>
-        <div className="font-semibold mb-3">Users &amp; roles</div>
-        <table className="w-full text-sm">
-          <thead className="text-muted text-xs uppercase">
-            <tr><th className="text-left py-2">Name</th><th className="text-left py-2">Username</th><th className="text-left py-2">Role</th></tr>
-          </thead>
-          <tbody>
-            {users?.map((u) => (
-              <tr key={u.id} className="border-t border-line">
-                <td className="py-2 font-medium">{u.name}</td>
-                <td className="py-2 font-mono text-xs">{u.username}</td>
-                <td className="py-2">{u.role}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      <UsersPanel />
     </div>
   );
 }

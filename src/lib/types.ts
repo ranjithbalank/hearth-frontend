@@ -13,6 +13,10 @@ export interface User {
   email: string;
   allowed_modules: string[] | "*";
   mfa_enabled?: boolean;
+  passcode?: string;
+  discount_cap_type?: string;
+  discount_cap_value?: string;
+  is_active?: boolean;
 }
 
 export interface Entitlement {
