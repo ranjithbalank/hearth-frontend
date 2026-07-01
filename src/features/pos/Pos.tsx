@@ -5,6 +5,7 @@ import { Badge, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { inr } from "../../lib/money";
+import { usePrompt } from "../../design/Prompt";
 import { cacheMenu, enqueue, getCachedMenu, uuid, type OfflineBill } from "../../lib/offline";
 import { useOnline } from "../../lib/useOnline";
 import type { Folio, MenuItem, Order, Table } from "../../lib/types";
@@ -16,6 +17,7 @@ interface Category { id: number; name: string }
 export function Pos() {
   const qc = useQueryClient();
   const { property } = useApp();
+  const ask = usePrompt();
   const hms = property?.entitlement.hms;
 
   const [mode, setMode] = useState<Mode>("dinein");
@@ -82,7 +84,7 @@ export function Pos() {
     onSuccess: () => { setMsg("Discount applied"); setShowDiscount(false); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
     onError: async (e: any) => {
       if (e?.response?.data?.cap_exceeded) {
-        const code = window.prompt(`${e.response.data.detail}\nEnter manager passcode to override:`);
+        const code = await ask({ title: "Manager override", label: e.response.data.detail, password: true, placeholder: "Manager passcode" });
         if (code) applyDiscount.mutate({ ...lastDiscount.current!, override: code });
       } else {
         setMsg(e?.response?.data?.detail ?? "Discount failed");
@@ -285,8 +287,8 @@ export function Pos() {
               <div className="flex gap-2 mt-2">
                 <button
                   className="btn-ghost text-xs flex-1"
-                  onClick={() => {
-                    const name = window.prompt("Move to table (name):");
+                  onClick={async () => {
+                    const name = await ask({ title: "Move order", label: "Destination table", placeholder: "Table name" });
                     const dest = tables?.find((t) => t.name.toLowerCase() === (name ?? "").toLowerCase());
                     if (dest) move.mutate(dest.id); else if (name) setMsg("Table not found");
                   }}
@@ -295,8 +297,8 @@ export function Pos() {
                 </button>
                 <button
                   className="btn-ghost text-xs flex-1 text-clay"
-                  onClick={() => {
-                    const code = window.prompt("Void order — manager passcode:");
+                  onClick={async () => {
+                    const code = await ask({ title: "Void order", label: "Manager passcode", password: true });
                     if (code) voidOrder.mutate(code);
                   }}
                 >

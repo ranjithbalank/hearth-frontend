@@ -4,6 +4,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
+import { PromptProvider } from "./design/Prompt";
 import { ToastProvider } from "./design/Toast";
 import "./index.css";
 import { AppProvider } from "./lib/app-context";
@@ -18,7 +19,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <AppProvider>
           <ToastProvider>
-            <App />
+            <PromptProvider>
+              <App />
+            </PromptProvider>
           </ToastProvider>
         </AppProvider>
       </BrowserRouter>

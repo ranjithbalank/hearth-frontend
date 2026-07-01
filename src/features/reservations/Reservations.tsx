@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { usePrompt } from "../../design/Prompt";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
@@ -18,6 +19,7 @@ interface Avail { room_type: string; name: string; physical: number; held: numbe
 
 export function Reservations() {
   const qc = useQueryClient();
+  const ask = usePrompt();
   const [msg, setMsg] = useState<string | null>(null);
   const [q, setQ] = useState("");
 
@@ -101,7 +103,7 @@ export function Reservations() {
                       className="btn-ghost text-xs py-1"
                       onClick={async () => {
                         const opts = (await api.get(`/reservations/${r.id}/room_options/`)).data as { id: number; number: string }[];
-                        const num = window.prompt(`Move to room (${opts.map((o) => o.number).join(", ")}):`);
+                        const num = await ask({ title: "Move room", label: "New room number", placeholder: opts.map((o) => o.number).join(", ") });
                         const dest = opts.find((o) => o.number === num);
                         if (dest) act.mutate({ id: r.id, action: "room_move", body: { room: dest.id } });
                         else if (num) setMsg("Room not available");

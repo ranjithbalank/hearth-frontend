@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { usePrompt } from "../../design/Prompt";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr, num } from "../../lib/money";
@@ -13,6 +14,7 @@ interface Forecast { date: string; demand_index: number; weekend: boolean }
 
 export function Revenue() {
   const qc = useQueryClient();
+  const ask = usePrompt();
   const [msg, setMsg] = useState<string | null>(null);
 
   const { data: recs, isLoading } = useQuery({
@@ -116,10 +118,10 @@ export function Revenue() {
               <span className="text-sm text-muted">MLOS · CTA/CTD · stop-sell — pushed to channels</span>
               <button
                 className="btn-outline text-xs py-1"
-                onClick={() => {
-                  const code = window.prompt("Room type code (e.g. STD/DLX/STE):", "STD");
+                onClick={async () => {
+                  const code = await ask({ title: "Set restriction", label: "Room type code", defaultValue: "STD", placeholder: "STD / DLX / STE" });
                   if (!code) return;
-                  const mlos = Number(window.prompt("Minimum length of stay:", "2")) || 1;
+                  const mlos = Number(await ask({ title: "Minimum length of stay", label: "Nights", defaultValue: "2" })) || 1;
                   setRestriction.mutate({ room_type: code.toUpperCase(), min_los: mlos });
                 }}
               >

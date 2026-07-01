@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -19,6 +20,7 @@ const CAN_ADVANCE = new Set(["vacant_dirty", "cleaning", "vacant_clean"]);
 export function Housekeeping() {
   const qc = useQueryClient();
   const toast = useToast();
+  const ask = usePrompt();
   const { data: rooms, isLoading } = useQuery({
     queryKey: ["hk-rooms"],
     queryFn: async () => (await api.get<Room[]>("/housekeeping/")).data,
@@ -67,10 +69,10 @@ export function Housekeeping() {
             {r.status === "occupied" && (
               <button
                 className="btn-ghost w-full mt-3 text-xs py-1.5"
-                onClick={() => {
-                  const item = window.prompt("Minibar item consumed:");
+                onClick={async () => {
+                  const item = await ask({ title: "Post minibar", label: "Item consumed", placeholder: "e.g. Soft drink" });
                   if (!item) return;
-                  const amount = Number(window.prompt("Amount (₹):", "150"));
+                  const amount = Number(await ask({ title: "Minibar amount", label: "Amount (₹)", defaultValue: "150" }));
                   if (amount > 0) minibar.mutate({ room: r, item, amount });
                 }}
               >
@@ -92,6 +94,7 @@ interface LostItem { id: number; description: string; location: string; status: 
 
 function LostFound() {
   const qc = useQueryClient();
+  const ask = usePrompt();
   const { data } = useQuery({
     queryKey: ["lost-found"],
     queryFn: async () => (await api.get<LostItem[]>("/housekeeping/lost_found/")).data,
@@ -111,10 +114,10 @@ function LostFound() {
         <div className="font-semibold">Lost &amp; Found</div>
         <button
           className="btn-outline text-xs py-1"
-          onClick={() => {
-            const description = window.prompt("Found item description:");
+          onClick={async () => {
+            const description = await ask({ title: "Log found item", label: "Description", placeholder: "e.g. Black umbrella" });
             if (!description) return;
-            const location = window.prompt("Where was it found?") || "";
+            const location = (await ask({ title: "Location", label: "Where was it found?", placeholder: "e.g. Lobby" })) || "";
             add.mutate({ description, location });
           }}
         >
