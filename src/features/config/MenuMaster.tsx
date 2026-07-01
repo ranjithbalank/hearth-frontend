@@ -12,6 +12,7 @@ export function MenuMaster() {
   const qc = useQueryClient();
   const empty = { name: "", category: "", price: "", gst_rate: "5", diet: "veg" };
   const [form, setForm] = useState(empty);
+  const [q, setQ] = useState("");
 
   const { data: cats } = useQuery({ queryKey: ["cats"], queryFn: async () => (await api.get<Category[]>("/pos/categories/")).data });
   const { data: items, isLoading } = useQuery({ queryKey: ["menu"], queryFn: async () => (await api.get<MenuItem[]>("/pos/menu-items/")).data });
@@ -34,7 +35,11 @@ export function MenuMaster() {
 
   return (
     <div>
-      <PageHeader title="Menu Master" subtitle="Items, categories, prices &amp; tax" />
+      <PageHeader
+        title="Menu Master"
+        subtitle="Items, categories, prices &amp; tax"
+        action={<input className="input w-56" placeholder="Search item…" value={q} onChange={(e) => setQ(e.target.value)} />}
+      />
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add menu item</div>
         <div className="grid grid-cols-5 gap-2">
@@ -73,7 +78,7 @@ export function MenuMaster() {
             </tr>
           </thead>
           <tbody>
-            {items.map((m) => (
+            {items.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).map((m) => (
               <tr key={m.id} className="border-t border-line">
                 <td className="px-4 py-3 font-medium">{m.name}</td>
                 <td className="px-4 py-3 text-muted">{m.category_name}</td>

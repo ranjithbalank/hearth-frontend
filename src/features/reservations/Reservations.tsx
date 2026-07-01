@@ -19,6 +19,7 @@ interface Avail { room_type: string; name: string; physical: number; held: numbe
 export function Reservations() {
   const qc = useQueryClient();
   const [msg, setMsg] = useState<string | null>(null);
+  const [q, setQ] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["reservations"],
@@ -43,7 +44,11 @@ export function Reservations() {
 
   return (
     <div>
-      <PageHeader title="Reservations" subtitle="Bookings, availability & amendments" />
+      <PageHeader
+        title="Reservations"
+        subtitle="Bookings, availability & amendments"
+        action={<input className="input w-56" placeholder="Search guest…" value={q} onChange={(e) => setQ(e.target.value)} />}
+      />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
       {avail && (
@@ -75,7 +80,7 @@ export function Reservations() {
             </tr>
           </thead>
           <tbody>
-            {data.map((r) => (
+            {data.filter((r) => !q || r.guest_name.toLowerCase().includes(q.toLowerCase())).map((r) => (
               <tr key={r.id} className="border-t border-line">
                 <td className="px-4 py-3 font-medium">{r.guest_name}</td>
                 <td className="px-4 py-3">{r.room_type_code}</td>

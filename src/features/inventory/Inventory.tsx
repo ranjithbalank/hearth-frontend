@@ -12,6 +12,7 @@ interface Ingredient {
 
 export function Inventory() {
   const [onlyLow, setOnlyLow] = useState(false);
+  const [q, setQ] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["ingredients"],
     queryFn: async () => (await api.get<Ingredient[]>("/inventory/")).data,
@@ -19,7 +20,7 @@ export function Inventory() {
 
   if (isLoading || !data) return <Spinner />;
   const low = data.filter((i) => i.below_par);
-  const rows = onlyLow ? low : data;
+  const rows = (onlyLow ? low : data).filter((i) => !q || i.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div>
@@ -27,12 +28,15 @@ export function Inventory() {
         title="Inventory & Stock"
         subtitle="Raw-material par levels"
         action={
-          <button
-            className={`pill border ${onlyLow ? "bg-amber text-white border-amber" : "border-hairline"}`}
-            onClick={() => setOnlyLow((v) => !v)}
-          >
-            Below par only ({low.length})
-          </button>
+          <div className="flex items-center gap-2">
+            <input className="input w-48" placeholder="Search ingredient…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <button
+              className={`pill border ${onlyLow ? "bg-amber text-white border-amber" : "border-hairline"}`}
+              onClick={() => setOnlyLow((v) => !v)}
+            >
+              Below par only ({low.length})
+            </button>
+          </div>
         }
       />
       <div className="grid grid-cols-3 gap-4 mb-4">

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import type { Room } from "../../lib/types";
@@ -17,6 +18,7 @@ const CAN_ADVANCE = new Set(["vacant_dirty", "cleaning", "vacant_clean"]);
 
 export function Housekeeping() {
   const qc = useQueryClient();
+  const toast = useToast();
   const { data: rooms, isLoading } = useQuery({
     queryKey: ["hk-rooms"],
     queryFn: async () => (await api.get<Room[]>("/housekeeping/")).data,
@@ -33,7 +35,7 @@ export function Housekeeping() {
   const minibar = useMutation({
     mutationFn: async ({ room, item, amount }: { room: Room; item: string; amount: number }) =>
       (await api.post(`/housekeeping/${room.id}/minibar/`, { item, amount })).data,
-    onError: () => alert("No open folio for this room"),
+    onError: () => toast("No open folio for this room", "error"),
   });
 
   if (isLoading || !rooms) return <Spinner />;

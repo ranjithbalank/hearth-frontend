@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
+import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
@@ -13,6 +14,7 @@ const TENDERS = ["Cash", "Card", "UPI", "BTC"];
 export function Folios() {
   const qc = useQueryClient();
   const { property } = useApp();
+  const toast = useToast();
   const [selId, setSelId] = useState<number | null>(null);
   const [tender, setTender] = useState("Card");
 
@@ -38,8 +40,8 @@ export function Folios() {
 
   const emailInvoice = useMutation({
     mutationFn: async (id: number) => (await api.post(`/folios/${id}/email_invoice/`)).data,
-    onSuccess: (d: { channel: string; to: string }) => alert(`Invoice sent via ${d.channel} to ${d.to}`),
-    onError: (e: any) => alert(e?.response?.data?.detail ?? "Could not send"),
+    onSuccess: (d: { channel: string; to: string }) => toast(`Invoice sent via ${d.channel} to ${d.to}`),
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not send", "error"),
   });
 
   if (isLoading) return <Spinner />;
