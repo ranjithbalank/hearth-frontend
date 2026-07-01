@@ -25,6 +25,8 @@ export function CheckIn() {
   const [idType, setIdType] = useState("Passport");
   const [idNumber, setIdNumber] = useState("");
   const [guestType, setGuestType] = useState("individual");
+  const [code, setCode] = useState("+91");
+  const [mobile, setMobile] = useState("");
   const [done, setDone] = useState<string | null>(null);
 
   const { data: resv, isLoading } = useQuery({
@@ -43,6 +45,7 @@ export function CheckIn() {
       (await api.post("/checkin/", {
         reservation: resvId, room: roomId ?? rooms?.[0]?.id,
         id_type: idType, id_number: idNumber, guest_type: guestType,
+        mobile: mobile ? `${code} ${mobile}` : "",
       })).data,
     onSuccess: (folio) => setDone(`Checked in to room ${folio.room_number} · folio #${folio.id}`),
   });
@@ -108,13 +111,22 @@ export function CheckIn() {
         )}
         {step === 2 && (
           <div>
-            <div className="font-semibold mb-3">ID / KYC capture</div>
+            <div className="font-semibold mb-3">ID / KYC &amp; contact</div>
+            <label className="block text-xs font-semibold text-muted mb-1">Mobile</label>
+            <div className="flex gap-2 mb-3">
+              <select className="input w-24" value={code} onChange={(e) => setCode(e.target.value)}>
+                {["+91", "+1", "+44", "+971", "+65", "+61", "+49", "+33", "+94", "+880", "+977"].map((c) => <option key={c}>{c}</option>)}
+              </select>
+              <input className="input flex-1" inputMode="numeric" placeholder="Mobile number"
+                value={mobile} onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 12))} />
+            </div>
             <label className="block text-xs font-semibold text-muted mb-1">ID type</label>
             <select className="input mb-3" value={idType} onChange={(e) => setIdType(e.target.value)}>
               <option>Passport</option><option>Aadhaar</option><option>Driving Licence</option><option>Voter ID</option>
             </select>
             <label className="block text-xs font-semibold text-muted mb-1">ID number</label>
-            <input className="input" placeholder="ID number" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
+            <input className="input" placeholder="ID number"
+              value={idNumber} onChange={(e) => setIdNumber(e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase().slice(0, 20))} />
           </div>
         )}
         {step === 3 && (
