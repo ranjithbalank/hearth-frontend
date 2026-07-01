@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
+import { PhoneInput, joinPhone } from "../../design/PhoneInput";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
@@ -45,7 +46,7 @@ export function CheckIn() {
       (await api.post("/checkin/", {
         reservation: resvId, room: roomId ?? rooms?.[0]?.id,
         id_type: idType, id_number: idNumber, guest_type: guestType,
-        mobile: mobile ? `${code} ${mobile}` : "",
+        mobile: joinPhone(code, mobile),
       })).data,
     onSuccess: (folio) => setDone(`Checked in to room ${folio.room_number} · folio #${folio.id}`),
   });
@@ -113,13 +114,7 @@ export function CheckIn() {
           <div>
             <div className="font-semibold mb-3">ID / KYC &amp; contact</div>
             <label className="block text-xs font-semibold text-muted mb-1">Mobile</label>
-            <div className="flex gap-2 mb-3">
-              <select className="input w-24" value={code} onChange={(e) => setCode(e.target.value)}>
-                {["+91", "+1", "+44", "+971", "+65", "+61", "+49", "+33", "+94", "+880", "+977"].map((c) => <option key={c}>{c}</option>)}
-              </select>
-              <input className="input flex-1" inputMode="numeric" placeholder="Mobile number"
-                value={mobile} onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 12))} />
-            </div>
+            <PhoneInput className="mb-3" code={code} number={mobile} onCode={setCode} onNumber={setMobile} />
             <label className="block text-xs font-semibold text-muted mb-1">ID type</label>
             <select className="input mb-3" value={idType} onChange={(e) => setIdType(e.target.value)}>
               <option>Passport</option><option>Aadhaar</option><option>Driving Licence</option><option>Voter ID</option>

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { PhoneInput, joinPhone } from "../../design/PhoneInput";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
@@ -114,14 +115,14 @@ export function Banquets() {
 function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Space[]; restaurant: boolean; onCancel: () => void; onCreated: () => void }) {
   const today = new Date().toISOString().slice(0, 10);
   const [f, setF] = useState({
-    title: "", host: "", contact: "", event_type: "Wedding",
+    title: "", host: "", contact_code: "+91", contact: "", event_type: "Wedding",
     space: "", event_date: today, covers: "", package_amount: "", deposit: "",
     food_covers: "", food_pref: "veg",
   });
   const [err, setErr] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: async () => (await api.post("/banquets/", {
-      title: f.title, host: f.host, contact: f.contact, event_type: f.event_type,
+      title: f.title, host: f.host, contact: joinPhone(f.contact_code, f.contact), event_type: f.event_type,
       space: Number(f.space), event_date: f.event_date, covers: Number(f.covers || 0),
       package_amount: f.package_amount || 0, deposit: f.deposit || 0,
       food_covers: Number(f.food_covers || 0), food_pref: f.food_covers ? f.food_pref : "",
@@ -148,7 +149,8 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Contact</label>
-            <input className="input" value={f.contact} onChange={(e) => set("contact", e.target.value)} />
+            <PhoneInput code={f.contact_code} number={f.contact}
+              onCode={(c) => set("contact_code", c)} onNumber={(n) => set("contact", n)} />
           </div>
         </div>
 

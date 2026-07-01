@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -89,9 +90,11 @@ function UsersPanel() {
 
 function PropertyPanel() {
   const { property, refreshProperty } = useApp();
+  const initialPhone = splitPhone(property?.phone ?? "");
   const [f, setF] = useState({
     name: property?.name ?? "", gstin: property?.gstin ?? "",
-    address: property?.address ?? "", phone: property?.phone ?? "",
+    address: property?.address ?? "",
+    phone_code: initialPhone.code, phone: initialPhone.number,
   });
   const [logo, setLogo] = useState(property?.logo ?? "");
   const [saved, setSaved] = useState(false);
@@ -109,7 +112,8 @@ function PropertyPanel() {
   async function save() {
     setSaving(true);
     try {
-      await api.patch("/auth/property/", { ...f, logo });
+      const { phone_code, phone, ...rest } = f;
+      await api.patch("/auth/property/", { ...rest, phone: joinPhone(phone_code, phone), logo });
       await refreshProperty();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -152,7 +156,8 @@ function PropertyPanel() {
         </div>
         <div>
           <label className="block text-xs font-semibold text-muted mb-1">Phone</label>
-          <input className="input" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
+          <PhoneInput code={f.phone_code} number={f.phone}
+            onCode={(c) => setF({ ...f, phone_code: c })} onNumber={(n) => setF({ ...f, phone: n })} />
         </div>
       </div>
       <div className="flex items-center gap-3 mt-3">
