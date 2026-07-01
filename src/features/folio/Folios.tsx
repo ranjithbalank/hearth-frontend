@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
+import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -15,8 +16,10 @@ export function Folios() {
   const qc = useQueryClient();
   const { property } = useApp();
   const toast = useToast();
+  const ask = usePrompt();
   const [selId, setSelId] = useState<number | null>(null);
   const [tender, setTender] = useState("Card");
+  const [q, setQ] = useState("");
 
   const { data: folios, isLoading } = useQuery({
     queryKey: ["folios"],
@@ -34,8 +37,10 @@ export function Folios() {
       (await api.post(`/folios/${folio.id}/checkout/`, { tender })).data as Folio,
     onSuccess: (settled) => {
       qc.invalidateQueries({ queryKey: ["folios"] });
+      toast(`${settled.guest_name} checked out · invoice ${settled.invoice_no ?? ""}`.trim());
       downloadInvoicePdf(settled); // auto-download the GST invoice on check-out
     },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Check-out failed", "error"),
   });
 
   const emailInvoice = useMutation({
@@ -47,12 +52,17 @@ export function Folios() {
   if (isLoading) return <Spinner />;
   if (!folios?.length) return <><PageHeader title="Folios" /><EmptyState title="No folios yet" hint="Check in a guest from Front Desk." /></>;
 
+  const needle = q.trim().toLowerCase();
+  const visible = folios.filter((f) =>
+    !needle || f.guest_name.toLowerCase().includes(needle) || (f.room_number ?? "").toLowerCase().includes(needle));
+
   return (
     <div>
       <PageHeader title="Guest Folios" subtitle="Charge ledger &amp; settlement" />
       <div className="grid grid-cols-[300px_1fr] gap-4">
         <div className="space-y-2">
-          {folios.map((f) => (
+          <input className="input w-full mb-1" placeholder="Search guest or room…" value={q} onChange={(e) => setQ(e.target.value)} />
+          {visible.map((f) => (
             <button
               key={f.id}
               onClick={() => setSelId(f.id)}
@@ -63,10 +73,12 @@ export function Folios() {
                 <Badge tone={f.status === "open" ? "pine" : "muted"}>{f.status}</Badge>
               </div>
               <div className="text-sm text-muted mt-1">
-                Room {f.room_number ?? "—"} · Balance {inr(f.balance)}
+                Room {f.room_number ?? "—"} · Balance{" "}
+                <span className={num(f.balance) > 0 ? "text-clay font-medium" : ""}>{inr(f.balance)}</span>
               </div>
             </button>
           ))}
+          {!visible.length && <div className="text-sm text-muted text-center py-6">No folios match.</div>}
         </div>
 
         {sel && (
@@ -95,9 +107,10 @@ export function Folios() {
                 </button>
                 <button
                   className="btn-ghost text-xs py-1"
+                  disabled={emailInvoice.isPending}
                   onClick={() => emailInvoice.mutate(sel.id)}
                 >
-                  Email
+                  {emailInvoice.isPending ? "Sending…" : "Email"}
                 </button>
               </div>
             </div>
@@ -133,7 +146,8 @@ export function Folios() {
               <span className="text-muted">Paid</span><span>{inr(sel.paid_total)}</span>
             </div>
             <div className="flex justify-between font-semibold text-lg mt-1">
-              <span>Balance</span><span>{inr(sel.balance)}</span>
+              <span>Balance</span>
+              <span className={num(sel.balance) > 0 ? "text-clay" : "text-pine"}>{inr(sel.balance)}</span>
             </div>
 
             {sel.status === "open" && (
@@ -141,8 +155,23 @@ export function Folios() {
                 <select className="input w-32" value={tender} onChange={(e) => setTender(e.target.value)}>
                   {TENDERS.map((t) => <option key={t}>{t}</option>)}
                 </select>
-                <button className="btn-primary flex-1" disabled={checkout.isPending} onClick={() => checkout.mutate(sel)}>
-                  Settle &amp; check out
+                <button
+                  className="btn-primary flex-1"
+                  disabled={checkout.isPending}
+                  onClick={async () => {
+                    const bal = num(sel.balance);
+                    const ok = await ask({
+                      title: "Settle & check out",
+                      confirm: true,
+                      confirmLabel: "Check out",
+                      message: bal > 0
+                        ? `Settle the ${inr(sel.balance)} balance via ${tender} and check out ${sel.guest_name}?`
+                        : `Check out ${sel.guest_name}? The folio is already settled.`,
+                    });
+                    if (ok) checkout.mutate(sel);
+                  }}
+                >
+                  {checkout.isPending ? "Checking out…" : "Settle & check out"}
                 </button>
               </div>
             )}
