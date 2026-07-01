@@ -8,7 +8,7 @@ import { inr } from "../../lib/money";
 import { cacheMenu, enqueue, getCachedMenu, uuid, type OfflineBill } from "../../lib/offline";
 import { useOnline } from "../../lib/useOnline";
 import type { Folio, MenuItem, Order, Table } from "../../lib/types";
-import { printBill, printKot } from "../print/documents";
+import { downloadBillPdf, printKot } from "../print/documents";
 
 type Mode = "dinein" | "takeaway" | "delivery";
 interface Category { id: number; name: string }
@@ -329,8 +329,8 @@ export function Pos() {
                   <button className="btn-ghost text-xs" onClick={() => order && printKot(order, property?.name ?? "Hearth")}>
                     Print KOT
                   </button>
-                  <button className="btn-ghost text-xs" onClick={() => order && printBill(order, property?.name ?? "Hearth")}>
-                    Print bill
+                  <button className="btn-ghost text-xs" onClick={() => order && downloadBillPdf(order.id)}>
+                    Bill PDF
                   </button>
                 </div>
               </div>

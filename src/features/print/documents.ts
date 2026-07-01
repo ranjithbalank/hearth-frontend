@@ -3,20 +3,29 @@
 import { getAccess } from "../../lib/api";
 import type { Folio, Order } from "../../lib/types";
 
-/** Download the server-generated GST invoice PDF for a folio. */
-export async function downloadInvoicePdf(folio: { id: number; invoice_no?: string }) {
-  const res = await fetch(`/api/folios/${folio.id}/invoice_pdf/`, {
-    headers: { Authorization: `Bearer ${getAccess()}` },
-  });
+async function downloadPdf(path: string, filename: string) {
+  const res = await fetch(path, { headers: { Authorization: `Bearer ${getAccess()}` } });
   if (!res.ok) return;
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${folio.invoice_no || "folio-" + folio.id}.pdf`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/** Download the server-generated GST invoice PDF for a folio. */
+export const downloadInvoicePdf = (folio: { id: number; invoice_no?: string }) =>
+  downloadPdf(`/api/folios/${folio.id}/invoice_pdf/`, `${folio.invoice_no || "folio-" + folio.id}.pdf`);
+
+/** Download the POS bill/receipt PDF. */
+export const downloadBillPdf = (orderId: number) =>
+  downloadPdf(`/api/pos/orders/${orderId}/bill_pdf/`, `bill-${orderId}.pdf`);
+
+/** Download the Banquet Event Order (BEO) PDF. */
+export const downloadBeoPdf = (eventId: number) =>
+  downloadPdf(`/api/banquets/${eventId}/beo_pdf/`, `BEO-${eventId}.pdf`);
 
 const inr = (v: string | number) =>
   "₹" + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Number(v) || 0);
