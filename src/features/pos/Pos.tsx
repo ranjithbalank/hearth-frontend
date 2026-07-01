@@ -4,27 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import { Badge, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { amount, digits } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 import { usePrompt } from "../../design/Prompt";
+import { useToast } from "../../design/Toast";
 import { cacheMenu, enqueue, getCachedMenu, uuid, type OfflineBill } from "../../lib/offline";
 import { useOnline } from "../../lib/useOnline";
 import type { Folio, MenuItem, Order, Table } from "../../lib/types";
 import { downloadBillPdf, printKot } from "../print/documents";
 
 type Mode = "dinein" | "takeaway" | "delivery";
+const MODE_LABELS: Record<Mode, string> = { dinein: "Dine-in", takeaway: "Takeaway", delivery: "Delivery" };
 interface Category { id: number; name: string }
 
 export function Pos() {
   const qc = useQueryClient();
   const { property } = useApp();
   const ask = usePrompt();
+  const toast = useToast();
   const hms = property?.entitlement.hms;
 
   const [mode, setMode] = useState<Mode>("dinein");
   const [table, setTable] = useState<Table | null>(null);
   const [orderId, setOrderId] = useState<number | null>(null);
   const [cat, setCat] = useState<number | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
 
   const { data: tables } = useQuery({ queryKey: ["tables"], queryFn: async () => (await api.get<Table[]>("/pos/tables/")).data });
   const { data: cats } = useQuery({ queryKey: ["cats"], queryFn: async () => (await api.get<Category[]>("/pos/categories/")).data });
@@ -56,7 +59,7 @@ export function Pos() {
       return (await api.post(`/pos/orders/${id}/add_item/`, payload)).data;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["order", orderId] }); setPicker(null); },
-    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Could not add item"),
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add item", "error"),
   });
 
   function onItemClick(item: MenuItem) {
@@ -75,19 +78,19 @@ export function Pos() {
 
   const fireKot = useMutation({
     mutationFn: async () => (await api.post(`/pos/orders/${orderId}/fire_kot/`)).data,
-    onSuccess: (o: Order) => { setMsg(`KOT fired: ${o.kot_no}`); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+    onSuccess: (o: Order) => { toast(`KOT fired · ${o.kot_no}`); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
   });
 
   const applyDiscount = useMutation({
     mutationFn: async (body: { kind: string; value: number; reason: string; override?: string }) =>
       (await api.post(`/pos/orders/${orderId}/apply_discount/`, body)).data,
-    onSuccess: () => { setMsg("Discount applied"); setShowDiscount(false); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+    onSuccess: () => { toast("Discount applied"); setShowDiscount(false); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
     onError: async (e: any) => {
       if (e?.response?.data?.cap_exceeded) {
         const code = await ask({ title: "Manager override", label: e.response.data.detail, password: true, placeholder: "Manager passcode" });
         if (code) applyDiscount.mutate({ ...lastDiscount.current!, override: code });
       } else {
-        setMsg(e?.response?.data?.detail ?? "Discount failed");
+        toast(e?.response?.data?.detail ?? "Discount failed", "error");
       }
     },
   });
@@ -96,19 +99,19 @@ export function Pos() {
   const applyCoupon = useMutation({
     mutationFn: async (code: string) =>
       (await api.post(`/pos/orders/${orderId}/apply_coupon/`, { code })).data,
-    onSuccess: () => { setMsg("Coupon applied"); setShowCoupon(false); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
-    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Invalid coupon"),
+    onSuccess: () => { toast("Coupon applied"); setShowCoupon(false); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Invalid coupon", "error"),
   });
 
   const move = useMutation({
     mutationFn: async (dest: number) => (await api.post(`/pos/orders/${orderId}/move/`, { table: dest })).data,
-    onSuccess: () => { setMsg("Order moved"); reset(); },
+    onSuccess: () => { toast("Order moved"); reset(); },
   });
   const voidOrder = useMutation({
     mutationFn: async (override: string) =>
       (await api.post(`/pos/orders/${orderId}/void/`, { override, reason: "voided at POS" })).data,
-    onSuccess: () => { setMsg("Order voided"); reset(); },
-    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Void failed"),
+    onSuccess: () => { toast("Order voided"); reset(); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Void failed", "error"),
   });
 
   const settle = useMutation({
@@ -116,8 +119,8 @@ export function Pos() {
       (await api.post(`/pos/orders/${orderId}/settle/`, {
         tender, token: tender === "Gateway" ? "tok_demo_card" : undefined,
       })).data,
-    onSuccess: (_d, tender) => { setMsg(`Settled (${tender})`); reset(); },
-    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Payment failed"),
+    onSuccess: (_d, tender) => { toast(`Settled · ${tender}`); reset(); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Payment failed", "error"),
   });
 
   const postToRoom = useMutation({
@@ -126,8 +129,8 @@ export function Pos() {
       if (!folios.length) throw new Error("No open folio");
       return (await api.post(`/pos/orders/${orderId}/post_to_room/`, { folio: folios[0].id })).data;
     },
-    onSuccess: (o: Order) => { setMsg(`Posted to room (folio #${o.folio})`); reset(); },
-    onError: () => setMsg("No open folio to post to"),
+    onSuccess: (o: Order) => { toast(`Posted to room · folio #${o.folio}`); reset(); },
+    onError: () => toast("No open folio to post to", "error"),
   });
 
   function reset() {
@@ -149,7 +152,7 @@ export function Pos() {
           : "Billing continues locally — bills will sync automatically when the connection returns."}
       </span>
       {online && queued > 0 && (
-        <button className="btn-primary text-xs py-1" onClick={() => sync().then((n) => n && setMsg(`Synced ${n} offline bill(s)`))}>
+        <button className="btn-primary text-xs py-1" onClick={() => sync().then((n) => n && toast(`Synced ${n} offline bill(s)`))}>
           Sync now ({queued})
         </button>
       )}
@@ -162,7 +165,7 @@ export function Pos() {
       <div>
         <PageHeader title="Restaurant POS" subtitle="Offline mode" />
         {banner}
-        <OfflineBilling mode={mode} table={table} onQueued={() => setMsg("Bill saved offline")} />
+        <OfflineBilling mode={mode} table={table} onQueued={() => toast("Bill saved offline")} />
       </div>
     );
   }
@@ -171,7 +174,6 @@ export function Pos() {
     <div>
       <PageHeader title="Restaurant POS" subtitle="Orders · KOT · settlement" />
       {banner}
-      {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
       <div className="flex gap-2 mb-4">
         {(["dinein", "takeaway", "delivery"] as Mode[]).map((m) => (
@@ -180,7 +182,7 @@ export function Pos() {
             onClick={() => { setMode(m); if (m !== "dinein") setTable(null); }}
             className={`pill border ${mode === m ? "bg-pine text-white border-pine" : "border-hairline text-body"}`}
           >
-            {m}
+            {MODE_LABELS[m]}
           </button>
         ))}
       </div>
@@ -210,13 +212,18 @@ export function Pos() {
               <button key={c.id} onClick={() => setCat(c.id)} className={`pill ${cat === c.id ? "bg-ink text-white" : "bg-hairline text-body"}`}>{c.name}</button>
             ))}
           </div>
+          {mode === "dinein" && !table && (
+            <div className="text-sm text-muted mb-3 rounded-card border border-dashed border-hairline px-3 py-2">
+              Select a table above to start an order.
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-2">
             {shown?.map((i) => (
               <button
                 key={i.id}
-                disabled={mode === "dinein" && !table}
+                disabled={(mode === "dinein" && !table) || !i.available}
                 onClick={() => onItemClick(i)}
-                className="card p-3 text-left hover:bg-cream disabled:opacity-40"
+                className="card p-3 text-left hover:bg-cream disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
               >
                 <div className="flex items-center gap-1.5">
                   <span className={`h-2.5 w-2.5 rounded-sm border ${i.diet === "veg" ? "border-pine" : "border-clay"}`}>
@@ -224,17 +231,26 @@ export function Pos() {
                   </span>
                   <span className="font-medium text-sm">{i.name}</span>
                 </div>
-                <div className="text-sm text-muted mt-1">{inr(i.price)}</div>
+                <div className="flex items-center justify-between mt-1">
+                  <span className="text-sm text-muted">{inr(i.price)}</span>
+                  {!i.available && <span className="text-[10px] font-semibold uppercase tracking-wide text-clay">86</span>}
+                </div>
               </button>
             ))}
+            {!shown?.length && <div className="col-span-3 text-sm text-muted py-8 text-center">No items in this category.</div>}
           </div>
         </div>
 
         {/* Order panel */}
         <div className="card p-4 h-fit sticky top-4">
           <div className="flex items-center justify-between mb-3">
-            <div className="font-semibold">
-              {mode === "dinein" ? (table ? `Table ${table.name}` : "Pick a table") : mode}
+            <div>
+              <div className="font-semibold">
+                {mode === "dinein" ? (table ? `Table ${table.name}` : "Pick a table") : MODE_LABELS[mode]}
+              </div>
+              {!!order?.lines.length && (
+                <div className="text-xs text-muted">{order.lines.reduce((n, l) => n + l.qty, 0)} item(s)</div>
+              )}
             </div>
             {order?.kot_no && <Badge tone="amber">{order.kot_no}</Badge>}
           </div>
@@ -290,7 +306,7 @@ export function Pos() {
                   onClick={async () => {
                     const name = await ask({ title: "Move order", label: "Destination table", placeholder: "Table name" });
                     const dest = tables?.find((t) => t.name.toLowerCase() === (name ?? "").toLowerCase());
-                    if (dest) move.mutate(dest.id); else if (name) setMsg("Table not found");
+                    if (dest) move.mutate(dest.id); else if (name) toast("Table not found", "error");
                   }}
                 >
                   Move
@@ -307,12 +323,14 @@ export function Pos() {
               </div>
 
               <div className="grid gap-2 mt-3">
-                <button className="btn-primary" onClick={() => fireKot.mutate()}>Fire KOT</button>
+                <button className="btn-primary" disabled={fireKot.isPending} onClick={() => fireKot.mutate()}>
+                  {fireKot.isPending ? "Firing…" : "Fire KOT"}
+                </button>
                 <div className="grid grid-cols-2 gap-2">
-                  <button className="btn-outline" onClick={() => settle.mutate("Cash")}>Settle cash</button>
-                  <button className="btn-outline" onClick={() => settle.mutate("Gateway")}>Card (gateway)</button>
+                  <button className="btn-outline" disabled={settle.isPending} onClick={() => settle.mutate("Cash")}>Settle cash</button>
+                  <button className="btn-outline" disabled={settle.isPending} onClick={() => settle.mutate("Gateway")}>Card (gateway)</button>
                 </div>
-                {hms && <button className="btn-outline" onClick={() => postToRoom.mutate()}>Post to room</button>}
+                {hms && <button className="btn-outline" disabled={postToRoom.isPending} onClick={() => postToRoom.mutate()}>Post to room</button>}
                 <div className="grid grid-cols-2 gap-2">
                   <button className="btn-ghost text-xs" onClick={() => order && printKot(order, property?.name ?? "Hearth")}>
                     Print KOT
@@ -356,22 +374,39 @@ function DiscountModal({ onCancel, onApply }: { onCancel: () => void; onApply: (
   const [kind, setKind] = useState("percent");
   const [value, setValue] = useState("10");
   const [reason, setReason] = useState("");
+
+  function onValue(raw: string) {
+    if (kind === "percent") {
+      const v = digits(raw, 3);
+      setValue(Number(v) > 100 ? "100" : v);
+    } else {
+      setValue(amount(raw));
+    }
+  }
+  function onKind(k: string) {
+    setKind(k);
+    if (k === "percent" && Number(value) > 100) setValue("100");
+  }
+
   return (
     <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
       <div className="card p-5 w-[360px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-4">Apply discount</div>
         <div className="grid grid-cols-2 gap-2 mb-3">
-          <select className="input" value={kind} onChange={(e) => setKind(e.target.value)}>
+          <select className="input" value={kind} onChange={(e) => onKind(e.target.value)}>
             <option value="percent">Percentage %</option>
             <option value="fixed">Fixed ₹</option>
           </select>
-          <input className="input" type="number" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value" />
+          <div className="relative">
+            <input className="input pr-7" inputMode="decimal" value={value} onChange={(e) => onValue(e.target.value)} placeholder="Value" />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-sm">{kind === "percent" ? "%" : "₹"}</span>
+          </div>
         </div>
         <input className="input mb-1" placeholder="Reason (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
         <div className="text-xs text-muted mb-4">Over your cap? A manager passcode will be requested.</div>
         <div className="flex gap-2">
           <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
-          <button className="btn-primary flex-1" disabled={!value || !reason} onClick={() => onApply(kind, Number(value), reason)}>Apply</button>
+          <button className="btn-primary flex-1" disabled={!value || Number(value) <= 0 || !reason.trim()} onClick={() => onApply(kind, Number(value), reason.trim())}>Apply</button>
         </div>
       </div>
     </div>
