@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount, digits } from "../../lib/inputs";
@@ -13,6 +14,7 @@ interface RoomType {
 
 export function RoomMaster() {
   const qc = useQueryClient();
+  const toast = useToast();
   const empty = { code: "", name: "", base_rate: "", max_occupancy: "2", gst_slab: "12" };
   const [form, setForm] = useState(empty);
 
@@ -29,8 +31,10 @@ export function RoomMaster() {
       })).data,
     onSuccess: () => {
       setForm(empty);
+      toast("Room type added");
       qc.invalidateQueries({ queryKey: ["room-types"] });
     },
+    onError: (e: any) => toast(e?.response?.data?.code?.[0] ?? e?.response?.data?.detail ?? "Could not add room type — the code may already exist", "error"),
   });
 
   if (isLoading || !data) return <Spinner />;

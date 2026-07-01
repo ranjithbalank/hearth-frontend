@@ -216,7 +216,9 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
 
         <div className="flex gap-2 mt-5">
           <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
-          <button className="btn-primary flex-1" disabled={!f.title || !f.space || create.isPending} onClick={() => create.mutate()}>
+          <button className="btn-primary flex-1"
+            disabled={!f.title || !f.space || create.isPending || (!!space && Number(f.covers) > space.capacity)}
+            onClick={() => create.mutate()}>
             Book event (tentative)
           </button>
         </div>

@@ -166,7 +166,7 @@ function PropertyPanel() {
         </div>
       </div>
       <div className="flex items-center gap-3 mt-3">
-        <button className="btn-primary" onClick={save} disabled={saving}>Save details</button>
+        <button className="btn-primary" onClick={save} disabled={saving || (f.gstin.length > 0 && f.gstin.length !== 15)}>Save details</button>
         {saved && <span className="text-sm text-pine">Saved ✓</span>}
       </div>
     </Card>

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount } from "../../lib/inputs";
@@ -11,6 +12,7 @@ interface Category { id: number; name: string }
 
 export function MenuMaster() {
   const qc = useQueryClient();
+  const toast = useToast();
   const empty = { name: "", category: "", price: "", gst_rate: "5", diet: "veg" };
   const [form, setForm] = useState(empty);
   const [q, setQ] = useState("");
@@ -24,7 +26,8 @@ export function MenuMaster() {
         name: form.name, category: Number(form.category), price: form.price,
         gst_rate: form.gst_rate, diet: form.diet,
       })).data,
-    onSuccess: () => { setForm({ ...empty, category: form.category }); qc.invalidateQueries({ queryKey: ["menu"] }); },
+    onSuccess: () => { setForm({ ...empty, category: form.category }); toast("Menu item added"); qc.invalidateQueries({ queryKey: ["menu"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add item — check the values and try again", "error"),
   });
 
   const toggle = useMutation({
