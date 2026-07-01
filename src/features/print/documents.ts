@@ -1,6 +1,22 @@
 /** Print-ready documents (open in a new window, trigger the print dialog).
  *  Used for GST tax invoices (folio) and POS bills/receipts. */
+import { getAccess } from "../../lib/api";
 import type { Folio, Order } from "../../lib/types";
+
+/** Download the server-generated GST invoice PDF for a folio. */
+export async function downloadInvoicePdf(folio: { id: number; invoice_no?: string }) {
+  const res = await fetch(`/api/folios/${folio.id}/invoice_pdf/`, {
+    headers: { Authorization: `Bearer ${getAccess()}` },
+  });
+  if (!res.ok) return;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${folio.invoice_no || "folio-" + folio.id}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 const inr = (v: string | number) =>
   "₹" + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Number(v) || 0);

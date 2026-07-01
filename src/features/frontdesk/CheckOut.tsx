@@ -3,8 +3,9 @@ import { useEffect, useState } from "react";
 
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr, num } from "../../lib/money";
+import { inr } from "../../lib/money";
 import type { Folio } from "../../lib/types";
+import { downloadInvoicePdf } from "../print/documents";
 
 const TENDERS = ["Card", "Cash", "UPI", "BTC"];
 
@@ -23,14 +24,13 @@ export function CheckOut() {
 
   const checkout = useMutation({
     mutationFn: async (f: Folio) =>
-      (await api.post(`/folios/${f.id}/checkout/`, {
-        payments: num(f.balance) > 0 ? [{ tender, amount: f.balance }] : [],
-      })).data,
+      (await api.post(`/folios/${f.id}/checkout/`, { tender })).data as Folio,
     onSuccess: (f: Folio) => {
       setDone(`Checked out · invoice ${f.invoice_no} · room ${f.room_number} released to housekeeping`);
       qc.invalidateQueries({ queryKey: ["open-folios"] });
       qc.invalidateQueries({ queryKey: ["rooms"] });
       setSelId(null);
+      downloadInvoicePdf(f); // auto-download the GST invoice
     },
   });
 

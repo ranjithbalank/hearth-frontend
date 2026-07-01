@@ -2,24 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
-import { api, getAccess } from "../../lib/api";
+import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { inr, num } from "../../lib/money";
 import type { Folio } from "../../lib/types";
-import { printInvoice } from "../print/documents";
-
-async function downloadInvoicePdf(folio: Folio) {
-  const res = await fetch(`/api/folios/${folio.id}/invoice_pdf/`, {
-    headers: { Authorization: `Bearer ${getAccess()}` },
-  });
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${folio.invoice_no || "folio-" + folio.id}.pdf`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+import { downloadInvoicePdf, printInvoice } from "../print/documents";
 
 const TENDERS = ["Cash", "Card", "UPI", "BTC"];
 
@@ -42,10 +29,11 @@ export function Folios() {
 
   const checkout = useMutation({
     mutationFn: async (folio: Folio) =>
-      (await api.post(`/folios/${folio.id}/checkout/`, {
-        payments: num(folio.balance) > 0 ? [{ tender, amount: folio.balance }] : [],
-      })).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["folios"] }),
+      (await api.post(`/folios/${folio.id}/checkout/`, { tender })).data as Folio,
+    onSuccess: (settled) => {
+      qc.invalidateQueries({ queryKey: ["folios"] });
+      downloadInvoicePdf(settled); // auto-download the GST invoice on check-out
+    },
   });
 
   const emailInvoice = useMutation({
