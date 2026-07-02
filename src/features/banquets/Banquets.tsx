@@ -12,7 +12,8 @@ import { downloadBeoPdf } from "../print/documents";
 interface Space { id: number; name: string; capacity: number }
 interface Event {
   id: number; title: string; host: string; contact: string; event_type: string;
-  space: string; event_date: string; covers: number; deposit: string;
+  space: string; event_date: string; start_time: string; end_time: string;
+  covers: number; deposit: string;
   package_amount: string; status: string; billed: boolean;
   food_covers: number; food_pref: string; food_veg: number; food_nonveg: number; beo_status: string;
 }
@@ -89,7 +90,7 @@ export function Banquets() {
             <div className="flex-1">
               <div className="font-semibold">{e.title} {e.event_type && <span className="text-muted font-normal">· {e.event_type}</span>}</div>
               <div className="text-sm text-muted">
-                {e.space} · {e.event_date} · {e.covers} covers · {e.host}{e.contact ? ` (${e.contact})` : ""}
+                {e.space} · {e.event_date}{e.start_time ? ` · ${e.start_time}${e.end_time ? `–${e.end_time}` : ""}` : ""} · {e.covers} covers · {e.host}{e.contact ? ` (${e.contact})` : ""}
               </div>
               {e.food_covers > 0 && (
                 <div className="text-xs text-pine mt-1">
@@ -119,14 +120,16 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
   const today = new Date().toISOString().slice(0, 10);
   const [f, setF] = useState({
     title: "", host: "", contact_code: "+91", contact: "", event_type: "Wedding",
-    space: "", event_date: today, covers: "", package_amount: "", deposit: "",
+    space: "", event_date: today, start_time: "18:00", end_time: "23:00",
+    covers: "", package_amount: "", deposit: "",
     food_pref: "veg", food_veg: "", food_nonveg: "",
   });
   const [err, setErr] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: async () => (await api.post("/banquets/", {
       title: f.title, host: f.host, contact: joinPhone(f.contact_code, f.contact), event_type: f.event_type,
-      space: Number(f.space), event_date: f.event_date, covers: Number(f.covers || 0),
+      space: Number(f.space), event_date: f.event_date, start_time: f.start_time, end_time: f.end_time,
+      covers: Number(f.covers || 0),
       package_amount: f.package_amount || 0, deposit: f.deposit || 0,
       food_pref: f.food_pref, food_veg: Number(f.food_veg || 0), food_nonveg: Number(f.food_nonveg || 0),
     })).data,
@@ -167,6 +170,17 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Date</label>
             <input type="date" className="input" value={f.event_date} onChange={(e) => set("event_date", e.target.value)} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">Start time</label>
+            <input type="time" className="input" value={f.start_time} onChange={(e) => set("start_time", e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-muted mb-1">End time</label>
+            <input type="time" className="input" value={f.end_time} onChange={(e) => set("end_time", e.target.value)} />
           </div>
         </div>
 
