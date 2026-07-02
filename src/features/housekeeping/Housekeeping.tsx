@@ -4,6 +4,7 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { inr } from "../../lib/money";
 import type { Room } from "../../lib/types";
 
 const STATUS_TONE: Record<string, "pine" | "clay" | "amber" | "info" | "muted"> = {
@@ -15,7 +16,14 @@ const STATUS_TONE: Record<string, "pine" | "clay" | "amber" | "info" | "muted"> 
   ooo: "muted",
 };
 
-const CAN_ADVANCE = new Set(["vacant_dirty", "cleaning", "vacant_clean"]);
+// What the "advance" button does from each state — labels the next transition
+// so staff know the outcome (Dirty → Cleaning → Clean → Inspected).
+const NEXT_LABEL: Record<string, string> = {
+  vacant_dirty: "Start cleaning",
+  cleaning: "Mark clean",
+  vacant_clean: "Mark inspected",
+};
+const CAN_ADVANCE = new Set(Object.keys(NEXT_LABEL));
 
 export function Housekeeping() {
   const qc = useQueryClient();
@@ -27,16 +35,19 @@ export function Housekeeping() {
   });
 
   const advance = useMutation({
-    mutationFn: async (room: Room) => (await api.patch(`/housekeeping/${room.id}/advance/`)).data,
-    onSuccess: () => {
+    mutationFn: async (room: Room) => (await api.patch(`/housekeeping/${room.id}/advance/`)).data as Room,
+    onSuccess: (updated) => {
+      toast(`Room ${updated.number} → ${updated.status_label}`);
       qc.invalidateQueries({ queryKey: ["hk-rooms"] });
       qc.invalidateQueries({ queryKey: ["rooms"] });
     },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not update room", "error"),
   });
 
   const minibar = useMutation({
     mutationFn: async ({ room, item, amount }: { room: Room; item: string; amount: number }) =>
       (await api.post(`/housekeeping/${room.id}/minibar/`, { item, amount })).data,
+    onSuccess: (_d, v) => { toast(`Posted ${v.item} (${inr(v.amount)}) to room ${v.room.number}`); qc.invalidateQueries({ queryKey: ["folios"] }); },
     onError: () => toast("No open folio for this room", "error"),
   });
 
@@ -62,18 +73,26 @@ export function Housekeeping() {
             </div>
             <div className="text-xs text-muted mt-1">{r.room_type_name}</div>
             {CAN_ADVANCE.has(r.status) && (
-              <button className="btn-outline w-full mt-3 text-xs py-1.5" onClick={() => advance.mutate(r)}>
-                Advance
+              <button
+                className="btn-outline w-full mt-3 text-xs py-1.5"
+                disabled={advance.isPending && advance.variables?.id === r.id}
+                onClick={() => advance.mutate(r)}
+              >
+                {NEXT_LABEL[r.status]}
               </button>
             )}
             {r.status === "occupied" && (
               <button
                 className="btn-ghost w-full mt-3 text-xs py-1.5"
+                disabled={minibar.isPending && minibar.variables?.room.id === r.id}
                 onClick={async () => {
                   const item = await ask({ title: "Post minibar", label: "Item consumed", placeholder: "e.g. Soft drink" });
                   if (!item) return;
-                  const amount = Number(await ask({ title: "Minibar amount", label: "Amount (₹)", defaultValue: "150" }));
-                  if (amount > 0) minibar.mutate({ room: r, item, amount });
+                  const raw = await ask({ title: "Minibar amount", label: "Amount (₹)", defaultValue: "150" });
+                  if (raw === null) return;
+                  const amount = Number(raw);
+                  if (!amount || amount <= 0) { toast("Enter a valid amount", "error"); return; }
+                  minibar.mutate({ room: r, item, amount });
                 }}
               >
                 Post minibar
@@ -95,17 +114,20 @@ interface LostItem { id: number; description: string; location: string; status: 
 function LostFound() {
   const qc = useQueryClient();
   const ask = usePrompt();
+  const toast = useToast();
   const { data } = useQuery({
     queryKey: ["lost-found"],
     queryFn: async () => (await api.get<LostItem[]>("/housekeeping/lost_found/")).data,
   });
   const add = useMutation({
     mutationFn: async (body: object) => (await api.post("/housekeeping/lost_found/", body)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["lost-found"] }),
+    onSuccess: () => { toast("Item logged"); qc.invalidateQueries({ queryKey: ["lost-found"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not log item", "error"),
   });
   const claim = useMutation({
     mutationFn: async (id: number) => (await api.post(`/housekeeping/${id}/lost_found_claim/`, { status: "claimed" })).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["lost-found"] }),
+    onSuccess: () => { toast("Marked as claimed"); qc.invalidateQueries({ queryKey: ["lost-found"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not update item", "error"),
   });
 
   return (
@@ -131,7 +153,11 @@ function LostFound() {
           <div key={i.id} className="flex items-center gap-3 py-2 border-t border-line text-sm">
             <span className="flex-1">{i.description} <span className="text-muted">· {i.location || "—"}</span></span>
             <Badge tone={i.status === "stored" ? "amber" : "pine"}>{i.status}</Badge>
-            {i.status === "stored" && <button className="btn-ghost text-xs py-1" onClick={() => claim.mutate(i.id)}>Mark claimed</button>}
+            {i.status === "stored" && (
+              <button className="btn-ghost text-xs py-1" disabled={claim.isPending && claim.variables === i.id} onClick={() => claim.mutate(i.id)}>
+                Mark claimed
+              </button>
+            )}
           </div>
         ))
       )}
