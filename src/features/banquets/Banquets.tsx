@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { PhoneInput, joinPhone } from "../../design/PhoneInput";
+import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
@@ -16,7 +16,7 @@ function Line({ label, value }: { label: string; value: string }) {
 interface Space { id: number; name: string; capacity: number }
 interface Event {
   id: number; title: string; host: string; contact: string; event_type: string;
-  space: string; event_date: string; start_time: string; end_time: string;
+  space: string; space_id: number; event_date: string; start_time: string; end_time: string;
   covers: number; deposit: string;
   package_amount: string; status: string; billed: boolean;
   food_covers: number; food_pref: string; food_veg: number; food_nonveg: number;
@@ -36,6 +36,7 @@ export function Banquets() {
   const { property } = useApp();
   const [msg, setMsg] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
+  const [editing, setEditing] = useState<Event | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["banquets"],
@@ -66,12 +67,17 @@ export function Banquets() {
       />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
-      {booking && (
+      {(booking || editing) && (
         <BookingForm
           spaces={data.spaces}
           restaurant={!!property?.entitlement.restaurant}
-          onCancel={() => setBooking(false)}
-          onCreated={() => { setBooking(false); setMsg("Event enquiry booked (tentative)"); qc.invalidateQueries({ queryKey: ["banquets"] }); }}
+          event={editing ?? undefined}
+          onCancel={() => { setBooking(false); setEditing(null); }}
+          onSaved={(edited) => {
+            setBooking(false); setEditing(null);
+            setMsg(edited ? "Event updated" : "Event enquiry booked (tentative)");
+            qc.invalidateQueries({ queryKey: ["banquets"] });
+          }}
         />
       )}
 
@@ -111,6 +117,9 @@ export function Banquets() {
             <div className="font-medium">{inr(e.package_amount)}</div>
             <Badge tone={TONE[e.status] ?? "muted"}>{e.status}</Badge>
             <button className="btn-ghost text-xs" onClick={() => downloadBeoPdf(e.id)}>BEO PDF</button>
+            {!e.billed && (
+              <button className="btn-ghost text-xs" onClick={() => setEditing(e)}>Adjust</button>
+            )}
             {e.status === "tentative" && (
               <button className="btn-outline" onClick={() => confirm.mutate(e)}>Confirm</button>
             )}
@@ -124,26 +133,43 @@ export function Banquets() {
   );
 }
 
-function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Space[]; restaurant: boolean; onCancel: () => void; onCreated: () => void }) {
+function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
+  spaces: Space[]; restaurant: boolean; event?: Event; onCancel: () => void; onSaved: (edited: boolean) => void;
+}) {
   const today = new Date().toISOString().slice(0, 10);
-  const [f, setF] = useState({
+  const ns = (v: string | number) => (Number(v) ? String(v) : ""); // hide zeros in edit
+  const p = event ? splitPhone(event.contact) : { code: "+91", number: "" };
+  const [f, setF] = useState(event ? {
+    title: event.title, host: event.host, contact_code: p.code, contact: p.number,
+    event_type: event.event_type || "Wedding",
+    space: String(event.space_id), event_date: event.event_date,
+    start_time: event.start_time || "18:00", end_time: event.end_time || "23:00",
+    covers: ns(event.covers), package_amount: ns(event.package_amount), deposit: ns(event.deposit),
+    food_pref: event.food_pref || "veg", food_veg: ns(event.food_veg), food_nonveg: ns(event.food_nonveg),
+    veg_rate: ns(event.veg_rate), nonveg_rate: ns(event.nonveg_rate),
+  } : {
     title: "", host: "", contact_code: "+91", contact: "", event_type: "Wedding",
     space: "", event_date: today, start_time: "18:00", end_time: "23:00",
     covers: "", package_amount: "", deposit: "",
     food_pref: "veg", food_veg: "", food_nonveg: "", veg_rate: "", nonveg_rate: "",
   });
   const [err, setErr] = useState<string | null>(null);
-  const create = useMutation({
-    mutationFn: async () => (await api.post("/banquets/", {
-      title: f.title, host: f.host, contact: joinPhone(f.contact_code, f.contact), event_type: f.event_type,
-      space: Number(f.space), event_date: f.event_date, start_time: f.start_time, end_time: f.end_time,
-      covers: Number(f.covers || 0),
-      package_amount: f.package_amount || 0, deposit: f.deposit || 0,
-      food_pref: f.food_pref, food_veg: Number(f.food_veg || 0), food_nonveg: Number(f.food_nonveg || 0),
-      veg_rate: Number(f.veg_rate || 0), nonveg_rate: Number(f.nonveg_rate || 0),
-    })).data,
-    onSuccess: onCreated,
-    onError: (e: any) => setErr(e?.response?.data?.detail ?? "Could not book"),
+  const save = useMutation({
+    mutationFn: async () => {
+      const body = {
+        title: f.title, host: f.host, contact: joinPhone(f.contact_code, f.contact), event_type: f.event_type,
+        space: Number(f.space), event_date: f.event_date, start_time: f.start_time, end_time: f.end_time,
+        covers: Number(f.covers || 0),
+        package_amount: f.package_amount || 0, deposit: f.deposit || 0,
+        food_pref: f.food_pref, food_veg: Number(f.food_veg || 0), food_nonveg: Number(f.food_nonveg || 0),
+        veg_rate: Number(f.veg_rate || 0), nonveg_rate: Number(f.nonveg_rate || 0),
+      };
+      return event
+        ? (await api.patch(`/banquets/${event.id}/`, body)).data
+        : (await api.post("/banquets/", body)).data;
+    },
+    onSuccess: () => onSaved(!!event),
+    onError: (e: any) => setErr(e?.response?.data?.detail ?? "Could not save"),
   });
   const set = (k: string, v: string) => setF({ ...f, [k]: v });
   const space = spaces.find((s) => s.id === Number(f.space));
@@ -160,7 +186,7 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
   return (
     <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
       <div className="card p-5 w-[520px] max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="font-display text-xl mb-4">New event booking</div>
+        <div className="font-display text-xl mb-4">{event ? "Adjust event booking" : "New event booking"}</div>
         {err && <div className="text-sm text-clay mb-3">{err}</div>}
 
         <label className="block text-xs font-semibold text-muted mb-1">Event title</label>
@@ -290,9 +316,9 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
         <div className="flex gap-2 mt-5">
           <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
           <button className="btn-primary flex-1"
-            disabled={!f.title || !f.space || create.isPending || (!!space && Number(f.covers) > space.capacity)}
-            onClick={() => create.mutate()}>
-            Book event (tentative)
+            disabled={!f.title || !f.space || save.isPending || (!!space && Number(f.covers) > space.capacity)}
+            onClick={() => save.mutate()}>
+            {event ? "Save changes" : "Book event (tentative)"}
           </button>
         </div>
       </div>
