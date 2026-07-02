@@ -116,6 +116,7 @@ export function Pos() {
   const { data: till } = useQuery({
     queryKey: ["till"],
     queryFn: async () => (await api.get<TillSession | null>("/pos/till/current/")).data,
+    enabled: user?.role !== "Captain", // counter-only (server enforces too)
   });
   const { data: reservations } = useQuery({
     queryKey: ["table-reservations"],
@@ -342,15 +343,20 @@ export function Pos() {
           <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
           <button className="btn-outline" onClick={() => setShowReserve(true)}>+ Reserve / Waitlist</button>
           <a className="btn-ghost text-sm" href="/tokens" target="_blank" rel="noreferrer">Token board ↗</a>
-          <a className="btn-ghost text-sm" href="/reconciliation">Reconciliation</a>
-          <div className="ml-auto">
-            <button
-              className={`pill border ${till ? "bg-pine-50 border-pine text-pine" : "border-hairline"}`}
-              onClick={() => setShowTill(true)}
-            >
-              {till ? `Till open · float ${inr(till.opening_float)}` : "Open till"}
-            </button>
-          </div>
+          {/* Cash controls are counter business — hidden from captains. */}
+          {user?.role !== "Captain" && (
+            <>
+              <a className="btn-ghost text-sm" href="/reconciliation">Reconciliation</a>
+              <div className="ml-auto">
+                <button
+                  className={`pill border ${till ? "bg-pine-50 border-pine text-pine" : "border-hairline"}`}
+                  onClick={() => setShowTill(true)}
+                >
+                  {till ? `Till open · float ${inr(till.opening_float)}` : "Open till"}
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Upcoming reservations + walk-in waitlist */}

@@ -239,3 +239,124 @@ export function OrderStatusPage() {
     </Shell>
   );
 }
+
+interface QrMenuItem {
+  id: number; name: string; price: string; diet: string;
+  category_name: string; image: string;
+}
+
+/** Guest QR table ordering: scan the table QR → browse the menu → order to
+ *  the kitchen. No login — the table token is the credential. */
+export function QrOrderPage() {
+  const token = useParam("token");
+  const [cart, setCart] = useState<Record<number, number>>({});
+  const [placed, setPlaced] = useState<{ kot: string; ref: string; table: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["qr-menu", token],
+    queryFn: async () => (await api.get<{ table: string; menu: QrMenuItem[] }>(`/pos/qr-order/?token=${token}`)).data,
+    enabled: !!token,
+    retry: false,
+  });
+
+  if (!token) return <Shell><div className="card p-6 text-center text-muted">Invalid table QR.</div></Shell>;
+  if (isLoading) return <Shell><Spinner /></Shell>;
+  if (!data) return <Shell><div className="card p-6 text-center text-muted">This table QR is not active — please call a server.</div></Shell>;
+
+  if (placed) {
+    return (
+      <Shell>
+        <div className="card p-8 text-center">
+          <div className="text-4xl mb-3">👨‍🍳</div>
+          <div className="font-display text-xl mb-1">Order sent to the kitchen!</div>
+          <div className="text-sm text-muted mb-4">Table {placed.table} · {placed.kot}</div>
+          <a className="btn-primary inline-block" href={`/order-status?ref=${placed.ref}`}>Track my order</a>
+          <button className="btn-ghost w-full mt-2" onClick={() => { setPlaced(null); setCart({}); }}>
+            Order more
+          </button>
+        </div>
+      </Shell>
+    );
+  }
+
+  const cats = [...new Set(data.menu.map((m) => m.category_name))];
+  const count = Object.values(cart).reduce((s, n) => s + n, 0);
+  const total = Object.entries(cart).reduce((s, [id, qty]) => {
+    const item = data.menu.find((m) => m.id === Number(id));
+    return s + (item ? Number(item.price) * qty : 0);
+  }, 0);
+
+  async function place() {
+    setBusy(true); setError("");
+    try {
+      const items = Object.entries(cart).map(([id, qty]) => ({ menu_item: Number(id), qty }));
+      const r = await api.post("/pos/qr-order/", { token, items });
+      setPlaced({ kot: r.data.kot, ref: r.data.ref, table: r.data.table });
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Could not place the order — please call a server");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Shell>
+      <div className="text-center mb-3">
+        <div className="font-display text-xl">Table {data.table}</div>
+        <div className="text-xs text-muted">Order straight to the kitchen — pay at the counter.</div>
+      </div>
+      <div className="space-y-4 pb-24">
+        {cats.map((c) => (
+          <div key={c}>
+            <div className="text-xs uppercase tracking-wide text-muted mb-1.5">{c}</div>
+            <div className="space-y-1.5">
+              {data.menu.filter((m) => m.category_name === c).map((m) => (
+                <div key={m.id} className="card p-3 flex items-center gap-3">
+                  {m.image && <img src={m.image} alt="" className="h-12 w-12 rounded-lg object-cover" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`h-2.5 w-2.5 shrink-0 rounded-sm border ${m.diet === "veg" ? "border-pine" : "border-clay"}`}>
+                        <span className={`block h-1 w-1 m-auto mt-0.5 rounded-full ${m.diet === "veg" ? "bg-pine" : "bg-clay"}`} />
+                      </span>
+                      <span className="font-medium text-sm truncate">{m.name}</span>
+                    </div>
+                    <div className="text-xs text-muted">₹{Number(m.price)}</div>
+                  </div>
+                  {cart[m.id] ? (
+                    <div className="flex items-center gap-2">
+                      <button className="h-8 w-8 rounded-lg bg-hairline text-lg"
+                        onClick={() => setCart((c2) => {
+                          const n = (c2[m.id] ?? 0) - 1;
+                          const { [m.id]: _, ...rest } = c2;
+                          return n > 0 ? { ...c2, [m.id]: n } : rest;
+                        })}>−</button>
+                      <span className="w-5 text-center text-sm font-semibold">{cart[m.id]}</span>
+                      <button className="h-8 w-8 rounded-lg bg-pine text-white text-lg"
+                        onClick={() => setCart((c2) => ({ ...c2, [m.id]: (c2[m.id] ?? 0) + 1 }))}>+</button>
+                    </div>
+                  ) : (
+                    <button className="btn-outline text-xs py-1.5"
+                      onClick={() => setCart((c2) => ({ ...c2, [m.id]: 1 }))}>Add</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {error && <div className="fixed bottom-20 left-4 right-4 card p-3 bg-clay/10 text-clay text-sm text-center">{error}</div>}
+      {count > 0 && (
+        <button
+          className="fixed bottom-4 left-4 right-4 max-w-[420px] mx-auto btn-primary py-3 flex items-center justify-between px-5"
+          disabled={busy}
+          onClick={place}
+        >
+          <span>{count} item(s) · ₹{total.toFixed(0)}</span>
+          <span className="font-semibold">{busy ? "Sending…" : "Place order →"}</span>
+        </button>
+      )}
+    </Shell>
+  );
+}

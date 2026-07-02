@@ -79,7 +79,7 @@ export function OnlineOrders() {
                     <Badge tone={PLATFORM_TONE[o.source_platform] ?? "info"}>{o.source_platform}</Badge>
                     {o.brand && <Badge tone="muted">{o.brand}</Badge>}
                   </span>
-                  <span className="text-xs text-muted">{o.kot_no}</span>
+                  <span className="text-xs text-muted">{o.kot_no}{o.token_no ? ` · Token ${o.token_no}` : ""}</span>
                 </div>
                 <div className="text-sm space-y-0.5 mb-2">
                   {o.lines.map((l) => (
