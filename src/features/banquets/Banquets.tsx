@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { useToast } from "../../design/Toast";
@@ -176,6 +176,21 @@ function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
   });
   const set = (k: string, v: string) => setF({ ...f, [k]: v });
   const space = spaces.find((s) => s.id === Number(f.space));
+
+  // For a new booking, pre-fill catering rates from the property's price master.
+  const { data: defaultRates } = useQuery({
+    queryKey: ["catering-prices"],
+    queryFn: async () => (await api.get<{ veg_rate: string; nonveg_rate: string }>("/banquets/catering_prices/")).data,
+    enabled: !event,
+  });
+  useEffect(() => {
+    if (!defaultRates || event) return;
+    setF((cur) => ({
+      ...cur,
+      veg_rate: cur.veg_rate || (Number(defaultRates.veg_rate) ? defaultRates.veg_rate : ""),
+      nonveg_rate: cur.nonveg_rate || (Number(defaultRates.nonveg_rate) ? defaultRates.nonveg_rate : ""),
+    }));
+  }, [defaultRates, event]);
 
   // Live bill estimate: hall/package + catering (plates × per-plate rate) + 18% GST.
   const vegCatering = f.food_pref !== "nonveg" ? Number(f.food_veg || 0) * Number(f.veg_rate || 0) : 0;

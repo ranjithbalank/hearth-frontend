@@ -29,6 +29,7 @@ export const MODULE_ENTITLEMENT: Record<string, keyof Entitlement | undefined> =
   recipes: "restaurant",
   tablemaster: "restaurant",
   menumaster: "restaurant",
+  cateringmaster: "banquets",
 };
 
 export interface NavItem {
@@ -118,6 +119,7 @@ export const NAV: NavGroup[] = [
       { key: "roommaster", label: "Room Master", path: "/config/rooms" },
       { key: "menumaster", label: "Menu Master", path: "/config/menu" },
       { key: "tablemaster", label: "Table Master", path: "/config/tables" },
+      { key: "cateringmaster", label: "Catering Prices", path: "/config/catering" },
       { key: "gstmaster", label: "GST Master", path: "/config/gst" },
       { key: "roles", label: "Role Mapping", path: "/config/roles" },
     ],

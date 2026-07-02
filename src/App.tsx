@@ -8,6 +8,7 @@ import { Accounting } from "./features/accounting/Accounting";
 import { Banquets } from "./features/banquets/Banquets";
 import { Booking } from "./features/booking/Booking";
 import { Channel } from "./features/channel/Channel";
+import { CateringPrices } from "./features/config/CateringPrices";
 import { GstMaster } from "./features/config/GstMaster";
 import { MenuMaster } from "./features/config/MenuMaster";
 import { RoleMatrix } from "./features/config/RoleMatrix";
@@ -96,6 +97,7 @@ export default function App() {
         <Route path="/config/rooms" element={<RequireAccess module="roommaster"><RoomMaster /></RequireAccess>} />
         <Route path="/config/menu" element={<RequireAccess module="menumaster"><MenuMaster /></RequireAccess>} />
         <Route path="/config/tables" element={<RequireAccess module="tablemaster"><TableMaster /></RequireAccess>} />
+        <Route path="/config/catering" element={<RequireAccess module="cateringmaster"><CateringPrices /></RequireAccess>} />
         <Route path="/config/roles" element={<RequireAccess module="roles"><RoleMatrix /></RequireAccess>} />
         <Route path="*" element={<Navigate to={landing()} replace />} />
       </Routes>
