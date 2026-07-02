@@ -8,6 +8,7 @@ import { inr } from "../../lib/money";
 interface DashboardData {
   rooms: { occupancy_pct: number; adr: number; revpar: number; occupied: number; rooms_total: number; room_revenue: string };
   fnb: { fnb_sales: string; order_count: number; by_mode: Record<string, string> };
+  receivables: { total: string; corporate: string; corporate_accounts: number };
 }
 
 export function Dashboard() {
@@ -28,6 +29,22 @@ export function Dashboard() {
         <Stat label="RevPAR" value={inr(data.rooms.revpar)} sub="Revenue per available room" />
         <Stat label="F&B sales" value={inr(data.fnb.fnb_sales)} sub={`${data.fnb.order_count} orders`} />
       </div>
+
+      <button
+        onClick={() => nav("/crm")}
+        className="card p-5 text-left hover:bg-cream mt-4 w-full flex items-center justify-between"
+      >
+        <div>
+          <div className="text-xs uppercase tracking-wide text-muted">Accounts receivable</div>
+          <div className={`stat-num text-2xl mt-1 ${Number(data.receivables.total) > 0 ? "text-clay" : "text-pine"}`}>
+            {inr(data.receivables.total)}
+          </div>
+          <div className="text-sm text-muted mt-1">
+            {data.receivables.corporate_accounts} corporate account(s) · {inr(data.receivables.corporate)} bill-to-company
+          </div>
+        </div>
+        <span className="text-pine text-sm">View ledger →</span>
+      </button>
 
       <div className="grid grid-cols-3 gap-4 mt-4">
         {(["dinein", "takeaway", "delivery"] as const).map((m) => (

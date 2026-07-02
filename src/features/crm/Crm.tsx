@@ -22,6 +22,7 @@ export function Crm() {
   const qc = useQueryClient();
   const ask = usePrompt();
   const [msg, setMsg] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "due" | "settled">("all");
   const { data, isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => (await api.get<Customer[]>("/customers/")).data,
@@ -59,6 +60,10 @@ export function Crm() {
   if (isLoading || !data) return <Spinner />;
   const loyalty = data.reduce((s, c) => s + c.loyalty_points, 0);
   const outstanding = data.reduce((s, c) => s + Number(c.outstanding), 0);
+  const dueCount = data.filter((c) => Number(c.outstanding) > 0).length;
+  const rows = data.filter((c) =>
+    filter === "all" ? true : filter === "due" ? Number(c.outstanding) > 0 : Number(c.outstanding) === 0);
+  const TABS: [typeof filter, string][] = [["all", "All"], ["due", "To receive"], ["settled", "Settled"]];
 
   return (
     <div>
@@ -68,6 +73,15 @@ export function Crm() {
         <Stat tone="dark" label="Customers" value={data.length} />
         <Stat label="Loyalty points" value={loyalty.toLocaleString("en-IN")} />
         <Stat label="Outstanding (BTC/AR)" value={inr(outstanding)} />
+      </div>
+
+      <div className="flex items-center gap-2 mb-4">
+        {TABS.map(([k, label]) => (
+          <button key={k} onClick={() => setFilter(k)}
+            className={`pill ${filter === k ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            {label}{k === "due" && dueCount > 0 ? ` (${dueCount})` : ""}
+          </button>
+        ))}
       </div>
 
       <Card className="overflow-hidden p-0">
@@ -84,7 +98,7 @@ export function Crm() {
             </tr>
           </thead>
           <tbody>
-            {data.map((c) => (
+            {rows.map((c) => (
               <tr key={c.id} className="border-t border-line">
                 <td className="px-4 py-3 font-medium">{c.name}</td>
                 <td className="px-4 py-3 font-mono text-xs">{c.mobile}</td>
@@ -107,6 +121,11 @@ export function Crm() {
                 </td>
               </tr>
             ))}
+            {!rows.length && (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">
+                {filter === "due" ? "Nothing to receive — all settled." : "No customers."}
+              </td></tr>
+            )}
           </tbody>
         </table>
       </Card>
