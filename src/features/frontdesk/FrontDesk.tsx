@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
-import type { Reservation } from "../../lib/types";
+import type { Reservation, Room } from "../../lib/types";
 import { WalkInForm } from "./WalkInForm";
 
 const SOURCE_TONE: Record<string, "pine" | "clay" | "amber" | "info"> = {
@@ -18,6 +19,7 @@ const SOURCE_TONE: Record<string, "pine" | "clay" | "amber" | "info"> = {
 export function FrontDesk() {
   const nav = useNavigate();
   const [walkin, setWalkin] = useState(false);
+  const [hkPick, setHkPick] = useState(false);
 
   const { data: arrivals, isLoading } = useQuery({
     queryKey: ["arrivals"],
@@ -31,8 +33,15 @@ export function FrontDesk() {
       <PageHeader
         title="Front Desk"
         subtitle="Arrivals & walk-in check-in"
-        action={<Badge tone="pine">{arrivals?.length ?? 0} arriving</Badge>}
+        action={
+          <div className="flex items-center gap-2">
+            <button className="btn-outline text-sm" onClick={() => setHkPick(true)}>🧹 Request cleaning</button>
+            <Badge tone="pine">{arrivals?.length ?? 0} arriving</Badge>
+          </div>
+        }
       />
+
+      {hkPick && <RequestCleaningModal onClose={() => setHkPick(false)} />}
 
       {walkin && <WalkInForm onCancel={() => setWalkin(false)} onCreated={(id) => nav(`/checkin?reservation=${id}`)} />}
 
@@ -72,6 +81,62 @@ export function FrontDesk() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Front desk raises a cleaning request: occupied rooms (make-up-room) and
+ *  vacated/dirty rooms land flagged on the housekeeping board + notifications. */
+function RequestCleaningModal({ onClose }: { onClose: () => void }) {
+  const toast = useToast();
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const { data: rooms } = useQuery({
+    queryKey: ["hk-rooms"],
+    queryFn: async () => (await api.get<Room[]>("/housekeeping/")).data,
+  });
+  const candidates = (rooms ?? []).filter(
+    (r) => (r.status === "occupied" || r.status === "vacant_dirty") && !r.cleaning_requested);
+
+  async function request(room: Room) {
+    setBusy(true);
+    try {
+      await api.post(`/housekeeping/${room.id}/request_cleaning/`, { note });
+      toast(`Cleaning requested for room ${room.number} — housekeeping notified`);
+      onClose();
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Could not request", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-1">Request cleaning</div>
+        <div className="text-xs text-muted mb-3">
+          Occupied rooms (guest asked for service) and vacated rooms. Housekeeping is notified instantly.
+        </div>
+        <input className="input w-full mb-3" placeholder="Note (e.g. guest asked for turndown at 6pm)"
+          value={note} onChange={(e) => setNote(e.target.value)} />
+        <div className="grid grid-cols-3 gap-2">
+          {candidates.map((r) => (
+            <button key={r.id} disabled={busy}
+              className="card p-3 text-center hover:bg-cream"
+              onClick={() => request(r)}>
+              <div className="font-display text-lg">{r.number}</div>
+              <div className="text-[10px] uppercase tracking-wide text-muted">{r.status_label}</div>
+            </button>
+          ))}
+          {!candidates.length && (
+            <div className="col-span-3 text-sm text-muted text-center py-6">
+              No occupied or vacated-dirty rooms pending — all requests are already raised.
+            </div>
+          )}
+        </div>
+        <button className="btn-ghost w-full mt-3" onClick={onClose}>Cancel</button>
+      </div>
     </div>
   );
 }

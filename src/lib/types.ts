@@ -50,6 +50,8 @@ export interface Room {
   floor: number;
   status: string;
   status_label: string;
+  cleaning_requested: boolean;
+  cleaning_note: string;
   is_sellable: boolean;
 }
 

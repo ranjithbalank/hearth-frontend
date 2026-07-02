@@ -55,12 +55,15 @@ export function Housekeeping() {
 
   const n = (...st: string[]) => rooms.filter((r) => st.includes(r.status)).length;
   const toClean = n("vacant_dirty");
-  // Attend to dirty rooms first, then in-progress, then the rest.
+  const requested = rooms.filter((r) => r.cleaning_requested).length;
+  // Front-desk requests jump the queue, then dirty rooms, then in-progress.
   const PRIORITY: Record<string, number> = {
     vacant_dirty: 0, cleaning: 1, inspected: 2, vacant_clean: 3, occupied: 4, ooo: 5,
   };
   const ordered = [...rooms].sort(
-    (a, b) => (PRIORITY[a.status] ?? 9) - (PRIORITY[b.status] ?? 9) || a.number.localeCompare(b.number),
+    (a, b) => Number(b.cleaning_requested) - Number(a.cleaning_requested)
+      || (PRIORITY[a.status] ?? 9) - (PRIORITY[b.status] ?? 9)
+      || a.number.localeCompare(b.number),
   );
 
   return (
@@ -76,6 +79,12 @@ export function Housekeeping() {
         <Stat label="Out of order" value={n("ooo")} sub="Maintenance" />
       </div>
 
+      {requested > 0 && (
+        <div className="card p-3 mb-3 bg-clay/10 flex items-center gap-3">
+          <Badge tone="clay">🔔 Requested</Badge>
+          <span className="text-sm">{requested} cleaning request(s) from the front desk — shown first below.</span>
+        </div>
+      )}
       {toClean > 0 && (
         <div className="card p-3 mb-5 bg-amber-50 flex items-center gap-3">
           <Badge tone="amber">Priority</Badge>
@@ -85,12 +94,26 @@ export function Housekeeping() {
 
       <div className="grid grid-cols-4 gap-3">
         {ordered.map((r) => (
-          <div key={r.id} className="card p-4">
+          <div key={r.id} className={`card p-4 ${r.cleaning_requested ? "ring-2 ring-clay/60" : ""}`}>
             <div className="flex items-center justify-between">
               <div className="font-display text-lg">{r.number}</div>
               <Badge tone={STATUS_TONE[r.status] ?? "muted"}>{r.status_label}</Badge>
             </div>
             <div className="text-xs text-muted mt-1">{r.room_type_name}</div>
+            {r.cleaning_requested && (
+              <div className="text-xs text-clay mt-1">
+                🔔 Requested{r.cleaning_note ? ` — ${r.cleaning_note}` : ""}
+              </div>
+            )}
+            {r.status === "occupied" && r.cleaning_requested && (
+              <button
+                className="btn-primary w-full mt-3 text-xs py-1.5"
+                disabled={advance.isPending && advance.variables?.id === r.id}
+                onClick={() => advance.mutate(r)}
+              >
+                Mark serviced
+              </button>
+            )}
             {CAN_ADVANCE.has(r.status) && (
               <button
                 className="btn-outline w-full mt-3 text-xs py-1.5"
