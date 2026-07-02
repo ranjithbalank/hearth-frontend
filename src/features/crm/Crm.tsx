@@ -12,6 +12,11 @@ interface Customer {
   gstin: string; outstanding: string; loyalty_points: number; btc_enabled: boolean;
 }
 
+interface FeedbackSummary {
+  count: number; avg_rating: number; nps: number; pending: number;
+  recent: { id: number; rating: number; nps: number | null; comment: string; where: string; submitted_at: string }[];
+}
+
 const TONE: Record<string, "pine" | "info" | "amber"> = {
   guest: "pine",
   corporate: "info",
@@ -26,6 +31,11 @@ export function Crm() {
   const { data, isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => (await api.get<Customer[]>("/customers/")).data,
+  });
+  // Guest feedback rollup (collected via the QR/link on POS bills).
+  const { data: fb } = useQuery({
+    queryKey: ["feedback-summary"],
+    queryFn: async () => (await api.get<FeedbackSummary>("/crm/feedback/")).data,
   });
 
   const exportData = useMutation({
@@ -74,6 +84,29 @@ export function Crm() {
         <Stat label="Loyalty points" value={loyalty.toLocaleString("en-IN")} />
         <Stat label="Outstanding (BTC/AR)" value={inr(outstanding)} />
       </div>
+
+      {/* Guest feedback — collected from the QR/link printed on POS bills. */}
+      {fb && fb.count > 0 && (
+        <Card className="mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="font-semibold">Guest feedback</div>
+            <div className="flex items-center gap-3 text-sm">
+              <span>⭐ {fb.avg_rating}/5</span>
+              <Badge tone={fb.nps >= 50 ? "pine" : fb.nps >= 0 ? "amber" : "clay"}>NPS {fb.nps}</Badge>
+              <span className="text-muted text-xs">{fb.count} response(s) · {fb.pending} pending</span>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            {fb.recent.slice(0, 6).map((r) => (
+              <div key={r.id} className="flex items-center gap-2 text-sm">
+                <span className="w-16">{"⭐".repeat(r.rating)}</span>
+                <span className="flex-1 truncate">{r.comment || <span className="text-muted">no comment</span>}</span>
+                <span className="text-xs text-muted">{r.where}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="flex items-center gap-2 mb-4">
         {TABS.map(([k, label]) => (

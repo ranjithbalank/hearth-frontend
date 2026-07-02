@@ -17,6 +17,18 @@ type Mode = "dinein" | "takeaway" | "delivery";
 const MODE_LABELS: Record<Mode, string> = { dinein: "Dine-in", takeaway: "Takeaway", delivery: "Delivery" };
 interface Category { id: number; name: string }
 interface ReadyKot { kot: number; kot_no: string; order: number; table: string; captain: string }
+interface TillSession {
+  id: number; status: string; opened_by: string; opening_float: string; opened_at: string;
+  counted_cash: string | null; expected_cash: string | null; variance: string | null;
+  cash_in: string; cash_out: string;
+  tender_totals: { tender: string; amount: string; count: number }[];
+  entries: { id: number; kind: string; amount: string; reason: string }[];
+}
+interface TableRes {
+  id: number; kind: string; table: number | null; table_name: string | null;
+  name: string; mobile: string; party_size: number; reserved_for: string | null;
+  status: string; note: string;
+}
 
 const TENDER_LABELS: Record<string, string> = { Cash: "Cash", UPI: "UPI", Gateway: "Card (gateway)" };
 
@@ -97,6 +109,27 @@ export function Pos() {
   const [q, setQ] = useState("");
   const [diet, setDiet] = useState<"" | "veg" | "nonveg" | "egg">("");
   const [showTablePick, setShowTablePick] = useState(false);
+  const [showTill, setShowTill] = useState(false);
+  const [showReserve, setShowReserve] = useState(false);
+
+  // Till session (day-end close) + open reservations/waitlist for the floor.
+  const { data: till } = useQuery({
+    queryKey: ["till"],
+    queryFn: async () => (await api.get<TillSession | null>("/pos/till/current/")).data,
+  });
+  const { data: reservations } = useQuery({
+    queryKey: ["table-reservations"],
+    queryFn: async () => (await api.get<TableRes[]>("/pos/table-reservations/?open=1")).data,
+  });
+  const resAction = useMutation({
+    mutationFn: async ({ id, act, table: tbl }: { id: number; act: string; table?: number }) =>
+      (await api.post(`/pos/table-reservations/${id}/${act}/`, tbl ? { table: tbl } : {})).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["table-reservations"] });
+      qc.invalidateQueries({ queryKey: ["tables"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed", "error"),
+  });
 
   const addItem = useMutation({
     mutationFn: async (payload: { menu_item: number; qty: number; variant?: number; addons?: number[] }) => {
@@ -298,10 +331,57 @@ export function Pos() {
         <PageHeader title="Restaurant POS" subtitle="Tap a table to open its order" />
         {banner}
         {readyStrip}
-        <div className="flex gap-2 mb-5">
+        <div className="flex flex-wrap items-center gap-2 mb-5">
           <button className="btn-outline" onClick={() => startMode("takeaway")}>+ Takeaway</button>
           <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
+          <button className="btn-outline" onClick={() => setShowReserve(true)}>+ Reserve / Waitlist</button>
+          <a className="btn-ghost text-sm" href="/tokens" target="_blank" rel="noreferrer">Token board ↗</a>
+          <div className="ml-auto">
+            <button
+              className={`pill border ${till ? "bg-pine-50 border-pine text-pine" : "border-hairline"}`}
+              onClick={() => setShowTill(true)}
+            >
+              {till ? `Till open · float ${inr(till.opening_float)}` : "Open till"}
+            </button>
+          </div>
         </div>
+
+        {/* Upcoming reservations + walk-in waitlist */}
+        {!!reservations?.length && (
+          <div className="card p-3 mb-5">
+            <div className="text-[10px] uppercase tracking-wide text-muted mb-2">Reservations & waitlist</div>
+            <div className="flex flex-wrap gap-2">
+              {reservations.map((r) => (
+                <div key={r.id} className="flex items-center gap-2 rounded-lg border border-hairline px-3 py-1.5 text-sm">
+                  <span className="font-medium">{r.name}</span>
+                  <span className="text-xs text-muted">
+                    {r.party_size} pax
+                    {r.kind === "waitlist"
+                      ? " · waitlist"
+                      : ` · ${r.table_name ?? "any table"}${r.reserved_for ? ` · ${new Date(r.reserved_for).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}` : ""}`}
+                  </span>
+                  <button
+                    className="btn-primary text-xs py-0.5 px-2"
+                    onClick={async () => {
+                      if (r.table) { resAction.mutate({ id: r.id, act: "seat" }); return; }
+                      const name = await ask({ title: `Seat ${r.name}`, label: "Table name", placeholder: "e.g. A2" });
+                      const dest = tables?.find((t) => t.name.toLowerCase() === (name ?? "").toLowerCase());
+                      if (dest) resAction.mutate({ id: r.id, act: "seat", table: dest.id });
+                      else if (name) toast("Table not found", "error");
+                    }}
+                  >
+                    Seat
+                  </button>
+                  <button className="btn-ghost text-xs py-0.5" onClick={() => resAction.mutate({ id: r.id, act: "cancel" })}>✕</button>
+                  {r.kind === "reservation" && (
+                    <button className="btn-ghost text-xs py-0.5 text-clay" title="No-show"
+                      onClick={() => resAction.mutate({ id: r.id, act: "no_show" })}>NS</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="text-xs uppercase tracking-wide text-muted mb-2">Tables</div>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-3">
           {tables?.map((t) => (
@@ -313,13 +393,17 @@ export function Pos() {
                   ? "bg-clay/90 text-white border-clay"
                   : t.status === "printed"
                     ? "bg-amber-100 border-amber-400"
-                    : "bg-surface hover:bg-cream border-hairline"
+                    : t.status === "reserved"
+                      ? "bg-pine-50 border-pine"
+                      : "bg-surface hover:bg-cream border-hairline"
               }`}
             >
               <div className="font-display text-xl">{t.name}</div>
               <div className={`text-xs mt-0.5 ${t.status === "running" ? "opacity-80" : "text-muted"}`}>{t.seats} seats</div>
               <div className="text-[10px] uppercase tracking-wide mt-1">
-                {t.status === "running" ? "● Running" : t.status === "printed" ? "● Bill printed" : "Free"}
+                {t.status === "running" ? "● Running"
+                  : t.status === "printed" ? "● Bill printed"
+                    : t.status === "reserved" ? "● Reserved" : "Free"}
               </div>
             </button>
           ))}
@@ -329,6 +413,24 @@ export function Pos() {
             </div>
           )}
         </div>
+
+        {showTill && (
+          <TillModal
+            till={till ?? null}
+            onClose={() => { setShowTill(false); qc.invalidateQueries({ queryKey: ["till"] }); }}
+          />
+        )}
+        {showReserve && (
+          <ReserveModal
+            tables={tables ?? []}
+            onDone={() => {
+              setShowReserve(false);
+              qc.invalidateQueries({ queryKey: ["table-reservations"] });
+              qc.invalidateQueries({ queryKey: ["tables"] });
+            }}
+            onCancel={() => setShowReserve(false)}
+          />
+        )}
       </div>
     );
   }
@@ -373,6 +475,7 @@ export function Pos() {
           <div className="text-xs text-muted">{mode === "dinein" ? `${table?.seats ?? 0} seats` : "New order"}</div>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {order?.token_no && <Badge tone="pine">Token {order.token_no}</Badge>}
           {order?.kot_no && <Badge tone="amber">{order.kot_no}</Badge>}
           {order && <Badge tone={billed ? "clay" : "pine"}>{order.status_label}</Badge>}
         </div>
@@ -873,6 +976,171 @@ function CategoryButton({
       <span className="truncate">{name}</span>
       <span className={`text-xs tabular-nums ${active ? "opacity-80" : "text-muted"}`}>{count}</span>
     </button>
+  );
+}
+
+function TillModal({ till, onClose }: { till: TillSession | null; onClose: () => void }) {
+  const toast = useToast();
+  const [state, setState] = useState<TillSession | null>(till);
+  const [float_, setFloat] = useState("2000");
+  const [entry, setEntry] = useState({ kind: "out", amount: "", reason: "" });
+  const [counted, setCounted] = useState("");
+  const [closed, setClosed] = useState<TillSession | null>(null);
+
+  async function call(path: string, body: object) {
+    try {
+      return (await api.post(path, body)).data as TillSession;
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Failed", "error");
+      return null;
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[420px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-4">{closed ? "Day closed" : state ? "Till session" : "Open till"}</div>
+
+        {closed ? (
+          <>
+            <div className="grid grid-cols-3 gap-2 text-center mb-4">
+              <div className="card p-3"><div className="text-xs text-muted">Expected</div><div className="font-semibold">{inr(closed.expected_cash ?? 0)}</div></div>
+              <div className="card p-3"><div className="text-xs text-muted">Counted</div><div className="font-semibold">{inr(closed.counted_cash ?? 0)}</div></div>
+              <div className={`card p-3 ${Number(closed.variance) !== 0 ? "bg-clay/10" : "bg-pine-50"}`}>
+                <div className="text-xs text-muted">Variance</div>
+                <div className="font-semibold">{inr(closed.variance ?? 0)}</div>
+              </div>
+            </div>
+            <div className="text-xs uppercase tracking-wide text-muted mb-1">Tender totals (session)</div>
+            <div className="space-y-1 mb-4 text-sm">
+              {closed.tender_totals.map((t) => (
+                <div key={t.tender} className="flex justify-between"><span>{t.tender} × {t.count}</span><span>{inr(t.amount)}</span></div>
+              ))}
+              {!closed.tender_totals.length && <div className="text-muted text-sm">No settlements this session.</div>}
+            </div>
+            <button className="btn-primary w-full" onClick={onClose}>Done</button>
+          </>
+        ) : !state ? (
+          <>
+            <label className="text-sm text-muted">Opening float (cash in drawer)</label>
+            <input className="input w-full mt-1 mb-4" inputMode="decimal" value={float_} onChange={(e) => setFloat(amount(e.target.value))} />
+            <button className="btn-primary w-full" onClick={async () => {
+              const s = await call("/pos/till/open/", { opening_float: float_ });
+              if (s) { setState(s); toast("Till opened"); }
+            }}>
+              Open session
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="text-sm space-y-1 mb-4">
+              <div className="flex justify-between"><span className="text-muted">Opened by</span><span>{state.opened_by}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Opening float</span><span>{inr(state.opening_float)}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Cash in / out</span><span>+{inr(state.cash_in)} / −{inr(state.cash_out)}</span></div>
+            </div>
+            {!!state.entries.length && (
+              <div className="mb-4 space-y-1 text-xs text-muted border-t border-hairline pt-2">
+                {state.entries.map((e) => (
+                  <div key={e.id} className="flex justify-between">
+                    <span>{e.kind === "in" ? "＋" : "−"} {e.reason}</span><span>{inr(e.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="text-xs uppercase tracking-wide text-muted mb-2">Cash in / out</div>
+            <div className="grid grid-cols-[80px_1fr] gap-2 mb-2">
+              <select className="input" value={entry.kind} onChange={(e) => setEntry({ ...entry, kind: e.target.value })}>
+                <option value="out">Out</option>
+                <option value="in">In</option>
+              </select>
+              <input className="input" inputMode="decimal" placeholder="Amount"
+                value={entry.amount} onChange={(e) => setEntry({ ...entry, amount: amount(e.target.value) })} />
+            </div>
+            <input className="input w-full mb-2" placeholder="Reason (required)"
+              value={entry.reason} onChange={(e) => setEntry({ ...entry, reason: e.target.value })} />
+            <button className="btn-outline w-full mb-5" disabled={!entry.amount || !entry.reason.trim()}
+              onClick={async () => {
+                const s = await call(`/pos/till/${state.id}/entry/`, entry);
+                if (s) { setState(s); setEntry({ kind: "out", amount: "", reason: "" }); }
+              }}>
+              Record cash {entry.kind}
+            </button>
+
+            <div className="text-xs uppercase tracking-wide text-muted mb-2">Day-end close</div>
+            <input className="input w-full mb-2" inputMode="decimal" placeholder="Counted cash in drawer"
+              value={counted} onChange={(e) => setCounted(amount(e.target.value))} />
+            <button className="btn-primary w-full" disabled={!counted}
+              onClick={async () => {
+                const s = await call(`/pos/till/${state.id}/close/`, { counted_cash: counted });
+                if (s) setClosed(s);
+              }}>
+              Close day & show variance
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReserveModal({ tables, onDone, onCancel }: { tables: Table[]; onDone: () => void; onCancel: () => void }) {
+  const toast = useToast();
+  const [f, setF] = useState({ kind: "reservation", name: "", mobile: "", party_size: "2", table: "", time: "" });
+
+  async function save() {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await api.post("/pos/table-reservations/", {
+        kind: f.kind, name: f.name.trim(), mobile: f.mobile, party_size: Number(f.party_size) || 1,
+        table: f.table || null,
+        reserved_for: f.kind === "reservation" && f.time ? `${today}T${f.time}:00` : null,
+      });
+      toast(f.kind === "waitlist" ? "Added to waitlist" : "Table reserved");
+      onDone();
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Could not save", "error");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
+      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-4">Reserve / Waitlist</div>
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {["reservation", "waitlist"].map((k) => (
+            <button key={k} onClick={() => setF({ ...f, kind: k })}
+              className={`pill justify-center ${f.kind === k ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              {k === "reservation" ? "Reservation" : "Walk-in waitlist"}
+            </button>
+          ))}
+        </div>
+        <div className="grid gap-2">
+          <input className="input" placeholder="Guest name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input" placeholder="Mobile (optional)" inputMode="tel"
+              value={f.mobile} onChange={(e) => setF({ ...f, mobile: digits(e.target.value, 10) })} />
+            <input className="input" placeholder="Party size" inputMode="numeric"
+              value={f.party_size} onChange={(e) => setF({ ...f, party_size: digits(e.target.value, 2) })} />
+          </div>
+          {f.kind === "reservation" && (
+            <div className="grid grid-cols-2 gap-2">
+              <select className="input" value={f.table} onChange={(e) => setF({ ...f, table: e.target.value })}>
+                <option value="">Any table…</option>
+                {tables.filter((t) => t.status === "free").map((t) => (
+                  <option key={t.id} value={t.id}>{t.name} ({t.seats})</option>
+                ))}
+              </select>
+              <input className="input" type="time" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} />
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2 mt-4">
+          <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary flex-1" disabled={!f.name.trim()} onClick={save}>Save</button>
+        </div>
+      </div>
+    </div>
   );
 }
 

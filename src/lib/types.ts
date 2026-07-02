@@ -167,6 +167,8 @@ export interface Order {
   online_status: string;
   prepaid: boolean;
   brand: string;
+  token_no: number | null;
+  client_uuid: string;
   totals: {
     subtotal: string; discount: string; taxable: string;
     cgst: string; sgst: string; tax: string; total: string;

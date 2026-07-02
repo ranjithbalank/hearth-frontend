@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 import { AppShell } from "./shell/AppShell";
 import { RequireAccess } from "./shell/RequireAccess";
@@ -40,6 +40,8 @@ import { Housekeeping } from "./features/housekeeping/Housekeeping";
 import { LiveGrid } from "./features/livegrid/LiveGrid";
 import { Login } from "./features/auth/Login";
 import { Pos } from "./features/pos/Pos";
+import { TokenBoard } from "./features/pos/TokenBoard";
+import { FeedbackPage, OrderStatusPage } from "./features/public/GuestPages";
 import { Reports } from "./features/reports/Reports";
 import { Reservations } from "./features/reservations/Reservations";
 import { Settings } from "./features/settings/Settings";
@@ -48,6 +50,17 @@ import { TaxGst } from "./features/tax/TaxGst";
 
 export default function App() {
   const { loading, property, user, landing } = useApp();
+  const { pathname } = useLocation();
+
+  // Guest-facing pages (bill QR links) — no login, no shell, before all gates.
+  if (pathname.startsWith("/feedback") || pathname.startsWith("/order-status")) {
+    return (
+      <Routes>
+        <Route path="/feedback" element={<FeedbackPage />} />
+        <Route path="/order-status" element={<OrderStatusPage />} />
+      </Routes>
+    );
+  }
 
   if (loading) return <Spinner />;
 
@@ -81,6 +94,7 @@ export default function App() {
         <Route path="/crm" element={<RequireAccess module="crm"><Crm /></RequireAccess>} />
         <Route path="/notifications" element={<RequireAccess module="notifications"><Notifications /></RequireAccess>} />
         <Route path="/pos" element={<RequireAccess module="pos"><Pos /></RequireAccess>} />
+        <Route path="/tokens" element={<RequireAccess module="pos"><TokenBoard /></RequireAccess>} />
         <Route path="/kds" element={<RequireAccess module="kds"><Kds /></RequireAccess>} />
         <Route path="/online-orders" element={<RequireAccess module="online"><OnlineOrders /></RequireAccess>} />
         <Route path="/inventory" element={<RequireAccess module="inventory"><Inventory /></RequireAccess>} />
