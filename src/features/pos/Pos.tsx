@@ -167,10 +167,11 @@ export function Pos() {
     mutationFn: async () => (await api.post(`/pos/orders/${orderId}/fire_kot/`)).data,
     onSuccess: (o: Order) => {
       toast(`KOT fired · ${o.kot_no}${o.token_no ? ` · Token ${o.token_no}` : ""}`);
-      // Dine-in fires to the kitchen display only. Takeaway/delivery also
-      // prints the token ticket so the counter collects cash and the server
-      // hands over the parcel by token.
-      if (o.mode !== "dinein") printKot(o, property?.name ?? "Hearth");
+      // Dine-in: kitchen display only. Takeaway: also print the token slip.
+      // Delivery: go straight to the final bill — payment is collected up
+      // front and the printed bill carries the pickup token.
+      if (o.mode === "takeaway") printKot(o, property?.name ?? "Hearth");
+      if (o.mode === "delivery") setShowFinal(true);
       qc.invalidateQueries({ queryKey: ["order", orderId] });
     },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "KOT failed", "error"),
@@ -663,7 +664,9 @@ export function Pos() {
                   <button className="btn-primary" disabled={fireKot.isPending || !unfired} onClick={() => fireKot.mutate()}>
                     {fireKot.isPending ? "Firing…"
                       : !unfired ? "KOT fired ✓"
-                        : mode === "dinein" ? "Fire KOT" : "Fire KOT + token slip 🖨"}
+                        : mode === "dinein" ? "Fire KOT"
+                          : mode === "takeaway" ? "Fire KOT + token slip 🖨"
+                            : "Fire KOT + final bill"}
                   </button>
                 )}
                 {billed ? (
