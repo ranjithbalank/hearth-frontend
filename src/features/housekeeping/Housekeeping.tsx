@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
-import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
+import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
 import type { Room } from "../../lib/types";
@@ -53,19 +53,38 @@ export function Housekeeping() {
 
   if (isLoading || !rooms) return <Spinner />;
 
-  const counts: Record<string, number> = {};
-  rooms.forEach((r) => (counts[r.status] = (counts[r.status] ?? 0) + 1));
+  const n = (...st: string[]) => rooms.filter((r) => st.includes(r.status)).length;
+  const toClean = n("vacant_dirty");
+  // Attend to dirty rooms first, then in-progress, then the rest.
+  const PRIORITY: Record<string, number> = {
+    vacant_dirty: 0, cleaning: 1, inspected: 2, vacant_clean: 3, occupied: 4, ooo: 5,
+  };
+  const ordered = [...rooms].sort(
+    (a, b) => (PRIORITY[a.status] ?? 9) - (PRIORITY[b.status] ?? 9) || a.number.localeCompare(b.number),
+  );
 
   return (
     <div>
       <PageHeader title="Housekeeping" subtitle="Dirty → Cleaning → Clean → Inspected" />
-      <div className="flex gap-3 mb-5">
-        {Object.entries(counts).map(([s, n]) => (
-          <Badge key={s} tone={STATUS_TONE[s] ?? "muted"}>{s.replace("_", " ")}: {n}</Badge>
-        ))}
+
+      {/* Housekeeping dashboard — what needs attention right now. */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+        <Stat tone={toClean > 0 ? "dark" : "default"} label="To clean" value={toClean} sub="Vacated · needs service" />
+        <Stat label="Cleaning" value={n("cleaning")} sub="In progress" />
+        <Stat label="Ready to sell" value={n("vacant_clean", "inspected")} sub="Clean & inspected" />
+        <Stat label="Occupied" value={n("occupied")} sub="In-house guests" />
+        <Stat label="Out of order" value={n("ooo")} sub="Maintenance" />
       </div>
+
+      {toClean > 0 && (
+        <div className="card p-3 mb-5 bg-amber-50 flex items-center gap-3">
+          <Badge tone="amber">Priority</Badge>
+          <span className="text-sm">{toClean} room(s) vacated and awaiting cleaning — shown first below.</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-4 gap-3">
-        {rooms.map((r) => (
+        {ordered.map((r) => (
           <div key={r.id} className="card p-4">
             <div className="flex items-center justify-between">
               <div className="font-display text-lg">{r.number}</div>
