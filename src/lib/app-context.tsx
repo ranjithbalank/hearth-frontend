@@ -87,12 +87,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       "Managing Director": ["execdashboard", "/executive"],
       "General Manager": ["dashboard", "/dashboard"],
       "Front Office": ["frontdesk", "/frontdesk"],
-      "Revenue Manager": ["revenue", "/revenue"],
-      "Housekeeping": ["housekeeping", "/housekeeping"],
-      "Sales & Banquets": ["banquets", "/banquets"],
       "F&B Cashier": ["pos", "/pos"],
-      "Store & Purchase": ["inventory", "/inventory"],
-      "Night Auditor": ["accounting", "/accounting"],
+      "Housekeeping": ["housekeeping", "/housekeeping"],
     };
     const pref = user ? prefs[user.role] : undefined;
     if (pref && canAccess(pref[0])) return pref[1];
