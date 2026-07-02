@@ -173,6 +173,106 @@ function PropertyPanel() {
   );
 }
 
+function LetterheadPanel() {
+  const { property, refreshProperty } = useApp();
+  const [header, setHeader] = useState(property?.doc_header ?? "");
+  const [footer, setFooter] = useState(property?.doc_footer ?? "");
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Mini editor: wrap the selected text of a textarea in a tag.
+  function wrap(id: string, tag: string, value: string, set: (v: string) => void) {
+    const el = document.getElementById(id) as HTMLTextAreaElement | null;
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e } = el;
+    set(value.slice(0, s) + `<${tag}>` + value.slice(s, e) + `</${tag}>` + value.slice(e));
+    el.focus();
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch("/auth/property/", { doc_header: header, doc_footer: footer });
+      await refreshProperty();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const previewLines = (text: string) =>
+    text.split("\n").filter((l) => l.trim()).map((l, i) => (
+      <div key={i} dangerouslySetInnerHTML={{ __html: l }} />
+    ));
+
+  return (
+    <Card className="mb-4">
+      <div className="font-semibold mb-1">Letterhead &amp; documents</div>
+      <div className="text-sm text-muted mb-4">
+        Extra lines printed on invoices and bills — tagline, CIN/FSSAI, terms, bank details.
+        Use <b>B</b>/<i>I</i> to format. The logo, name, address &amp; GSTIN above are included automatically.
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-semibold text-muted">Header lines (below the address)</label>
+            <span className="flex gap-1">
+              <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrap("lh-head", "b", header, setHeader)}>B</button>
+              <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrap("lh-head", "i", header, setHeader)}>I</button>
+            </span>
+          </div>
+          <textarea id="lh-head" className="input w-full font-mono text-xs" rows={3}
+            placeholder={"Fine dining since 1998\nFSSAI Lic. No. 12345678901234"}
+            value={header} onChange={(e) => setHeader(e.target.value)} />
+
+          <div className="flex items-center justify-between mb-1 mt-3">
+            <label className="text-xs font-semibold text-muted">Footer — terms / bank details</label>
+            <span className="flex gap-1">
+              <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrap("lh-foot", "b", footer, setFooter)}>B</button>
+              <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrap("lh-foot", "i", footer, setFooter)}>I</button>
+            </span>
+          </div>
+          <textarea id="lh-foot" className="input w-full font-mono text-xs" rows={4}
+            placeholder={"Checkout time 11 AM. Tariff subject to change.\nBank: HDFC ****1234 · IFSC HDFC0000001"}
+            value={footer} onChange={(e) => setFooter(e.target.value)} />
+
+          <div className="flex items-center gap-3 mt-3">
+            <button className="btn-primary" onClick={save} disabled={saving}>Save letterhead</button>
+            {saved && <span className="text-sm text-pine">Saved ✓</span>}
+          </div>
+        </div>
+
+        {/* Live preview of the printed letterhead */}
+        <div className="rounded-card border border-hairline bg-white p-5 text-ink">
+          <div className="flex justify-between items-start">
+            <div>
+              {property?.logo && <img src={property.logo} alt="" className="h-10 mb-2 rounded" />}
+              <div className="font-display text-lg text-pine leading-tight">{property?.name}</div>
+              <div className="text-[10px] text-muted">
+                {property?.address && <div>{property.address}</div>}
+                {property?.gstin && <div>GSTIN: {property.gstin}</div>}
+                <div className="mt-0.5">{previewLines(header)}</div>
+              </div>
+            </div>
+            <div className="text-right text-[10px] text-muted">
+              <div className="font-semibold text-xs text-ink">TAX INVOICE</div>
+              No. HRT-202607-00001
+            </div>
+          </div>
+          <div className="border-t-2 border-pine my-2" />
+          <div className="text-[10px] text-muted italic py-4 text-center">… bill lines …</div>
+          <div className="border-t border-hairline pt-2 text-[10px] text-muted">
+            {previewLines(footer)}
+            <div className="text-center mt-1 opacity-60">{property?.name} · computer-generated, no signature required</div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function MfaPanel() {
   const { user, refreshProperty } = useApp();
   const [secret, setSecret] = useState<string | null>(null);
@@ -266,6 +366,7 @@ export function Settings() {
       <PageHeader title="Settings" subtitle={`${property?.name} · edition: ${property?.edition}`} />
 
       <PropertyPanel />
+      <LetterheadPanel />
 
       <MfaPanel />
 

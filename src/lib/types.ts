@@ -37,6 +37,8 @@ export interface Property {
   address: string;
   phone: string;
   logo: string;
+  doc_header: string;
+  doc_footer: string;
   currency: string;
   entitlement: Entitlement;
 }
