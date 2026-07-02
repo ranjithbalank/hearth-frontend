@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { PhoneInput, joinPhone } from "../../design/PhoneInput";
+import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
@@ -28,6 +28,7 @@ export function CheckIn() {
   const [guestType, setGuestType] = useState("individual");
   const [code, setCode] = useState("+91");
   const [mobile, setMobile] = useState("");
+  const [prefilled, setPrefilled] = useState(false);
   const [done, setDone] = useState<string | null>(null);
 
   const { data: resv, isLoading } = useQuery({
@@ -35,6 +36,17 @@ export function CheckIn() {
     queryFn: async () => (await api.get<Reservation>(`/reservations/${resvId}/`)).data,
     enabled: !!resvId,
   });
+
+  // Prefill the mobile from the guest already on the reservation (e.g. captured
+  // at walk-in) so staff confirm it rather than re-entering it.
+  useEffect(() => {
+    if (resv?.guest_mobile) {
+      const { code: c, number } = splitPhone(resv.guest_mobile);
+      setCode(c);
+      setMobile(number);
+      setPrefilled(true);
+    }
+  }, [resv?.guest_mobile]);
   const { data: rooms } = useQuery({
     queryKey: ["room-options", resvId],
     queryFn: async () => (await api.get<Room[]>(`/reservations/${resvId}/room_options/`)).data,
@@ -114,7 +126,10 @@ export function CheckIn() {
           <div>
             <div className="font-semibold mb-3">ID / KYC &amp; contact</div>
             <label className="block text-xs font-semibold text-muted mb-1">Mobile</label>
-            <PhoneInput className="mb-3" code={code} number={mobile} onCode={setCode} onNumber={setMobile} />
+            <PhoneInput code={code} number={mobile} onCode={setCode} onNumber={setMobile} />
+            <div className="text-xs text-muted mt-1 mb-3">
+              {prefilled ? "On file from the reservation — edit if it has changed." : "Optional — saved to the guest's profile."}
+            </div>
             <label className="block text-xs font-semibold text-muted mb-1">ID type</label>
             <select className="input mb-3" value={idType} onChange={(e) => setIdType(e.target.value)}>
               <option>Passport</option><option>Aadhaar</option><option>Driving Licence</option><option>Voter ID</option>

@@ -55,6 +55,7 @@ export interface Room {
 export interface Reservation {
   id: number;
   guest_name: string;
+  guest_mobile: string;
   room_type_code: string;
   room_number: string | null;
   checkin_date: string;
