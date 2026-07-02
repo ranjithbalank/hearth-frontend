@@ -13,6 +13,7 @@ interface GuestDetail {
   profile: Customer & { email: string; address: string; marketing_consent: boolean };
   orders: { id: number; mode: string; status: string; created_at: string }[];
   reservations: { id: number; checkin_date: string; checkout_date: string; status: string }[];
+  city_ledger: { folio: number; guest: string; invoice_no: string; room: string | null; amount: string }[];
 }
 
 const TABS = [
@@ -56,6 +57,24 @@ function GuestModal({ id, onClose }: { id: number; onClose: () => void }) {
                 <Badge tone={statusTone[r.status] ?? "muted"}>{r.status.replace("_", " ")}</Badge>
               </div>
             )) : <div className="text-sm text-muted py-2">No stays on record.</div>}
+
+            {data.city_ledger?.length > 0 && (
+              <>
+                <div className="text-xs uppercase tracking-wide text-muted mt-4 mb-2">
+                  City ledger — bill-to-company stays ({data.city_ledger.length})
+                </div>
+                {data.city_ledger.map((f) => (
+                  <div key={f.folio} className="flex justify-between py-1.5 border-t border-line text-sm">
+                    <span>{f.invoice_no || `Folio #${f.folio}`} · {f.guest}{f.room ? ` · Rm ${f.room}` : ""}</span>
+                    <span className="font-medium">{inr(f.amount)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between pt-1.5 border-t border-line text-sm font-semibold">
+                  <span>Outstanding</span>
+                  <span className={Number(data.profile.outstanding) > 0 ? "text-clay" : "text-pine"}>{inr(data.profile.outstanding)}</span>
+                </div>
+              </>
+            )}
 
             <div className="text-xs uppercase tracking-wide text-muted mt-4 mb-2">Restaurant orders ({data.orders.length})</div>
             {data.orders.length ? data.orders.slice(0, 8).map((o) => (
