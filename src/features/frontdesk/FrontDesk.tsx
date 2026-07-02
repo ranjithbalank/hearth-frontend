@@ -62,6 +62,9 @@ export function FrontDesk() {
               </div>
               <Badge tone={SOURCE_TONE[a.source] ?? "muted"}>{a.source_label}</Badge>
               {a.prepaid && <Badge tone="amber">Prepaid {inr(a.deposit)}</Badge>}
+              {a.precheckin_done && (
+                <Badge tone="pine">✓ Pre-checked-in{a.precheckin?.eta ? ` · ETA ${a.precheckin.eta}` : ""}</Badge>
+              )}
               <button className="btn-primary" onClick={() => nav(`/checkin?reservation=${a.id}`)}>
                 Check in
               </button>

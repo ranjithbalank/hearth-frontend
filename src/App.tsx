@@ -41,7 +41,8 @@ import { LiveGrid } from "./features/livegrid/LiveGrid";
 import { Login } from "./features/auth/Login";
 import { Pos } from "./features/pos/Pos";
 import { TokenBoard } from "./features/pos/TokenBoard";
-import { FeedbackPage, OrderStatusPage } from "./features/public/GuestPages";
+import { Reconciliation } from "./features/pos/Reconciliation";
+import { FeedbackPage, OrderStatusPage, PreCheckinPage } from "./features/public/GuestPages";
 import { Reports } from "./features/reports/Reports";
 import { Reservations } from "./features/reservations/Reservations";
 import { Settings } from "./features/settings/Settings";
@@ -52,12 +53,14 @@ export default function App() {
   const { loading, property, user, landing } = useApp();
   const { pathname } = useLocation();
 
-  // Guest-facing pages (bill QR links) — no login, no shell, before all gates.
-  if (pathname.startsWith("/feedback") || pathname.startsWith("/order-status")) {
+  // Guest-facing pages (bill QR links, pre-arrival check-in) — no login, no shell.
+  if (pathname.startsWith("/feedback") || pathname.startsWith("/order-status")
+      || pathname.startsWith("/pre-checkin")) {
     return (
       <Routes>
         <Route path="/feedback" element={<FeedbackPage />} />
         <Route path="/order-status" element={<OrderStatusPage />} />
+        <Route path="/pre-checkin" element={<PreCheckinPage />} />
       </Routes>
     );
   }
@@ -95,6 +98,7 @@ export default function App() {
         <Route path="/notifications" element={<RequireAccess module="notifications"><Notifications /></RequireAccess>} />
         <Route path="/pos" element={<RequireAccess module="pos"><Pos /></RequireAccess>} />
         <Route path="/tokens" element={<RequireAccess module="pos"><TokenBoard /></RequireAccess>} />
+        <Route path="/reconciliation" element={<RequireAccess module="pos"><Reconciliation /></RequireAccess>} />
         <Route path="/kds" element={<RequireAccess module="kds"><Kds /></RequireAccess>} />
         <Route path="/online-orders" element={<RequireAccess module="online"><OnlineOrders /></RequireAccess>} />
         <Route path="/inventory" element={<RequireAccess module="inventory"><Inventory /></RequireAccess>} />

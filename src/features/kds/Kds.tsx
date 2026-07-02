@@ -12,12 +12,24 @@ interface Ticket {
   items: { name: string; qty: number; station: string }[];
 }
 
+interface Performance {
+  tickets: number;
+  avg_prep_minutes: number;
+  slowest: { kot_no: string; table: string; minutes: number }[];
+}
+
 export function Kds() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["kds"],
     queryFn: async () => (await api.get<Ticket[]>("/kds/")).data,
     refetchInterval: 5000, // live board
+  });
+  // Prep-time stats over the last 7 days (fire → ready).
+  const { data: perf } = useQuery({
+    queryKey: ["kds-perf"],
+    queryFn: async () => (await api.get<Performance>("/kds/performance/")).data,
+    refetchInterval: 60000,
   });
 
   const bump = useMutation({
@@ -30,7 +42,18 @@ export function Kds() {
 
   return (
     <div>
-      <PageHeader title="Kitchen Display" subtitle="Live tickets · auto-refresh" />
+      <PageHeader
+        title="Kitchen Display"
+        subtitle="Live tickets · auto-refresh"
+        action={perf && perf.tickets > 0 ? (
+          <div className="flex items-center gap-2 text-sm">
+            <Badge tone={perf.avg_prep_minutes <= 15 ? "pine" : perf.avg_prep_minutes <= 25 ? "amber" : "clay"}>
+              avg prep {perf.avg_prep_minutes} min
+            </Badge>
+            <span className="text-muted text-xs">{perf.tickets} tickets · 7 days</span>
+          </div>
+        ) : undefined}
+      />
       {!data?.length ? (
         <EmptyState title="No active tickets" hint="Fired KOTs appear here." />
       ) : (

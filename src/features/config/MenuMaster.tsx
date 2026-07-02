@@ -35,6 +35,35 @@ export function MenuMaster() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["menu"] }),
   });
 
+  const setImage = useMutation({
+    mutationFn: async ({ id, image }: { id: number; image: string }) =>
+      (await api.patch(`/pos/menu-items/${id}/`, { image })).data,
+    onSuccess: () => { toast("Photo updated"); qc.invalidateQueries({ queryKey: ["menu"] }); },
+  });
+
+  // Resize the chosen photo to a small data URL (same pattern as the property logo).
+  function pickImage(m: MenuItem) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const img = new Image();
+      img.onload = () => {
+        const size = 240;
+        const scale = Math.max(size / img.width, size / img.height);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setImage.mutate({ id: m.id, image: canvas.toDataURL("image/jpeg", 0.75) });
+      };
+      img.src = URL.createObjectURL(file);
+    };
+    input.click();
+  }
+
   if (isLoading || !items) return <Spinner />;
 
   return (
@@ -73,6 +102,7 @@ export function MenuMaster() {
         <table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
+              <th className="text-left px-4 py-3">Photo</th>
               <th className="text-left px-4 py-3">Item</th>
               <th className="text-left px-4 py-3">Category</th>
               <th className="text-left px-4 py-3">Diet</th>
@@ -84,6 +114,12 @@ export function MenuMaster() {
           <tbody>
             {items.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).map((m) => (
               <tr key={m.id} className="border-t border-line">
+                <td className="px-4 py-2">
+                  <button onClick={() => pickImage(m)} title="Upload photo"
+                    className="h-10 w-10 rounded-lg border border-hairline overflow-hidden bg-cream flex items-center justify-center text-muted hover:border-pine">
+                    {m.image ? <img src={m.image} alt="" className="h-full w-full object-cover" /> : "📷"}
+                  </button>
+                </td>
                 <td className="px-4 py-3 font-medium">{m.name}</td>
                 <td className="px-4 py-3 text-muted">{m.category_name}</td>
                 <td className="px-4 py-3">

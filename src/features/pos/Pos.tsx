@@ -336,6 +336,7 @@ export function Pos() {
           <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
           <button className="btn-outline" onClick={() => setShowReserve(true)}>+ Reserve / Waitlist</button>
           <a className="btn-ghost text-sm" href="/tokens" target="_blank" rel="noreferrer">Token board ↗</a>
+          <a className="btn-ghost text-sm" href="/reconciliation">Reconciliation</a>
           <div className="ml-auto">
             <button
               className={`pill border ${till ? "bg-pine-50 border-pine text-pine" : "border-hairline"}`}
@@ -540,6 +541,9 @@ export function Pos() {
                 onClick={() => onItemClick(i)}
                 className="card p-3 text-left hover:bg-cream disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
               >
+                {i.image && (
+                  <img src={i.image} alt="" className="h-16 w-full object-cover rounded-lg mb-2" />
+                )}
                 <div className="flex items-center gap-1.5">
                   <span className={`h-2.5 w-2.5 rounded-sm border ${i.diet === "veg" ? "border-pine" : "border-clay"}`}>
                     <span className={`block h-1 w-1 m-auto mt-0.5 rounded-full ${i.diet === "veg" ? "bg-pine" : "bg-clay"}`} />

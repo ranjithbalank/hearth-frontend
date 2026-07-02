@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { usePrompt } from "../../design/Prompt";
+import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
@@ -10,9 +12,24 @@ interface Recipe {
 }
 
 export function Recipes() {
+  const qc = useQueryClient();
+  const ask = usePrompt();
+  const toast = useToast();
   const { data, isLoading } = useQuery({
     queryKey: ["recipes"],
     queryFn: async () => (await api.get<Recipe[]>("/recipes/")).data,
+  });
+
+  // Batch prep: consumes the BOM (production movements) and credits "Prep: <item>" stock.
+  const produce = useMutation({
+    mutationFn: async ({ id, portions }: { id: number; portions: string }) =>
+      (await api.post(`/recipes/${id}/produce/`, { portions })).data,
+    onSuccess: (d: { portions: string; prep_ingredient: string }) => {
+      toast(`Prepped ${Number(d.portions)} portion(s) → ${d.prep_ingredient} stocked`);
+      qc.invalidateQueries({ queryKey: ["recipes"] });
+      qc.invalidateQueries({ queryKey: ["ingredients"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Batch failed", "error"),
   });
 
   if (isLoading || !data) return <Spinner />;
@@ -41,6 +58,17 @@ export function Recipes() {
                 </div>
               ))}
             </div>
+            <button
+              className="btn-ghost text-xs mt-3"
+              disabled={produce.isPending}
+              onClick={async () => {
+                const raw = await ask({ title: `Prep batch — ${r.item}`, label: "How many portions?", placeholder: "e.g. 10" });
+                const portions = (raw ?? "").replace(/[^\d.]/g, "");
+                if (portions && Number(portions) > 0) produce.mutate({ id: r.id, portions });
+              }}
+            >
+              🍲 Produce batch
+            </button>
           </Card>
         ))}
         {!data.length && <div className="text-sm text-muted">No recipes defined.</div>}

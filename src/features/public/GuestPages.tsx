@@ -101,6 +101,92 @@ export function FeedbackPage() {
   );
 }
 
+export function PreCheckinPage() {
+  const [step, setStep] = useState<"verify" | "form" | "done">("verify");
+  const [booking, setBooking] = useState("");
+  const [verify, setVerify] = useState("");
+  const [summary, setSummary] = useState<any>(null);
+  const [d, setD] = useState({ mobile: "", email: "", id_type: "Aadhaar", id_number: "", eta: "", note: "" });
+  const [error, setError] = useState("");
+
+  async function lookup() {
+    setError("");
+    try {
+      const r = await api.post("/public/pre-checkin/", { booking, verify });
+      setSummary(r.data);
+      setStep(r.data.precheckin_done ? "done" : "form");
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Booking not found");
+    }
+  }
+
+  async function submit() {
+    setError("");
+    try {
+      await api.post("/public/pre-checkin/", { booking, verify, details: d });
+      setStep("done");
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Could not save");
+    }
+  }
+
+  return (
+    <Shell>
+      <div className="card p-6">
+        <div className="font-display text-xl text-center mb-1">Online check-in</div>
+        {step === "verify" && (
+          <>
+            <div className="text-xs text-muted text-center mb-4">Save time at the desk — check in before you arrive.</div>
+            <input className="input w-full mb-2" placeholder="Booking number (e.g. 42)" inputMode="numeric"
+              value={booking} onChange={(e) => setBooking(e.target.value.replace(/\D/g, ""))} />
+            <input className="input w-full mb-3" placeholder="Registered mobile or surname"
+              value={verify} onChange={(e) => setVerify(e.target.value)} />
+            {error && <div className="text-sm text-clay mb-2 text-center">{error}</div>}
+            <button className="btn-primary w-full" disabled={!booking || !verify.trim()} onClick={lookup}>
+              Find my booking
+            </button>
+          </>
+        )}
+        {step === "form" && summary && (
+          <>
+            <div className="text-xs text-muted text-center mb-4">
+              {summary.guest_name} · {summary.room_type} · {summary.checkin_date} → {summary.checkout_date}
+            </div>
+            <div className="grid gap-2">
+              <input className="input" placeholder="Mobile" inputMode="tel" value={d.mobile}
+                onChange={(e) => setD({ ...d, mobile: e.target.value.replace(/\D/g, "").slice(0, 10) })} />
+              <input className="input" placeholder="Email (optional)" value={d.email}
+                onChange={(e) => setD({ ...d, email: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <select className="input" value={d.id_type} onChange={(e) => setD({ ...d, id_type: e.target.value })}>
+                  {["Aadhaar", "Passport", "Driving Licence", "Voter ID"].map((t) => <option key={t}>{t}</option>)}
+                </select>
+                <input className="input" placeholder="ID number" value={d.id_number}
+                  onChange={(e) => setD({ ...d, id_number: e.target.value })} />
+              </div>
+              <input className="input" type="time" title="Expected arrival" value={d.eta}
+                onChange={(e) => setD({ ...d, eta: e.target.value })} />
+              <input className="input" placeholder="Any requests? (optional)" value={d.note}
+                onChange={(e) => setD({ ...d, note: e.target.value })} />
+            </div>
+            {error && <div className="text-sm text-clay my-2 text-center">{error}</div>}
+            <button className="btn-primary w-full mt-3" disabled={!d.mobile || !d.id_number.trim()} onClick={submit}>
+              Complete check-in
+            </button>
+          </>
+        )}
+        {step === "done" && (
+          <div className="text-center py-6">
+            <div className="text-4xl mb-3">🛎</div>
+            <div className="font-display text-xl mb-1">You're all set!</div>
+            <div className="text-sm text-muted">Head straight to the desk on arrival — your details are ready.</div>
+          </div>
+        )}
+      </div>
+    </Shell>
+  );
+}
+
 const STATUS_STEPS = [
   { key: "received", label: "Received" },
   { key: "cooking", label: "Preparing" },

@@ -69,6 +69,8 @@ export interface Reservation {
   rate: string;
   deposit: string;
   prepaid: boolean;
+  precheckin?: { mobile?: string; email?: string; id_type?: string; id_number?: string; eta?: string; note?: string };
+  precheckin_done?: boolean;
 }
 
 export interface FolioLine {
@@ -127,6 +129,7 @@ export interface MenuItem {
   gst_rate: string;
   diet: string;
   available: boolean;
+  image: string;
   variants?: Variant[];
   addon_groups?: AddOnGroup[];
 }

@@ -28,6 +28,7 @@ export function Crm() {
   const ask = usePrompt();
   const [msg, setMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "due" | "settled">("all");
+  const [showCampaign, setShowCampaign] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => (await api.get<Customer[]>("/customers/")).data,
@@ -77,13 +78,27 @@ export function Crm() {
 
   return (
     <div>
-      <PageHeader title="Guest CRM &amp; Loyalty" subtitle="Unified customer profiles" />
+      <PageHeader
+        title="Guest CRM &amp; Loyalty"
+        subtitle="Unified customer profiles"
+        action={<button className="btn-primary text-sm" onClick={() => setShowCampaign(true)}>📣 New campaign</button>}
+      />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
       <div className="grid grid-cols-3 gap-4 mb-5">
         <Stat tone="dark" label="Customers" value={data.length} />
         <Stat label="Loyalty points" value={loyalty.toLocaleString("en-IN")} />
         <Stat label="Outstanding (BTC/AR)" value={inr(outstanding)} />
       </div>
+
+      {showCampaign && (
+        <CampaignModal
+          onDone={(sent, skipped) => {
+            setShowCampaign(false);
+            setMsg(`Campaign sent to ${sent} customer(s) · ${skipped} skipped (no consent/mobile)`);
+          }}
+          onCancel={() => setShowCampaign(false)}
+        />
+      )}
 
       {/* Guest feedback — collected from the QR/link printed on POS bills. */}
       {fb && fb.count > 0 && (
@@ -162,6 +177,56 @@ export function Crm() {
           </tbody>
         </table>
       </Card>
+    </div>
+  );
+}
+
+function CampaignModal({ onDone, onCancel }: { onDone: (sent: number, skipped: number) => void; onCancel: () => void }) {
+  const [f, setF] = useState({ segment: "all", channel: "sms", message: "Hi {name}! You have {points} loyalty points waiting. Visit us this week for 10% off." });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function send() {
+    setBusy(true); setError("");
+    try {
+      const r = await api.post("/customers/campaign/", f);
+      onDone(r.data.sent, r.data.skipped);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Campaign failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
+      <div className="card p-5 w-[440px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-1">New campaign</div>
+        <div className="text-xs text-muted mb-4">
+          Sent only to customers with marketing consent. Placeholders: {"{name}"}, {"{points}"}.
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <select className="input" value={f.segment} onChange={(e) => setF({ ...f, segment: e.target.value })}>
+            <option value="all">All customers</option>
+            <option value="guests">Guests only</option>
+            <option value="corporate">Corporate only</option>
+            <option value="loyal">Loyalty members (points &gt; 0)</option>
+          </select>
+          <select className="input" value={f.channel} onChange={(e) => setF({ ...f, channel: e.target.value })}>
+            <option value="sms">SMS</option>
+            <option value="whatsapp">WhatsApp</option>
+          </select>
+        </div>
+        <textarea className="input w-full mb-2" rows={4} maxLength={480}
+          value={f.message} onChange={(e) => setF({ ...f, message: e.target.value })} />
+        {error && <div className="text-sm text-clay mb-2">{error}</div>}
+        <div className="flex gap-2">
+          <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary flex-1" disabled={!f.message.trim() || busy} onClick={send}>
+            {busy ? "Sending…" : "Send campaign"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
