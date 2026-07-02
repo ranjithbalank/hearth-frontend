@@ -3,6 +3,7 @@ export type Role =
   | "General Manager"
   | "Front Office"
   | "F&B Cashier"
+  | "Captain"
   | "Housekeeping";
 
 export interface User {
@@ -147,6 +148,7 @@ export interface OrderLine {
   unit_price: string;
   note: string;
   kot_fired: boolean;
+  kot_no: string | null;
 }
 
 export interface Order {

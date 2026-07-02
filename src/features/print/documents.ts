@@ -94,8 +94,9 @@ export function printInvoice(folio: Folio, propertyName: string, gstin: string) 
 }
 
 export function printKot(order: Order, propertyName: string) {
-  // Group fired lines by station (kitchen/bar).
-  const fired = order.lines.filter((l) => l.kot_fired);
+  // Print only the latest fired round — earlier rounds already went to the kitchen.
+  const latest = order.lines.filter((l) => l.kot_fired && l.kot_no === order.kot_no);
+  const fired = latest.length ? latest : order.lines.filter((l) => l.kot_fired);
   const lines = (fired.length ? fired : order.lines).map((l) =>
     `<tr><td class="r" style="width:34px">${l.qty}</td><td>${l.name}${l.note ? ` <i>(${l.note})</i>` : ""}</td></tr>`).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${order.kot_no || "KOT"}</title>

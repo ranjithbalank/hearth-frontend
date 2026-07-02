@@ -191,7 +191,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             <NotificationBell />
           </div>
         </header>
-        <div className="mx-auto w-full max-w-[1180px] px-4 md:px-8 py-6 md:py-8">{children}</div>
+        {/* Workstation screens (POS / KDS / online-order board) use the full width;
+            reading/admin pages stay capped for comfortable line lengths. */}
+        <div
+          className={`mx-auto w-full px-4 md:px-8 py-6 md:py-8 ${
+            ["/pos", "/kds", "/online-orders"].includes(location.pathname) ? "" : "max-w-[1180px]"
+          }`}
+        >
+          {children}
+        </div>
       </main>
 
       {/* Instant name tooltip for the collapsed icon rail */}

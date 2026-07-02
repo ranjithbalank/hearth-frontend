@@ -16,13 +16,19 @@ import { downloadBillPdf, printKot } from "../print/documents";
 type Mode = "dinein" | "takeaway" | "delivery";
 const MODE_LABELS: Record<Mode, string> = { dinein: "Dine-in", takeaway: "Takeaway", delivery: "Delivery" };
 interface Category { id: number; name: string }
+interface ReadyKot { kot: number; kot_no: string; order: number; table: string; captain: string }
+
+const TENDER_LABELS: Record<string, string> = { Cash: "Cash", UPI: "UPI", Gateway: "Card (gateway)" };
 
 export function Pos() {
   const qc = useQueryClient();
-  const { property } = useApp();
+  const { property, user } = useApp();
   const ask = usePrompt();
   const toast = useToast();
   const hms = property?.entitlement.hms;
+  // Role↔tender mapping (mirrors the backend): captains settle digital payments
+  // tableside; cash is collected only at the cashier counter.
+  const tenders = user?.role === "Captain" ? ["UPI", "Gateway"] : ["Cash", "UPI", "Gateway"];
 
   const [mode, setMode] = useState<Mode>("dinein");
   const [table, setTable] = useState<Table | null>(null);
@@ -31,7 +37,13 @@ export function Pos() {
   // Table-first flow: start on the floor, drill into a table's order screen.
   const [view, setView] = useState<"floor" | "order">("floor");
 
-  function openTable(t: Table) { setMode("dinein"); setTable(t); setOrderId(null); setCat(null); setView("order"); }
+  function openTable(t: Table) {
+    setMode("dinein"); setTable(t); setOrderId(null); setCat(null); setView("order");
+    // Resume the table's running order (KOT fired / billed) instead of starting a blank one.
+    api.get<Order[]>(`/pos/orders/?table=${t.id}&open=1`).then((r) => {
+      if (r.data.length) setOrderId(r.data[0].id);
+    });
+  }
   function startMode(m: Mode) { setMode(m); setTable(null); setOrderId(null); setCat(null); setView("order"); }
 
   const { data: tables } = useQuery({ queryKey: ["tables"], queryFn: async () => (await api.get<Table[]>("/pos/tables/")).data });
@@ -44,6 +56,30 @@ export function Pos() {
   });
 
   const { online, queued, sync } = useOnline();
+
+  // Kitchen→floor loop: rounds marked ready on the KDS, filtered to this
+  // captain's own tables. Poll like the KDS does; toast when a new one lands.
+  const { data: readyKots } = useQuery({
+    queryKey: ["ready-kots"],
+    queryFn: async () =>
+      (await api.get<ReadyKot[]>(`/pos/orders/ready/${user?.role === "Captain" ? "?mine=1" : ""}`)).data,
+    refetchInterval: 10000,
+    enabled: online,
+  });
+  const prevReady = useRef(0);
+  useEffect(() => {
+    const n = readyKots?.length ?? 0;
+    if (n > prevReady.current && readyKots?.length) {
+      toast(`🍽 Ready to serve — ${readyKots[readyKots.length - 1].table}`);
+    }
+    prevReady.current = n;
+  }, [readyKots]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const serveKot = useMutation({
+    mutationFn: async (kot: number) => (await api.post("/pos/orders/serve/", { kot })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ready-kots"] }),
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not mark served", "error"),
+  });
   // Cache the menu so the POS keeps working through an outage (NFR-002).
   useEffect(() => { if (items?.length) cacheMenu(items); }, [items]);
 
@@ -57,6 +93,10 @@ export function Pos() {
   const [picker, setPicker] = useState<MenuItem | null>(null);
   const [showDiscount, setShowDiscount] = useState(false);
   const [showCoupon, setShowCoupon] = useState(false);
+  const [showFinal, setShowFinal] = useState(false);
+  const [q, setQ] = useState("");
+  const [diet, setDiet] = useState<"" | "veg" | "nonveg" | "egg">("");
+  const [showTablePick, setShowTablePick] = useState(false);
 
   const addItem = useMutation({
     mutationFn: async (payload: { menu_item: number; qty: number; variant?: number; addons?: number[] }) => {
@@ -76,14 +116,55 @@ export function Pos() {
   }
 
   const setQty = useMutation({
-    mutationFn: async ({ line, qty }: { line: number; qty: number }) =>
-      (await api.post(`/pos/orders/${orderId}/set_qty/`, { line, qty })).data,
+    mutationFn: async ({ line, qty, override }: { line: number; qty: number; override?: string }) =>
+      (await api.post(`/pos/orders/${orderId}/set_qty/`, { line, qty, override })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["order", orderId] }),
+    onError: async (e: any, vars) => {
+      // Reducing a KOT-fired item is an item void — the backend asks for a manager passcode.
+      if (e?.response?.data?.override_required) {
+        const code = await ask({ title: "Manager override", label: e.response.data.detail, password: true, placeholder: "Manager passcode" });
+        if (code) setQty.mutate({ ...vars, override: code });
+      } else {
+        toast(e?.response?.data?.detail ?? "Could not update item", "error");
+      }
+    },
   });
 
   const fireKot = useMutation({
     mutationFn: async () => (await api.post(`/pos/orders/${orderId}/fire_kot/`)).data,
     onSuccess: (o: Order) => { toast(`KOT fired · ${o.kot_no}`); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "KOT failed", "error"),
+  });
+
+  // One-tap close: print the final bill, settle the payment, free the table.
+  const finalBill = useMutation({
+    mutationFn: async (tender: string) => {
+      const id = orderId!;
+      if (order?.status !== "billed") {
+        await api.post(`/pos/orders/${id}/bill/`);
+        downloadBillPdf(id);
+      }
+      return (await api.post(`/pos/orders/${id}/settle/`, {
+        tender, token: tender === "Gateway" ? "tok_demo_card" : undefined,
+      })).data;
+    },
+    onSuccess: (_d, tender) => {
+      setShowFinal(false);
+      toast(`Final bill settled · ${tender} — table freed`);
+      reset();
+    },
+    // Bill stays printed if payment fails (e.g. card declined) — settle again from the billed state.
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Payment failed — bill kept, settle again", "error"),
+  });
+
+  const reopenOrder = useMutation({
+    mutationFn: async () => (await api.post(`/pos/orders/${orderId}/reopen/`)).data,
+    onSuccess: () => {
+      toast("Bill reopened — reprint after changes");
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+      qc.invalidateQueries({ queryKey: ["tables"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not reopen", "error"),
   });
 
   const applyDiscount = useMutation({
@@ -130,12 +211,19 @@ export function Pos() {
 
   const postToRoom = useMutation({
     mutationFn: async () => {
+      // Post to the guest's own folio — ask for the room, don't grab the first open one.
+      const room = await ask({ title: "Post to room", label: "Room number", placeholder: "e.g. 101" });
+      if (!room) throw { silent: true };
       const folios = (await api.get<Folio[]>("/folios/?status=open")).data;
-      if (!folios.length) throw new Error("No open folio");
-      return (await api.post(`/pos/orders/${orderId}/post_to_room/`, { folio: folios[0].id })).data;
+      const folio = folios.find((f) => (f.room_number ?? "").toLowerCase() === room.trim().toLowerCase());
+      if (!folio) throw { message: `No open folio for room ${room}` };
+      return (await api.post(`/pos/orders/${orderId}/post_to_room/`, { folio: folio.id })).data;
     },
     onSuccess: (o: Order) => { toast(`Posted to room · folio #${o.folio}`); reset(); },
-    onError: () => toast("No open folio to post to", "error"),
+    onError: (e: any) => {
+      if (e?.silent) return;
+      toast(e?.response?.data?.detail ?? e?.message ?? "Could not post to room", "error");
+    },
   });
 
   function reset() {
@@ -147,7 +235,34 @@ export function Pos() {
   }
 
   if (isLoading && online) return <Spinner />;
-  const shown = cat ? items?.filter((i) => i.category === cat) : items;
+  const needle = q.trim().toLowerCase();
+  const shown = items?.filter((i) =>
+    (!cat || i.category === cat) &&
+    (!diet || i.diet === diet) &&
+    (!needle || i.name.toLowerCase().includes(needle) || i.short_code.toLowerCase().includes(needle)),
+  );
+  // Lifecycle flags: un-fired lines block billing/settling; a printed bill locks edits.
+  const unfired = order?.lines.some((l) => !l.kot_fired) ?? false;
+  const billed = order?.status === "billed";
+
+  // Serve board: every ready round for my tables, with one-tap "Delivered".
+  const readyStrip = !!readyKots?.length && (
+    <div className="card p-3 mb-4 bg-pine-50 border border-pine/30">
+      <div className="text-[10px] uppercase tracking-wide text-pine font-semibold mb-2">🔔 Ready to serve</div>
+      <div className="flex flex-wrap gap-2">
+        {readyKots.map((k) => (
+          <div key={k.kot} className="flex items-center gap-2 rounded-lg border border-pine/30 bg-surface px-3 py-1.5 text-sm">
+            <span className="font-semibold">{k.table}</span>
+            <span className="text-xs text-muted">{k.kot_no}{k.captain ? ` · ${k.captain}` : ""}</span>
+            <button className="btn-primary text-xs py-1 px-2.5" disabled={serveKot.isPending}
+              onClick={() => serveKot.mutate(k.kot)}>
+              Delivered ✓
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   const banner = (!online || queued > 0) && (
     <div className={`card p-3 mb-4 flex items-center gap-3 ${online ? "bg-amber-50" : "bg-clay/10"}`}>
@@ -182,12 +297,13 @@ export function Pos() {
       <div>
         <PageHeader title="Restaurant POS" subtitle="Tap a table to open its order" />
         {banner}
+        {readyStrip}
         <div className="flex gap-2 mb-5">
           <button className="btn-outline" onClick={() => startMode("takeaway")}>+ Takeaway</button>
           <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
         </div>
         <div className="text-xs uppercase tracking-wide text-muted mb-2">Tables</div>
-        <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-3">
           {tables?.map((t) => (
             <button
               key={t.id}
@@ -195,12 +311,16 @@ export function Pos() {
               className={`rounded-card border p-4 text-center transition-colors ${
                 t.status === "running"
                   ? "bg-clay/90 text-white border-clay"
-                  : "bg-surface hover:bg-cream border-hairline"
+                  : t.status === "printed"
+                    ? "bg-amber-100 border-amber-400"
+                    : "bg-surface hover:bg-cream border-hairline"
               }`}
             >
               <div className="font-display text-xl">{t.name}</div>
               <div className={`text-xs mt-0.5 ${t.status === "running" ? "opacity-80" : "text-muted"}`}>{t.seats} seats</div>
-              <div className="text-[10px] uppercase tracking-wide mt-1">{t.status === "running" ? "● Running" : "Free"}</div>
+              <div className="text-[10px] uppercase tracking-wide mt-1">
+                {t.status === "running" ? "● Running" : t.status === "printed" ? "● Bill printed" : "Free"}
+              </div>
             </button>
           ))}
           {!tables?.length && (
@@ -216,29 +336,104 @@ export function Pos() {
   // ORDER VIEW — menu + running bill for the selected table / mode.
   return (
     <div>
+      {/* Open-bill tabs: only tables being served right now, like browser tabs.
+          The full floor lives behind the "Tables" picker — no chip clutter. */}
+      <div className="mb-3 flex items-center gap-2">
+        <button className="btn-outline text-sm shrink-0" onClick={reset}>← Floor</button>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 flex-1">
+          {tables
+            ?.filter((t) => t.status === "running" || t.status === "printed" || (mode === "dinein" && table?.id === t.id))
+            .map((t) => {
+              const current = mode === "dinein" && table?.id === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => openTable(t)}
+                  title={`${t.name} · ${t.status_label}`}
+                  className={`shrink-0 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                    current
+                      ? "bg-ink text-white border-ink"
+                      : t.status === "printed"
+                        ? "bg-amber-100 border-amber-400 hover:bg-amber-200"
+                        : "bg-surface border-hairline hover:bg-cream"
+                  }`}
+                >
+                  {t.status === "running" && !current && <span className="text-clay mr-1">●</span>}
+                  {t.status === "printed" && !current && <span className="text-amber-600 mr-1">●</span>}
+                  {t.name}
+                </button>
+              );
+            })}
+        </div>
+        <button className="btn-ghost text-sm shrink-0" onClick={() => setShowTablePick(true)}>⊞ Tables</button>
+      </div>
       <div className="flex items-center gap-3 mb-4">
-        <button className="btn-ghost" onClick={reset}>← Floor</button>
         <div>
           <div className="font-display text-xl">{mode === "dinein" ? `Table ${table?.name ?? ""}` : MODE_LABELS[mode]}</div>
           <div className="text-xs text-muted">{mode === "dinein" ? `${table?.seats ?? 0} seats` : "New order"}</div>
         </div>
-        <div className="ml-auto">{order?.kot_no && <Badge tone="amber">{order.kot_no}</Badge>}</div>
+        <div className="ml-auto flex items-center gap-2">
+          {order?.kot_no && <Badge tone="amber">{order.kot_no}</Badge>}
+          {order && <Badge tone={billed ? "clay" : "pine"}>{order.status_label}</Badge>}
+        </div>
       </div>
       {banner}
+      {readyStrip}
 
-      <div className="grid grid-cols-[1fr_360px] gap-4">
-        <div>
-          <div className="flex flex-wrap gap-2 mb-3">
-            <button onClick={() => setCat(null)} className={`pill ${!cat ? "bg-ink text-white" : "bg-hairline text-body"}`}>All</button>
+      {/* Phones stack into a single column (captain tableside flow); the
+          3-column workstation layout starts at lg. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[180px_1fr_360px] gap-4">
+        {/* Category rail — vertical like the module nav; hidden on phones. */}
+        <div className="hidden lg:block card p-2 h-fit sticky top-4">
+          <div className="text-[10px] uppercase tracking-wide text-muted px-3 pt-1 pb-2">Categories</div>
+          <div className="grid gap-0.5">
+            <CategoryButton name="All items" count={items?.length ?? 0} active={!cat} onClick={() => setCat(null)} />
             {cats?.map((c) => (
-              <button key={c.id} onClick={() => setCat(c.id)} className={`pill ${cat === c.id ? "bg-ink text-white" : "bg-hairline text-body"}`}>{c.name}</button>
+              <CategoryButton
+                key={c.id}
+                name={c.name}
+                count={items?.filter((i) => i.category === c.id).length ?? 0}
+                active={cat === c.id}
+                onClick={() => setCat(c.id)}
+              />
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-2">
+        </div>
+
+        <div>
+          {/* Mobile: categories as a swipeable chip row instead of the rail. */}
+          <div className="flex lg:hidden items-center gap-2 mb-3 overflow-x-auto pb-1">
+            <button onClick={() => setCat(null)} className={`pill shrink-0 ${!cat ? "bg-pine text-white" : "bg-hairline text-body"}`}>All</button>
+            {cats?.map((c) => (
+              <button key={c.id} onClick={() => setCat(c.id)} className={`pill shrink-0 ${cat === c.id ? "bg-pine text-white" : "bg-hairline text-body"}`}>
+                {c.name}
+              </button>
+            ))}
+          </div>
+          {/* Quick find: name or short-code, plus diet filter. */}
+          <div className="flex items-center gap-2 mb-3">
+            <input
+              className="input flex-1"
+              placeholder="Search item or short code…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            {(["veg", "nonveg", "egg"] as const).map((d) => (
+              <button
+                key={d}
+                onClick={() => setDiet(diet === d ? "" : d)}
+                className={`pill flex items-center gap-1.5 ${diet === d ? "bg-ink text-white" : "bg-hairline text-body"}`}
+              >
+                <span className={`h-2 w-2 rounded-full ${d === "veg" ? "bg-pine" : d === "egg" ? "bg-amber-500" : "bg-clay"}`} />
+                {d === "veg" ? "Veg" : d === "egg" ? "Egg" : "Non-veg"}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
             {shown?.map((i) => (
               <button
                 key={i.id}
-                disabled={(mode === "dinein" && !table) || !i.available}
+                disabled={(mode === "dinein" && !table) || !i.available || billed}
                 onClick={() => onItemClick(i)}
                 className="card p-3 text-left hover:bg-cream disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
               >
@@ -250,16 +445,22 @@ export function Pos() {
                 </div>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-sm text-muted">{inr(i.price)}</span>
-                  {!i.available && <span className="text-[10px] font-semibold uppercase tracking-wide text-clay">86</span>}
+                  {!i.available
+                    ? <span className="text-[10px] font-semibold uppercase tracking-wide text-clay">86</span>
+                    : i.short_code && <span className="text-[10px] uppercase tracking-wide text-muted">{i.short_code}</span>}
                 </div>
               </button>
             ))}
-            {!shown?.length && <div className="col-span-3 text-sm text-muted py-8 text-center">No items in this category.</div>}
+            {!shown?.length && (
+              <div className="col-span-full text-sm text-muted py-8 text-center">
+                {needle || diet ? "No items match the search/filter." : "No items in this category."}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Order panel */}
-        <div className="card p-4 h-fit sticky top-4">
+        <div id="pos-order-panel" className="card p-4 h-fit lg:sticky lg:top-4 scroll-mt-4">
           <div className="flex items-center justify-between mb-3">
             <div className="font-semibold">Current order</div>
             {!!order?.lines.length && (
@@ -273,11 +474,20 @@ export function Pos() {
             <div className="space-y-2 mb-3">
               {order.lines.map((l) => (
                 <div key={l.id} className="flex items-center gap-2 text-sm">
-                  <div className="flex-1">{l.name}</div>
+                  <div className="flex-1">
+                    {l.name}
+                    {l.kot_no && (
+                      <span className="ml-1.5 text-[10px] uppercase tracking-wide text-muted" title={l.kot_no}>
+                        {l.kot_no.includes("/") ? `KOT ${l.kot_no.split("/")[1]}` : "KOT ✓"}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1">
-                    <button className="h-6 w-6 rounded bg-hairline" onClick={() => setQty.mutate({ line: l.id, qty: l.qty - 1 })}>−</button>
+                    <button className="h-6 w-6 rounded bg-hairline disabled:opacity-40" disabled={billed}
+                      onClick={() => setQty.mutate({ line: l.id, qty: l.qty - 1 })}>−</button>
                     <span className="w-6 text-center">{l.qty}</span>
-                    <button className="h-6 w-6 rounded bg-hairline" onClick={() => setQty.mutate({ line: l.id, qty: l.qty + 1 })}>+</button>
+                    <button className="h-6 w-6 rounded bg-hairline disabled:opacity-40" disabled={billed}
+                      onClick={() => setQty.mutate({ line: l.id, qty: l.qty + 1 })}>+</button>
                   </div>
                   <div className="w-16 text-right">{inr(Number(l.unit_price) * l.qty)}</div>
                 </div>
@@ -304,10 +514,10 @@ export function Pos() {
               </div>
 
               <div className="flex gap-2 mt-3">
-                <button className="btn-ghost text-xs flex-1" onClick={() => setShowDiscount(true)}>
+                <button className="btn-ghost text-xs flex-1" disabled={billed} onClick={() => setShowDiscount(true)}>
                   Discount
                 </button>
-                <button className="btn-ghost text-xs flex-1" onClick={() => setShowCoupon(true)}>
+                <button className="btn-ghost text-xs flex-1" disabled={billed} onClick={() => setShowCoupon(true)}>
                   Coupon
                 </button>
               </div>
@@ -335,27 +545,62 @@ export function Pos() {
               </div>
 
               <div className="grid gap-2 mt-3">
-                <button className="btn-primary" disabled={fireKot.isPending} onClick={() => fireKot.mutate()}>
-                  {fireKot.isPending ? "Firing…" : "Fire KOT"}
+                {!billed && (
+                  <button className="btn-primary" disabled={fireKot.isPending || !unfired} onClick={() => fireKot.mutate()}>
+                    {fireKot.isPending ? "Firing…" : unfired ? "Fire KOT" : "KOT fired ✓"}
+                  </button>
+                )}
+                {billed ? (
+                  <>
+                    {/* Bill printed but payment failed/pending — settle to free the table. */}
+                    <div className={`grid gap-2 ${tenders.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                      {tenders.map((tn) => (
+                        <button key={tn} className="btn-outline" disabled={settle.isPending} onClick={() => settle.mutate(tn)}>
+                          {TENDER_LABELS[tn]}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button className="btn-ghost text-xs" onClick={() => order && downloadBillPdf(order.id)}>Reprint bill</button>
+                      <button className="btn-ghost text-xs" disabled={reopenOrder.isPending} onClick={() => reopenOrder.mutate()}>
+                        Reopen to edit
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    className="btn-primary"
+                    disabled={finalBill.isPending || unfired}
+                    title={unfired ? "Fire the KOT before the final bill" : undefined}
+                    onClick={() => setShowFinal(true)}
+                  >
+                    Final bill
+                  </button>
+                )}
+                {hms && (
+                  <button className="btn-outline" disabled={postToRoom.isPending || unfired} onClick={() => postToRoom.mutate()}>
+                    Post to room
+                  </button>
+                )}
+                <button className="btn-ghost text-xs" onClick={() => order && printKot(order, property?.name ?? "Hearth")}>
+                  Print KOT
                 </button>
-                <div className="grid grid-cols-2 gap-2">
-                  <button className="btn-outline" disabled={settle.isPending} onClick={() => settle.mutate("Cash")}>Settle cash</button>
-                  <button className="btn-outline" disabled={settle.isPending} onClick={() => settle.mutate("Gateway")}>Card (gateway)</button>
-                </div>
-                {hms && <button className="btn-outline" disabled={postToRoom.isPending} onClick={() => postToRoom.mutate()}>Post to room</button>}
-                <div className="grid grid-cols-2 gap-2">
-                  <button className="btn-ghost text-xs" onClick={() => order && printKot(order, property?.name ?? "Hearth")}>
-                    Print KOT
-                  </button>
-                  <button className="btn-ghost text-xs" onClick={() => order && downloadBillPdf(order.id)}>
-                    Bill PDF
-                  </button>
-                </div>
               </div>
             </>
           ) : null}
         </div>
       </div>
+
+      {/* Mobile sticky cart bar: running count + total, jumps to the order panel. */}
+      {!!order?.lines.length && (
+        <button
+          className="lg:hidden fixed bottom-4 left-4 right-4 z-40 btn-primary py-3 shadow-lg flex items-center justify-between px-5"
+          onClick={() => document.getElementById("pos-order-panel")?.scrollIntoView({ behavior: "smooth" })}
+        >
+          <span>{order.lines.reduce((n, l) => n + l.qty, 0)} item(s)</span>
+          <span className="font-semibold">{inr(order.totals.total)} → view order</span>
+        </button>
+      )}
 
       {picker && (
         <ItemPicker
@@ -378,6 +623,85 @@ export function Pos() {
       {showCoupon && (
         <CouponModal onCancel={() => setShowCoupon(false)} onApply={(code) => applyCoupon.mutate(code)} />
       )}
+
+      {showTablePick && (
+        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={() => setShowTablePick(false)}>
+          <div className="card p-5 w-[560px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="font-display text-xl mb-4">Switch table</div>
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {tables?.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => { setShowTablePick(false); openTable(t); }}
+                  className={`rounded-card border p-3 text-center transition-colors ${
+                    mode === "dinein" && table?.id === t.id
+                      ? "border-ink bg-ink text-white"
+                      : t.status === "running"
+                        ? "bg-clay/90 text-white border-clay"
+                        : t.status === "printed"
+                          ? "bg-amber-100 border-amber-400"
+                          : "bg-surface hover:bg-cream border-hairline"
+                  }`}
+                >
+                  <div className="font-display text-lg">{t.name}</div>
+                  <div className="text-[10px] uppercase tracking-wide mt-0.5 opacity-80">
+                    {t.status === "running" ? "Running" : t.status === "printed" ? "Billed" : "Free"}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("takeaway"); }}>+ Takeaway</button>
+              <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("delivery"); }}>+ Delivery</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFinal && order && (
+        <FinalBillModal
+          total={order.totals.total}
+          tableName={mode === "dinein" ? table?.name : undefined}
+          tenders={tenders}
+          busy={finalBill.isPending}
+          onCancel={() => setShowFinal(false)}
+          onConfirm={(tender) => finalBill.mutate(tender)}
+        />
+      )}
+    </div>
+  );
+}
+
+function FinalBillModal({
+  total, tableName, tenders, busy, onCancel, onConfirm,
+}: {
+  total: string;
+  tableName?: string;
+  tenders: string[];
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (tender: string) => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
+      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-2">Final bill</div>
+        <div className="text-sm bg-amber-50 border border-amber-300 rounded-lg p-3 mb-4">
+          ⚠ This prints the final bill and closes the order.
+          {tableName ? ` Table ${tableName} will be freed for the next guest.` : ""} This cannot be undone.
+        </div>
+        <div className="flex justify-between font-semibold text-lg mb-4">
+          <span>Total to collect</span><span>{inr(total)}</span>
+        </div>
+        <div className={`grid gap-2 mb-2 ${tenders.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+          {tenders.map((tn, idx) => (
+            <button key={tn} className={idx === 0 ? "btn-primary" : "btn-outline"} disabled={busy} onClick={() => onConfirm(tn)}>
+              {busy ? "Settling…" : TENDER_LABELS[tn]}
+            </button>
+          ))}
+        </div>
+        <button className="btn-ghost w-full" disabled={busy} onClick={onCancel}>Cancel</button>
+      </div>
     </div>
   );
 }
@@ -529,6 +853,27 @@ function ItemPicker({
 
 function Row({ label, value }: { label: string; value: string }) {
   return <div className="flex justify-between text-muted"><span>{label}</span><span>{value}</span></div>;
+}
+
+function CategoryButton({
+  name, count, active, onClick,
+}: {
+  name: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm text-left transition-colors ${
+        active ? "bg-pine text-white" : "text-body hover:bg-cream"
+      }`}
+    >
+      <span className="truncate">{name}</span>
+      <span className={`text-xs tabular-nums ${active ? "opacity-80" : "text-muted"}`}>{count}</span>
+    </button>
+  );
 }
 
 /** Self-contained offline cart: uses the cached menu, bills are queued locally

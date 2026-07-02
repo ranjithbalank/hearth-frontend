@@ -8,6 +8,7 @@ const DEMO = [
   { username: "gm", role: "General Manager" },
   { username: "frontoffice", role: "Front Office" },
   { username: "cashier", role: "F&B Cashier" },
+  { username: "captain", role: "Captain" },
   { username: "housekeeping", role: "Housekeeping" },
 ];
 

@@ -88,6 +88,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       "General Manager": ["dashboard", "/dashboard"],
       "Front Office": ["frontdesk", "/frontdesk"],
       "F&B Cashier": ["pos", "/pos"],
+      "Captain": ["pos", "/pos"],
       "Housekeeping": ["housekeeping", "/housekeeping"],
     };
     const pref = user ? prefs[user.role] : undefined;
