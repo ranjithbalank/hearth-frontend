@@ -49,6 +49,18 @@ export function Folios() {
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not send", "error"),
   });
 
+  // Room bill with or without GST (BRD 5.23): switching recomputes the lines.
+  const billingMode = useMutation({
+    mutationFn: async ({ id, mode }: { id: number; mode: string }) =>
+      (await api.post(`/folios/${id}/billing_mode/`, { mode })).data,
+    onSuccess: (f: Folio) => {
+      toast(f.effective_billing_mode === "with_gst"
+        ? "Bill switched to GST tax invoice" : "Bill switched to bill of supply (no GST)");
+      qc.invalidateQueries({ queryKey: ["folios"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not switch", "error"),
+  });
+
   if (isLoading) return <Spinner />;
   if (!folios?.length) return <><PageHeader title="Folios" /><EmptyState title="No folios yet" hint="Check in a guest from Front Desk." /></>;
 
@@ -93,10 +105,23 @@ export function Folios() {
               <div className="flex items-center gap-2">
                 <Badge tone={sel.status === "open" ? "pine" : "muted"}>{sel.status}</Badge>
                 <button
+                  className={`pill text-xs ${sel.effective_billing_mode === "with_gst"
+                    ? "bg-pine-50 text-pine border border-pine/40"
+                    : "bg-amber-50 text-amber-700 border border-amber-300"}`}
+                  title="Toggle: GST tax invoice ↔ bill of supply (recomputes the bill)"
+                  disabled={billingMode.isPending}
+                  onClick={() => billingMode.mutate({
+                    id: sel.id,
+                    mode: sel.effective_billing_mode === "with_gst" ? "without_gst" : "with_gst",
+                  })}
+                >
+                  {sel.effective_billing_mode === "with_gst" ? "With GST" : "Without GST"}
+                </button>
+                <button
                   className="btn-ghost text-xs py-1"
                   onClick={() => downloadInvoicePdf(sel)}
                 >
-                  Invoice PDF
+                  {sel.effective_billing_mode === "with_gst" ? "Invoice PDF" : "Bill PDF"}
                 </button>
                 <button
                   className="btn-ghost text-xs py-1"

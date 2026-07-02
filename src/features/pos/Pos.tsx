@@ -250,21 +250,19 @@ export function Pos() {
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Payment failed", "error"),
   });
 
+  // Post-to-room: show the occupied rooms (open folios) and pick the guest.
+  const [roomPick, setRoomPick] = useState<Folio[] | null>(null);
+  async function openRoomPick() {
+    const folios = (await api.get<Folio[]>("/folios/?status=open")).data
+      .filter((f) => f.room_number);
+    if (!folios.length) { toast("No occupied rooms with an open folio", "error"); return; }
+    setRoomPick(folios);
+  }
   const postToRoom = useMutation({
-    mutationFn: async () => {
-      // Post to the guest's own folio — ask for the room, don't grab the first open one.
-      const room = await ask({ title: "Post to room", label: "Room number", placeholder: "e.g. 101" });
-      if (!room) throw { silent: true };
-      const folios = (await api.get<Folio[]>("/folios/?status=open")).data;
-      const folio = folios.find((f) => (f.room_number ?? "").toLowerCase() === room.trim().toLowerCase());
-      if (!folio) throw { message: `No open folio for room ${room}` };
-      return (await api.post(`/pos/orders/${orderId}/post_to_room/`, { folio: folio.id })).data;
-    },
-    onSuccess: (o: Order) => { toast(`Posted to room · folio #${o.folio}`); reset(); },
-    onError: (e: any) => {
-      if (e?.silent) return;
-      toast(e?.response?.data?.detail ?? e?.message ?? "Could not post to room", "error");
-    },
+    mutationFn: async (folioId: number) =>
+      (await api.post(`/pos/orders/${orderId}/post_to_room/`, { folio: folioId })).data,
+    onSuccess: (o: Order) => { setRoomPick(null); toast(`Posted to room · folio #${o.folio}`); reset(); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not post to room", "error"),
   });
 
   function reset() {
@@ -697,7 +695,7 @@ export function Pos() {
                   </button>
                 )}
                 {hms && (
-                  <button className="btn-outline" disabled={postToRoom.isPending || unfired} onClick={() => postToRoom.mutate()}>
+                  <button className="btn-outline" disabled={postToRoom.isPending || unfired} onClick={openRoomPick}>
                     Post to room
                   </button>
                 )}
@@ -773,6 +771,30 @@ export function Pos() {
               <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("takeaway"); }}>+ Takeaway</button>
               <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("delivery"); }}>+ Delivery</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {roomPick && (
+        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={() => setRoomPick(null)}>
+          <div className="card p-5 w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="font-display text-xl mb-1">Post to room</div>
+            <div className="text-xs text-muted mb-4">Occupied rooms with an open folio — pick the guest.</div>
+            <div className="grid gap-2">
+              {roomPick.map((f) => (
+                <button key={f.id} disabled={postToRoom.isPending}
+                  className="card p-3 text-left hover:bg-cream flex items-center gap-3"
+                  onClick={() => postToRoom.mutate(f.id)}>
+                  <span className="font-display text-xl w-14">{f.room_number}</span>
+                  <span className="flex-1">
+                    <span className="font-medium">{f.guest_name}</span>
+                    <span className="block text-xs text-muted">balance {inr(f.balance)}</span>
+                  </span>
+                  <span className="text-pine text-sm">Post →</span>
+                </button>
+              ))}
+            </div>
+            <button className="btn-ghost w-full mt-3" onClick={() => setRoomPick(null)}>Cancel</button>
           </div>
         </div>
       )}

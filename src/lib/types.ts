@@ -99,6 +99,8 @@ export interface Folio {
   routing: string;
   guest_type: string;
   company_name: string;
+  billing_mode: string;
+  effective_billing_mode: string;
 }
 
 export interface Variant {
