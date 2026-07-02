@@ -9,13 +9,19 @@ import { amount, digits } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 import { downloadBeoPdf } from "../print/documents";
 
+function Line({ label, value }: { label: string; value: string }) {
+  return <div className="flex justify-between text-muted"><span>{label}</span><span>{value}</span></div>;
+}
+
 interface Space { id: number; name: string; capacity: number }
 interface Event {
   id: number; title: string; host: string; contact: string; event_type: string;
   space: string; event_date: string; start_time: string; end_time: string;
   covers: number; deposit: string;
   package_amount: string; status: string; billed: boolean;
-  food_covers: number; food_pref: string; food_veg: number; food_nonveg: number; beo_status: string;
+  food_covers: number; food_pref: string; food_veg: number; food_nonveg: number;
+  veg_rate: string; nonveg_rate: string; catering_amount: string; bill_subtotal: string;
+  beo_status: string;
 }
 
 const TONE: Record<string, "amber" | "info" | "pine"> = {
@@ -43,7 +49,8 @@ export function Banquets() {
   const bill = useMutation({
     mutationFn: async (e: Event) => (await api.post(`/banquets/${e.id}/bill/`)).data,
     onSuccess: (d) => {
-      setMsg(`Event billed · total ${inr(d.tax.total)} (incl. 18% GST ${inr(d.tax.tax)})`);
+      const cat = Number(d.catering) > 0 ? ` (incl. catering ${inr(d.catering)})` : "";
+      setMsg(`Event billed · subtotal ${inr(d.subtotal)}${cat} · GST ${inr(d.tax.tax)} · total ${inr(d.tax.total)} · balance ${inr(d.balance)}`);
       qc.invalidateQueries({ queryKey: ["banquets"] });
     },
   });
@@ -97,6 +104,7 @@ export function Banquets() {
                   🍽 Catering: ~{e.food_covers} plates · {e.food_pref === "both"
                     ? `veg ${e.food_veg} + non-veg ${e.food_nonveg}`
                     : e.food_pref === "nonveg" ? "non-veg" : "veg"}
+                  {Number(e.catering_amount) > 0 && ` · ${inr(e.catering_amount)}`}
                 </div>
               )}
             </div>
@@ -122,7 +130,7 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
     title: "", host: "", contact_code: "+91", contact: "", event_type: "Wedding",
     space: "", event_date: today, start_time: "18:00", end_time: "23:00",
     covers: "", package_amount: "", deposit: "",
-    food_pref: "veg", food_veg: "", food_nonveg: "",
+    food_pref: "veg", food_veg: "", food_nonveg: "", veg_rate: "", nonveg_rate: "",
   });
   const [err, setErr] = useState<string | null>(null);
   const create = useMutation({
@@ -132,12 +140,22 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
       covers: Number(f.covers || 0),
       package_amount: f.package_amount || 0, deposit: f.deposit || 0,
       food_pref: f.food_pref, food_veg: Number(f.food_veg || 0), food_nonveg: Number(f.food_nonveg || 0),
+      veg_rate: Number(f.veg_rate || 0), nonveg_rate: Number(f.nonveg_rate || 0),
     })).data,
     onSuccess: onCreated,
     onError: (e: any) => setErr(e?.response?.data?.detail ?? "Could not book"),
   });
   const set = (k: string, v: string) => setF({ ...f, [k]: v });
   const space = spaces.find((s) => s.id === Number(f.space));
+
+  // Live bill estimate: hall/package + catering (plates × per-plate rate) + 18% GST.
+  const vegCatering = f.food_pref !== "nonveg" ? Number(f.food_veg || 0) * Number(f.veg_rate || 0) : 0;
+  const nvCatering = f.food_pref !== "veg" ? Number(f.food_nonveg || 0) * Number(f.nonveg_rate || 0) : 0;
+  const catering = vegCatering + nvCatering;
+  const subtotal = Number(f.package_amount || 0) + catering;
+  const gst = subtotal * 0.18;
+  const total = subtotal + gst;
+  const balance = total - Number(f.deposit || 0);
 
   return (
     <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
@@ -219,33 +237,52 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
               <option value="nonveg">Non-veg</option>
               <option value="both">Both (veg + non-veg)</option>
             </select>
-            {f.food_pref === "both" ? (
-              <>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-1">Approx. veg plates</label>
-                    <input className="input" inputMode="numeric" placeholder="e.g. 80" value={f.food_veg} onChange={(e) => set("food_veg", digits(e.target.value, 5))} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-muted mb-1">Approx. non-veg plates</label>
-                    <input className="input" inputMode="numeric" placeholder="e.g. 40" value={f.food_nonveg} onChange={(e) => set("food_nonveg", digits(e.target.value, 5))} />
-                  </div>
+            {f.food_pref !== "nonveg" && (
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <div>
+                  <label className="block text-xs font-semibold text-muted mb-1">Veg plates</label>
+                  <input className="input" inputMode="numeric" placeholder="e.g. 80" value={f.food_veg} onChange={(e) => set("food_veg", digits(e.target.value, 5))} />
                 </div>
-                {(Number(f.food_veg || 0) + Number(f.food_nonveg || 0)) > 0 && (
-                  <div className="text-xs text-muted mt-2">Total plates: {Number(f.food_veg || 0) + Number(f.food_nonveg || 0)}</div>
-                )}
-              </>
-            ) : (
-              <div>
-                <label className="block text-xs font-semibold text-muted mb-1">Approx. {f.food_pref === "nonveg" ? "non-veg" : "veg"} plates</label>
-                <input
-                  className="input"
-                  inputMode="numeric"
-                  placeholder="e.g. 120"
-                  value={f.food_pref === "nonveg" ? f.food_nonveg : f.food_veg}
-                  onChange={(e) => set(f.food_pref === "nonveg" ? "food_nonveg" : "food_veg", digits(e.target.value, 5))}
-                />
+                <div>
+                  <label className="block text-xs font-semibold text-muted mb-1">Veg rate (₹/plate)</label>
+                  <input className="input" inputMode="decimal" placeholder="e.g. 850" value={f.veg_rate} onChange={(e) => set("veg_rate", amount(e.target.value))} />
+                </div>
               </div>
+            )}
+            {f.food_pref !== "veg" && (
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <div>
+                  <label className="block text-xs font-semibold text-muted mb-1">Non-veg plates</label>
+                  <input className="input" inputMode="numeric" placeholder="e.g. 40" value={f.food_nonveg} onChange={(e) => set("food_nonveg", digits(e.target.value, 5))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted mb-1">Non-veg rate (₹/plate)</label>
+                  <input className="input" inputMode="decimal" placeholder="e.g. 1050" value={f.nonveg_rate} onChange={(e) => set("nonveg_rate", amount(e.target.value))} />
+                </div>
+              </div>
+            )}
+            {catering > 0 && <div className="text-xs text-muted mt-1">Catering charge: {inr(catering)}</div>}
+          </div>
+        )}
+
+        {/* Live bill estimate */}
+        {(subtotal > 0) && (
+          <div className="mt-4 rounded-card border border-hairline p-3 text-sm">
+            <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">Estimated bill</div>
+            <Line label="Hall / package" value={inr(Number(f.package_amount || 0))} />
+            {catering > 0 && <Line label="Catering" value={inr(catering)} />}
+            <Line label="Subtotal" value={inr(subtotal)} />
+            <Line label="GST 18%" value={inr(gst)} />
+            <div className="flex justify-between font-semibold border-t border-hairline mt-1 pt-1">
+              <span>Total</span><span>{inr(total)}</span>
+            </div>
+            {Number(f.deposit || 0) > 0 && (
+              <>
+                <Line label="Less advance/deposit" value={`−${inr(Number(f.deposit || 0))}`} />
+                <div className="flex justify-between font-semibold text-pine">
+                  <span>Balance due</span><span>{inr(balance)}</span>
+                </div>
+              </>
             )}
           </div>
         )}
