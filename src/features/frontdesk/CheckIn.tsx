@@ -26,6 +26,7 @@ export function CheckIn() {
   const [idType, setIdType] = useState("Passport");
   const [idNumber, setIdNumber] = useState("");
   const [guestType, setGuestType] = useState("individual");
+  const [companyName, setCompanyName] = useState("");
   const [code, setCode] = useState("+91");
   const [mobile, setMobile] = useState("");
   const [prefilled, setPrefilled] = useState(false);
@@ -58,6 +59,7 @@ export function CheckIn() {
       (await api.post("/checkin/", {
         reservation: resvId, room: roomId ?? rooms?.[0]?.id,
         id_type: idType, id_number: idNumber, guest_type: guestType,
+        company_name: guestType === "corporate" ? companyName.trim() : "",
         mobile: joinPhone(code, mobile),
       })).data,
     onSuccess: (folio) => setDone(`Checked in to room ${folio.room_number} · folio #${folio.id}`),
@@ -156,6 +158,14 @@ export function CheckIn() {
                 </button>
               ))}
             </div>
+            {guestType === "corporate" && (
+              <div className="mt-3">
+                <label className="block text-xs font-semibold text-muted mb-1">Company name <span className="text-clay">*</span></label>
+                <input className="input" placeholder="Company the folio bills to"
+                  value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                {!companyName.trim() && <div className="text-xs text-clay mt-1">Enter the company name for bill-to-company.</div>}
+              </div>
+            )}
           </div>
         )}
         {step === 4 && (
@@ -165,15 +175,22 @@ export function CheckIn() {
             <Field label="Rate" value={`${inr(resv.rate)}/night`} />
             <Field label="Deposit" value={resv.prepaid ? `${inr(resv.deposit)} (prepaid)` : "Collect at desk"} />
             <Field label="Routing" value={guestType === "corporate" ? "City ledger (BTC)" : "Guest folio"} />
+            {guestType === "corporate" && <Field label="Bill to" value={companyName || "—"} />}
           </div>
         )}
 
         <div className="flex justify-between mt-6">
           <button className="btn-ghost" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>Back</button>
           {step < STEPS.length - 1 ? (
-            <button className="btn-primary" disabled={step === 2 && (!idNumber.trim() || mobile.trim().length < 7)} onClick={() => setStep((s) => s + 1)}>Continue</button>
+            <button className="btn-primary"
+              disabled={(step === 2 && (!idNumber.trim() || mobile.trim().length < 7))
+                || (step === 3 && guestType === "corporate" && !companyName.trim())}
+              onClick={() => setStep((s) => s + 1)}>Continue</button>
           ) : (
-            <button className="btn-primary" disabled={complete.isPending || !idNumber.trim() || mobile.trim().length < 7} onClick={() => complete.mutate()}>
+            <button className="btn-primary"
+              disabled={complete.isPending || !idNumber.trim() || mobile.trim().length < 7
+                || (guestType === "corporate" && !companyName.trim())}
+              onClick={() => complete.mutate()}>
               Complete check-in
             </button>
           )}
