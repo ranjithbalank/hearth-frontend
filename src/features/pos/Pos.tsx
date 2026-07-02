@@ -165,7 +165,12 @@ export function Pos() {
 
   const fireKot = useMutation({
     mutationFn: async () => (await api.post(`/pos/orders/${orderId}/fire_kot/`)).data,
-    onSuccess: (o: Order) => { toast(`KOT fired · ${o.kot_no}`); qc.invalidateQueries({ queryKey: ["order", orderId] }); },
+    onSuccess: (o: Order) => {
+      // Fire + print in one tap; the ticket carries the pickup token for takeaway/delivery.
+      toast(`KOT fired · ${o.kot_no}${o.token_no ? ` · Token ${o.token_no}` : ""}`);
+      printKot(o, property?.name ?? "Hearth");
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+    },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "KOT failed", "error"),
   });
 
@@ -654,7 +659,7 @@ export function Pos() {
               <div className="grid gap-2 mt-3">
                 {!billed && (
                   <button className="btn-primary" disabled={fireKot.isPending || !unfired} onClick={() => fireKot.mutate()}>
-                    {fireKot.isPending ? "Firing…" : unfired ? "Fire KOT" : "KOT fired ✓"}
+                    {fireKot.isPending ? "Firing…" : unfired ? "Fire & print KOT 🖨" : "KOT fired ✓"}
                   </button>
                 )}
                 {billed ? (

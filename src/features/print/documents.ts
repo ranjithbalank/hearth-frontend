@@ -108,6 +108,7 @@ export function printKot(order: Order, propertyName: string) {
   </style></head><body>
     <div style="text-align:center; border-bottom:2px dashed #16221F; padding-bottom:8px;">
       <h1>KITCHEN ORDER · KOT</h1>
+      ${order.token_no ? `<div class="kt" style="font-size:26px; font-weight:bold; margin:4px 0;">TOKEN ${order.token_no}</div>` : ""}
       <div class="muted kt">${order.kot_no || "#" + order.id} · ${order.table_name ? "Table " + order.table_name : (order.mode || "")}</div>
       <div class="muted kt">${new Date().toLocaleString("en-IN")}</div>
     </div>
