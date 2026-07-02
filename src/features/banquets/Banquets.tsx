@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
+import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
@@ -34,6 +35,7 @@ const TONE: Record<string, "amber" | "info" | "pine"> = {
 export function Banquets() {
   const qc = useQueryClient();
   const { property } = useApp();
+  const toast = useToast();
   const [msg, setMsg] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
   const [editing, setEditing] = useState<Event | null>(null);
@@ -45,7 +47,8 @@ export function Banquets() {
 
   const confirm = useMutation({
     mutationFn: async (e: Event) => (await api.post(`/banquets/${e.id}/confirm/`)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["banquets"] }),
+    onSuccess: () => { toast("Event confirmed"); qc.invalidateQueries({ queryKey: ["banquets"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not confirm", "error"),
   });
   const bill = useMutation({
     mutationFn: async (e: Event) => (await api.post(`/banquets/${e.id}/bill/`)).data,
