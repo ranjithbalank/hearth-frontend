@@ -93,6 +93,9 @@ export interface Folio {
   charges_total: string;
   paid_total: string;
   balance: string;
+  routing: string;
+  guest_type: string;
+  company_name: string;
 }
 
 export interface Variant {

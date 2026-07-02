@@ -150,7 +150,32 @@ export function Folios() {
               <span className={num(sel.balance) > 0 ? "text-clay" : "text-pine"}>{inr(sel.balance)}</span>
             </div>
 
-            {sel.status === "open" && (
+            {sel.status === "open" && sel.routing === "city_ledger" && (
+              <div className="mt-5">
+                <div className="text-sm text-muted mb-2">
+                  Bill-to-company — no payment collected at the desk. The {inr(sel.balance)} balance
+                  posts to <span className="font-medium text-body">{sel.company_name || "the company"}</span>'s
+                  account and is settled later from Guest CRM.
+                </div>
+                <button
+                  className="btn-primary w-full"
+                  disabled={checkout.isPending}
+                  onClick={async () => {
+                    const ok = await ask({
+                      title: "Bill to company & check out",
+                      confirm: true,
+                      confirmLabel: "Check out (BTC)",
+                      message: `Post the ${inr(sel.balance)} balance to ${sel.company_name || "the company"}'s city-ledger account and check out ${sel.guest_name}? No payment is collected now.`,
+                    });
+                    if (ok) checkout.mutate(sel);
+                  }}
+                >
+                  {checkout.isPending ? "Checking out…" : "Bill to company & check out"}
+                </button>
+              </div>
+            )}
+
+            {sel.status === "open" && sel.routing !== "city_ledger" && (
               <div className="mt-5 flex items-center gap-2">
                 <select className="input w-32" value={tender} onChange={(e) => setTender(e.target.value)}>
                   {TENDERS.map((t) => <option key={t}>{t}</option>)}

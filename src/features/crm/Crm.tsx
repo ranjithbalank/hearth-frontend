@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { usePrompt } from "../../design/Prompt";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
+import { amount as amtFilter } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 
 interface Customer {
@@ -18,6 +20,7 @@ const TONE: Record<string, "pine" | "info" | "amber"> = {
 
 export function Crm() {
   const qc = useQueryClient();
+  const ask = usePrompt();
   const [msg, setMsg] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["customers"],
@@ -41,6 +44,14 @@ export function Crm() {
     mutationFn: async (c: Customer) => (await api.post(`/customers/${c.id}/erase/`)).data,
     onSuccess: () => {
       setMsg("Customer PII anonymised (DPDP erasure).");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+  });
+  const receive = useMutation({
+    mutationFn: async ({ id, amount }: { id: number; amount: string }) =>
+      (await api.post(`/customers/${id}/settle_ar/`, { amount })).data,
+    onSuccess: (d) => {
+      setMsg(`Receipt recorded · ${inr(d.received)} · balance now ${inr(d.outstanding)}`);
       qc.invalidateQueries({ queryKey: ["customers"] });
     },
   });
@@ -80,8 +91,17 @@ export function Crm() {
                 <td className="px-4 py-3"><Badge tone={TONE[c.customer_type] ?? "pine"}>{c.type_label}</Badge></td>
                 <td className="px-4 py-3 text-muted">{c.gstin || "—"}</td>
                 <td className="px-4 py-3 text-right">{c.loyalty_points}</td>
-                <td className="px-4 py-3 text-right">{inr(c.outstanding)}</td>
+                <td className="px-4 py-3 text-right">
+                  <span className={Number(c.outstanding) > 0 ? "text-clay font-medium" : ""}>{inr(c.outstanding)}</span>
+                </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
+                  {Number(c.outstanding) > 0 && (
+                    <button className="btn-ghost text-xs py-1 text-pine" onClick={async () => {
+                      const raw = await ask({ title: `Receive payment — ${c.name}`, label: `Outstanding ${inr(c.outstanding)}`, defaultValue: c.outstanding, placeholder: "Amount received" });
+                      const amount = amtFilter(raw ?? "");
+                      if (amount && Number(amount) > 0) receive.mutate({ id: c.id, amount });
+                    }}>Receive</button>
+                  )}
                   <button className="btn-ghost text-xs py-1" onClick={() => exportData.mutate(c)}>Export</button>
                   <button className="btn-ghost text-xs py-1 text-clay" onClick={() => erase.mutate(c)}>Erase</button>
                 </td>
