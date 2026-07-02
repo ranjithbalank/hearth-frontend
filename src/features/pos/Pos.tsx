@@ -28,6 +28,11 @@ export function Pos() {
   const [table, setTable] = useState<Table | null>(null);
   const [orderId, setOrderId] = useState<number | null>(null);
   const [cat, setCat] = useState<number | null>(null);
+  // Table-first flow: start on the floor, drill into a table's order screen.
+  const [view, setView] = useState<"floor" | "order">("floor");
+
+  function openTable(t: Table) { setMode("dinein"); setTable(t); setOrderId(null); setCat(null); setView("order"); }
+  function startMode(m: Mode) { setMode(m); setTable(null); setOrderId(null); setCat(null); setView("order"); }
 
   const { data: tables } = useQuery({ queryKey: ["tables"], queryFn: async () => (await api.get<Table[]>("/pos/tables/")).data });
   const { data: cats } = useQuery({ queryKey: ["cats"], queryFn: async () => (await api.get<Category[]>("/pos/categories/")).data });
@@ -136,6 +141,7 @@ export function Pos() {
   function reset() {
     setOrderId(null);
     setTable(null);
+    setView("floor");
     qc.invalidateQueries({ queryKey: ["tables"] });
     qc.invalidateQueries({ queryKey: ["folios"] });
   }
@@ -170,39 +176,55 @@ export function Pos() {
     );
   }
 
-  return (
-    <div>
-      <PageHeader title="Restaurant POS" subtitle="Orders · KOT · settlement" />
-      {banner}
-
-      <div className="flex gap-2 mb-4">
-        {(["dinein", "takeaway", "delivery"] as Mode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => { setMode(m); if (m !== "dinein") setTable(null); }}
-            className={`pill border ${mode === m ? "bg-pine text-white border-pine" : "border-hairline text-body"}`}
-          >
-            {MODE_LABELS[m]}
-          </button>
-        ))}
-      </div>
-
-      {mode === "dinein" && (
-        <div className="flex flex-wrap gap-2 mb-4">
+  // FLOOR VIEW — tables first. Tap a table (or start takeaway/delivery) to order.
+  if (view === "floor") {
+    return (
+      <div>
+        <PageHeader title="Restaurant POS" subtitle="Tap a table to open its order" />
+        {banner}
+        <div className="flex gap-2 mb-5">
+          <button className="btn-outline" onClick={() => startMode("takeaway")}>+ Takeaway</button>
+          <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
+        </div>
+        <div className="text-xs uppercase tracking-wide text-muted mb-2">Tables</div>
+        <div className="grid grid-cols-4 md:grid-cols-6 gap-3">
           {tables?.map((t) => (
             <button
               key={t.id}
-              onClick={() => { setTable(t); setOrderId(null); }}
-              className={`rounded-card border px-3 py-2 text-sm ${
-                table?.id === t.id ? "bg-pine text-white border-pine" :
-                t.status === "running" ? "bg-clay/90 text-white border-clay" : "border-hairline"
+              onClick={() => openTable(t)}
+              className={`rounded-card border p-4 text-center transition-colors ${
+                t.status === "running"
+                  ? "bg-clay/90 text-white border-clay"
+                  : "bg-surface hover:bg-cream border-hairline"
               }`}
             >
-              {t.name} <span className="opacity-60 text-xs">({t.seats})</span>
+              <div className="font-display text-xl">{t.name}</div>
+              <div className={`text-xs mt-0.5 ${t.status === "running" ? "opacity-80" : "text-muted"}`}>{t.seats} seats</div>
+              <div className="text-[10px] uppercase tracking-wide mt-1">{t.status === "running" ? "● Running" : "Free"}</div>
             </button>
           ))}
+          {!tables?.length && (
+            <div className="col-span-full text-sm text-muted py-8 text-center">
+              No tables configured — add them in Table Master.
+            </div>
+          )}
         </div>
-      )}
+      </div>
+    );
+  }
+
+  // ORDER VIEW — menu + running bill for the selected table / mode.
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-4">
+        <button className="btn-ghost" onClick={reset}>← Floor</button>
+        <div>
+          <div className="font-display text-xl">{mode === "dinein" ? `Table ${table?.name ?? ""}` : MODE_LABELS[mode]}</div>
+          <div className="text-xs text-muted">{mode === "dinein" ? `${table?.seats ?? 0} seats` : "New order"}</div>
+        </div>
+        <div className="ml-auto">{order?.kot_no && <Badge tone="amber">{order.kot_no}</Badge>}</div>
+      </div>
+      {banner}
 
       <div className="grid grid-cols-[1fr_360px] gap-4">
         <div>
@@ -212,11 +234,6 @@ export function Pos() {
               <button key={c.id} onClick={() => setCat(c.id)} className={`pill ${cat === c.id ? "bg-ink text-white" : "bg-hairline text-body"}`}>{c.name}</button>
             ))}
           </div>
-          {mode === "dinein" && !table && (
-            <div className="text-sm text-muted mb-3 rounded-card border border-dashed border-hairline px-3 py-2">
-              Select a table above to start an order.
-            </div>
-          )}
           <div className="grid grid-cols-3 gap-2">
             {shown?.map((i) => (
               <button
@@ -244,15 +261,10 @@ export function Pos() {
         {/* Order panel */}
         <div className="card p-4 h-fit sticky top-4">
           <div className="flex items-center justify-between mb-3">
-            <div>
-              <div className="font-semibold">
-                {mode === "dinein" ? (table ? `Table ${table.name}` : "Pick a table") : MODE_LABELS[mode]}
-              </div>
-              {!!order?.lines.length && (
-                <div className="text-xs text-muted">{order.lines.reduce((n, l) => n + l.qty, 0)} item(s)</div>
-              )}
-            </div>
-            {order?.kot_no && <Badge tone="amber">{order.kot_no}</Badge>}
+            <div className="font-semibold">Current order</div>
+            {!!order?.lines.length && (
+              <div className="text-xs text-muted">{order.lines.reduce((n, l) => n + l.qty, 0)} item(s)</div>
+            )}
           </div>
 
           {!order?.lines.length ? (
