@@ -134,9 +134,10 @@ export function CheckIn() {
             <select className="input mb-3" value={idType} onChange={(e) => setIdType(e.target.value)}>
               <option>Passport</option><option>Aadhaar</option><option>Driving Licence</option><option>Voter ID</option>
             </select>
-            <label className="block text-xs font-semibold text-muted mb-1">ID number</label>
-            <input className="input" placeholder="ID number"
+            <label className="block text-xs font-semibold text-muted mb-1">ID number <span className="text-clay">*</span></label>
+            <input className="input" placeholder="ID number (required)"
               value={idNumber} onChange={(e) => setIdNumber(e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase().slice(0, 20))} />
+            {!idNumber.trim() && <div className="text-xs text-clay mt-1">A valid ID proof is required to check in.</div>}
           </div>
         )}
         {step === 3 && (
@@ -168,9 +169,9 @@ export function CheckIn() {
         <div className="flex justify-between mt-6">
           <button className="btn-ghost" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>Back</button>
           {step < STEPS.length - 1 ? (
-            <button className="btn-primary" onClick={() => setStep((s) => s + 1)}>Continue</button>
+            <button className="btn-primary" disabled={step === 2 && !idNumber.trim()} onClick={() => setStep((s) => s + 1)}>Continue</button>
           ) : (
-            <button className="btn-primary" disabled={complete.isPending} onClick={() => complete.mutate()}>
+            <button className="btn-primary" disabled={complete.isPending || !idNumber.trim()} onClick={() => complete.mutate()}>
               Complete check-in
             </button>
           )}
