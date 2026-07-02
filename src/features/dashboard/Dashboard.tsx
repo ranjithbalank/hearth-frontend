@@ -6,7 +6,7 @@ import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
 
 interface DashboardData {
-  rooms: { occupancy_pct: number; adr: number; revpar: number; occupied: number; rooms_total: number; room_revenue: string };
+  rooms: { occupancy_pct: number; adr: number; revpar: number; occupied: number; rooms_total: number; room_revenue: string; available: number; dirty: number; ooo: number };
   fnb: { fnb_sales: string; order_count: number; by_mode: Record<string, string> };
   receivables: { total: string; corporate: string; corporate_accounts: number };
 }
@@ -28,6 +28,14 @@ export function Dashboard() {
         <Stat label="ADR" value={inr(data.rooms.adr)} sub="Average daily rate" />
         <Stat label="RevPAR" value={inr(data.rooms.revpar)} sub="Revenue per available room" />
         <Stat label="F&B sales" value={inr(data.fnb.fnb_sales)} sub={`${data.fnb.order_count} orders`} />
+      </div>
+
+      {/* Room status breakdown */}
+      <div className="grid grid-cols-4 gap-4 mt-4">
+        <Stat label="Total rooms" value={data.rooms.rooms_total} />
+        <Stat label="Occupied" value={data.rooms.occupied} sub="In-house" />
+        <Stat label="Available to sell" value={data.rooms.available} sub="Clean & inspected" />
+        <Stat label="Dirty / OOO" value={`${data.rooms.dirty} / ${data.rooms.ooo}`} sub="Being cleaned / out of order" />
       </div>
 
       <button
