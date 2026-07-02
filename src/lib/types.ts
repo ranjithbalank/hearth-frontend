@@ -2,8 +2,12 @@ export type Role =
   | "Managing Director"
   | "General Manager"
   | "Front Office"
+  | "Revenue Manager"
+  | "Housekeeping"
+  | "Sales & Banquets"
   | "F&B Cashier"
-  | "Housekeeping";
+  | "Store & Purchase"
+  | "Night Auditor";
 
 export interface User {
   id: number;

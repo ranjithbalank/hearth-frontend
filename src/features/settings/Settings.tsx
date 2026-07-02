@@ -9,7 +9,10 @@ import { amount, digits, gstin as gstinFilter } from "../../lib/inputs";
 import { useApp } from "../../lib/app-context";
 import type { Entitlement, Role, User } from "../../lib/types";
 
-const ROLES: Role[] = ["Managing Director", "General Manager", "Front Office", "F&B Cashier", "Housekeeping"];
+const ROLES: Role[] = [
+  "Managing Director", "General Manager", "Front Office", "Revenue Manager", "Housekeeping",
+  "Sales & Banquets", "F&B Cashier", "Store & Purchase", "Night Auditor",
+];
 
 function UsersPanel() {
   const qc = useQueryClient();

@@ -14,7 +14,7 @@ interface Event {
   id: number; title: string; host: string; contact: string; event_type: string;
   space: string; event_date: string; covers: number; deposit: string;
   package_amount: string; status: string; billed: boolean;
-  food_covers: number; food_pref: string; beo_status: string;
+  food_covers: number; food_pref: string; food_veg: number; food_nonveg: number; beo_status: string;
 }
 
 const TONE: Record<string, "amber" | "info" | "pine"> = {
@@ -93,7 +93,9 @@ export function Banquets() {
               </div>
               {e.food_covers > 0 && (
                 <div className="text-xs text-pine mt-1">
-                  🍽 Catering: ~{e.food_covers} plates{e.food_pref ? ` · ${e.food_pref}` : ""}
+                  🍽 Catering: ~{e.food_covers} plates · {e.food_pref === "both"
+                    ? `veg ${e.food_veg} + non-veg ${e.food_nonveg}`
+                    : e.food_pref === "nonveg" ? "non-veg" : "veg"}
                 </div>
               )}
             </div>
@@ -118,7 +120,7 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
   const [f, setF] = useState({
     title: "", host: "", contact_code: "+91", contact: "", event_type: "Wedding",
     space: "", event_date: today, covers: "", package_amount: "", deposit: "",
-    food_covers: "", food_pref: "veg",
+    food_pref: "veg", food_veg: "", food_nonveg: "",
   });
   const [err, setErr] = useState<string | null>(null);
   const create = useMutation({
@@ -126,7 +128,7 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
       title: f.title, host: f.host, contact: joinPhone(f.contact_code, f.contact), event_type: f.event_type,
       space: Number(f.space), event_date: f.event_date, covers: Number(f.covers || 0),
       package_amount: f.package_amount || 0, deposit: f.deposit || 0,
-      food_covers: Number(f.food_covers || 0), food_pref: f.food_covers ? f.food_pref : "",
+      food_pref: f.food_pref, food_veg: Number(f.food_veg || 0), food_nonveg: Number(f.food_nonveg || 0),
     })).data,
     onSuccess: onCreated,
     onError: (e: any) => setErr(e?.response?.data?.detail ?? "Could not book"),
@@ -197,20 +199,40 @@ function BookingForm({ spaces, restaurant, onCancel, onCreated }: { spaces: Spac
         {restaurant && (
           <div className="mt-4 rounded-card border border-pine/20 bg-pine-50/50 p-3">
             <div className="text-xs font-semibold text-pine mb-2">Catering (optional · F&amp;B)</div>
-            <div className="grid grid-cols-2 gap-3">
+            <label className="block text-xs font-semibold text-muted mb-1">Meal preference</label>
+            <select className="input mb-3" value={f.food_pref} onChange={(e) => set("food_pref", e.target.value)}>
+              <option value="veg">Veg</option>
+              <option value="nonveg">Non-veg</option>
+              <option value="both">Both (veg + non-veg)</option>
+            </select>
+            {f.food_pref === "both" ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1">Approx. veg plates</label>
+                    <input className="input" inputMode="numeric" placeholder="e.g. 80" value={f.food_veg} onChange={(e) => set("food_veg", digits(e.target.value, 5))} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-muted mb-1">Approx. non-veg plates</label>
+                    <input className="input" inputMode="numeric" placeholder="e.g. 40" value={f.food_nonveg} onChange={(e) => set("food_nonveg", digits(e.target.value, 5))} />
+                  </div>
+                </div>
+                {(Number(f.food_veg || 0) + Number(f.food_nonveg || 0)) > 0 && (
+                  <div className="text-xs text-muted mt-2">Total plates: {Number(f.food_veg || 0) + Number(f.food_nonveg || 0)}</div>
+                )}
+              </>
+            ) : (
               <div>
-                <label className="block text-xs font-semibold text-muted mb-1">Approx. food plates</label>
-                <input className="input" inputMode="numeric" placeholder="e.g. 120" value={f.food_covers} onChange={(e) => set("food_covers", digits(e.target.value, 5))} />
+                <label className="block text-xs font-semibold text-muted mb-1">Approx. {f.food_pref === "nonveg" ? "non-veg" : "veg"} plates</label>
+                <input
+                  className="input"
+                  inputMode="numeric"
+                  placeholder="e.g. 120"
+                  value={f.food_pref === "nonveg" ? f.food_nonveg : f.food_veg}
+                  onChange={(e) => set(f.food_pref === "nonveg" ? "food_nonveg" : "food_veg", digits(e.target.value, 5))}
+                />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-muted mb-1">Preference</label>
-                <select className="input" value={f.food_pref} onChange={(e) => set("food_pref", e.target.value)} disabled={!f.food_covers}>
-                  <option value="veg">Veg</option>
-                  <option value="nonveg">Non-veg</option>
-                  <option value="both">Both (veg + non-veg)</option>
-                </select>
-              </div>
-            </div>
+            )}
           </div>
         )}
 

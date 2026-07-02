@@ -125,10 +125,12 @@ export function CheckIn() {
         {step === 2 && (
           <div>
             <div className="font-semibold mb-3">ID / KYC &amp; contact</div>
-            <label className="block text-xs font-semibold text-muted mb-1">Mobile</label>
+            <label className="block text-xs font-semibold text-muted mb-1">Mobile <span className="text-clay">*</span></label>
             <PhoneInput code={code} number={mobile} onCode={setCode} onNumber={setMobile} />
-            <div className="text-xs text-muted mt-1 mb-3">
-              {prefilled ? "On file from the reservation — edit if it has changed." : "Optional — saved to the guest's profile."}
+            <div className={`text-xs mt-1 mb-3 ${mobile.trim().length < 7 ? "text-clay" : "text-muted"}`}>
+              {mobile.trim().length < 7
+                ? "A valid mobile number is required to check in."
+                : prefilled ? "On file from the reservation — edit if it has changed." : "Saved to the guest's profile."}
             </div>
             <label className="block text-xs font-semibold text-muted mb-1">ID type</label>
             <select className="input mb-3" value={idType} onChange={(e) => setIdType(e.target.value)}>
@@ -169,9 +171,9 @@ export function CheckIn() {
         <div className="flex justify-between mt-6">
           <button className="btn-ghost" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>Back</button>
           {step < STEPS.length - 1 ? (
-            <button className="btn-primary" disabled={step === 2 && !idNumber.trim()} onClick={() => setStep((s) => s + 1)}>Continue</button>
+            <button className="btn-primary" disabled={step === 2 && (!idNumber.trim() || mobile.trim().length < 7)} onClick={() => setStep((s) => s + 1)}>Continue</button>
           ) : (
-            <button className="btn-primary" disabled={complete.isPending || !idNumber.trim()} onClick={() => complete.mutate()}>
+            <button className="btn-primary" disabled={complete.isPending || !idNumber.trim() || mobile.trim().length < 7} onClick={() => complete.mutate()}>
               Complete check-in
             </button>
           )}
