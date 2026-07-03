@@ -88,10 +88,12 @@ export function RoleMatrix() {
       {/* Freeze panes: header row and module column stay pinned while the
           matrix scrolls in both directions inside this container. */}
       <Card className="overflow-auto p-0 max-h-[calc(100vh-230px)]">
-        <table className="w-full text-sm border-separate border-spacing-0">
+        <table className="text-sm border-separate border-spacing-0 min-w-full">
           <thead>
             <tr>
-              <th className="text-left px-4 py-3 sticky left-0 top-0 z-30 bg-cream min-w-[220px] text-xs uppercase tracking-wide text-muted border-b border-hairline">Module</th>
+              <th className="text-left px-4 py-3 sticky left-0 top-0 z-30 bg-cream min-w-[210px] text-xs uppercase tracking-wide text-muted border-b border-r border-hairline">
+                Module
+              </th>
               {data.roles.map((r) => (
                 <th key={r} className="px-3 py-3 text-center whitespace-nowrap sticky top-0 z-20 bg-cream border-b border-hairline">
                   <div className="font-semibold text-body">{r}</div>
@@ -104,19 +106,23 @@ export function RoleMatrix() {
             {grouped.map((g) => (
               <Fragment key={g.title}>
                 <tr>
-                  <td colSpan={data.roles.length + 1} className="px-4 pt-4 pb-1">
-                    {/* sticky-left so the group label stays visible on horizontal scroll */}
-                    <span className="sticky left-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                  <td className="px-4 pt-4 pb-1.5 sticky left-0 z-10 bg-surface border-r border-hairline whitespace-nowrap">
+                    <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
                       <span className="h-2.5 w-2.5 rounded-sm" style={{ background: g.color }} />
                       {g.title}
                     </span>
                   </td>
+                  <td colSpan={data.roles.length} className="bg-surface" />
                 </tr>
                 {g.modules.map((module) => (
-                  <tr key={module} className="hover:bg-cream/40">
-                    <td className="px-4 py-2 sticky left-0 z-10 bg-surface font-medium border-t border-line">{labelOf(module)}</td>
+                  <tr key={module} className="group">
+                    <td className="px-4 py-2 sticky left-0 z-10 bg-surface group-hover:bg-cream font-medium border-t border-r border-line whitespace-nowrap transition-colors">
+                      {labelOf(module)}
+                    </td>
                     {data.roles.map((_, i) => (
-                      <td key={i} className="px-3 py-2 text-center border-t border-line"><Cell module={module} roleIndex={i} /></td>
+                      <td key={i} className="px-3 py-2 text-center border-t border-line group-hover:bg-cream/40 transition-colors">
+                        <Cell module={module} roleIndex={i} />
+                      </td>
                     ))}
                   </tr>
                 ))}
