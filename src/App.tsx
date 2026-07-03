@@ -114,11 +114,17 @@ export default function App() {
         <Route path="/store/categories-units" element={<RequireAccess module="inventory"><Inventory fixedTab="masters" /></RequireAccess>} />
         <Route path="/store/consumption" element={<RequireAccess module="inventory"><Inventory fixedTab="movements" /></RequireAccess>} />
         <Route path="/store/movements" element={<RequireAccess module="inventory"><Inventory fixedTab="movements" /></RequireAccess>} />
-        <Route path="/store/transfer" element={<RequireAccess module="inventory"><Inventory fixedTab="transfer" /></RequireAccess>} />
-        <Route path="/store/wastage" element={<RequireAccess module="inventory"><Inventory fixedTab="wastage" /></RequireAccess>} />
-        <Route path="/store/count" element={<RequireAccess module="inventory"><Inventory fixedTab="stockcount" /></RequireAccess>} />
-        <Route path="/store/low-stock" element={<RequireAccess module="inventory"><Inventory fixedTab="lowstock" /></RequireAccess>} />
-        <Route path="/store/expiry" element={<RequireAccess module="inventory"><Inventory fixedTab="expiry" /></RequireAccess>} />
+        {/* Stock Control bundles low stock, expiry, wastage, count & transfer;
+            the old individual paths land on the same screen. */}
+        {["/store/stock-control", "/store/transfer", "/store/wastage", "/store/count",
+          "/store/low-stock", "/store/expiry"].map((p) => (
+          <Route key={p} path={p} element={
+            <RequireAccess module="inventory">
+              <Inventory title="Stock Control"
+                tabGroup={["lowstock", "expiry", "wastage", "stockcount", "transfer"]} />
+            </RequireAccess>
+          } />
+        ))}
         <Route path="/procurement" element={<RequireAccess module="procurement"><Procurement /></RequireAccess>} />
         <Route path="/material-requests" element={<RequireAccess module="matreq"><MaterialRequests /></RequireAccess>} />
         <Route path="/recipes" element={<RequireAccess module="recipes"><Recipes /></RequireAccess>} />

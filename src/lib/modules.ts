@@ -98,11 +98,8 @@ export const NAV: NavGroup[] = [
       { key: "recipes", label: "Recipes & BOM", path: "/recipes" },
       { key: "store-movements", module: "inventory", label: "Movements & Consumption", path: "/store/movements" },
       { key: "store-masters", module: "inventory", label: "Categories & Units", path: "/store/categories-units" },
-      { key: "store-transfer", module: "inventory", label: "Stock Transfer", path: "/store/transfer" },
-      { key: "store-wastage", module: "inventory", label: "Wastage Entry", path: "/store/wastage" },
-      { key: "store-count", module: "inventory", label: "Physical Count", path: "/store/count" },
-      { key: "store-lowstock", module: "inventory", label: "Low Stock / Reorder", path: "/store/low-stock" },
-      { key: "store-expiry", module: "inventory", label: "Expiry Tracking", path: "/store/expiry" },
+      // Low stock, expiry, wastage, count and transfer live inside one screen.
+      { key: "store-control", module: "inventory", label: "Stock Control", path: "/store/stock-control" },
     ],
   },
   {

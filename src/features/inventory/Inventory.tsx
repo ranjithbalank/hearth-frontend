@@ -60,14 +60,21 @@ async function downloadRegister(kind: string, days: number) {
   URL.revokeObjectURL(url);
 }
 
-export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
+export function Inventory({ fixedTab, tabGroup, title }: {
+  fixedTab?: Tab;
+  /** Render a subset of tabs with their own pill bar (e.g. Stock Control). */
+  tabGroup?: Tab[];
+  title?: string;
+}) {
   const qc = useQueryClient();
   const toast = useToast();
   const nav = useNavigate();
-  // fixedTab must win on every render: React keeps this component mounted when
-  // routing between /store/* screens, so state seeded from the prop goes stale.
+  // Props must win on every render: React keeps this component mounted when
+  // routing between /store/* screens, so state seeded from a prop goes stale.
   const [tabState, setTab] = useState<Tab>("dashboard");
-  const tab = fixedTab ?? tabState;
+  const tab: Tab = fixedTab
+    ?? (tabGroup ? (tabGroup.includes(tabState) ? tabState : tabGroup[0]) : tabState);
+  const visibleTabs = tabGroup ? TABS.filter((t) => tabGroup.includes(t.key)) : TABS;
   const [q, setQ] = useState("");
   const [action, setAction] = useState<{ kind: "adjust" | "waste" | "count" | "transfer"; ing: Ingredient } | null>(null);
   const [moveKind, setMoveKind] = useState("");
@@ -170,7 +177,7 @@ export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
   return (
     <div>
       <PageHeader
-        title={fixedTab ? (TABS.find((t) => t.key === fixedTab)?.label ?? "Store") : "Inventory & Stock"}
+        title={title ?? (fixedTab ? (TABS.find((t) => t.key === fixedTab)?.label ?? "Store") : "Inventory & Stock")}
         subtitle="Raw materials · consumption auto-deducts from recipes on KOT"
         action={tab === "materials" ? (
           <div className="flex items-center gap-2">
@@ -182,7 +189,7 @@ export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
 
       {!fixedTab && (
         <div className="flex gap-2 mb-4 flex-wrap">
-          {TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`pill text-xs ${tab === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
               {t.label}

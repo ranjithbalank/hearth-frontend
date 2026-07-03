@@ -49,6 +49,7 @@ const P: Record<string, JSX.Element> = {
   "store-count": <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h2M8 12h2M8 16h2" /><path d="M13 8h3M13 12h3M13 16h3" /></>,
   "store-lowstock": <><path d="M12 3l9 16H3z" /><path d="M12 9v5" /><circle cx="12" cy="17" r=".5" /></>,
   "store-expiry": <><circle cx="12" cy="13" r="8" /><path d="M12 9v4l3 2" /><path d="M9 2h6" /></>,
+  "store-control": <><path d="M4 6h10M18 6h2" /><circle cx="16" cy="6" r="2" /><path d="M4 12h2M10 12h10" /><circle cx="8" cy="12" r="2" /><path d="M4 18h8M16 18h4" /><circle cx="14" cy="18" r="2" /></>,
 };
 
 export function NavIcon({ name }: { name: string }) {
