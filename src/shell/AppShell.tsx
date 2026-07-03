@@ -59,7 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const groups = NAV.map((g) => ({
     ...g,
-    items: g.items.filter((i) => canAccess(i.key)),
+    items: g.items.filter((i) => canAccess(i.module ?? i.key)),
   })).filter((g) => g.items.length > 0);
 
   // Accordion default: collapse everything for big menus (MD/GM) so it's tidy;

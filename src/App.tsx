@@ -103,7 +103,19 @@ export default function App() {
         <Route path="/reconciliation" element={<RequireAccess module="pos"><Reconciliation /></RequireAccess>} />
         <Route path="/kds" element={<RequireAccess module="kds"><Kds /></RequireAccess>} />
         <Route path="/online-orders" element={<RequireAccess module="online"><OnlineOrders /></RequireAccess>} />
+        {/* Store: the Restaurant Inventory spec's §6 screens, each standalone.
+            /inventory stays as the all-tabs view for old links. */}
         <Route path="/inventory" element={<RequireAccess module="inventory"><Inventory /></RequireAccess>} />
+        <Route path="/store" element={<RequireAccess module="inventory"><Inventory fixedTab="dashboard" /></RequireAccess>} />
+        <Route path="/store/materials" element={<RequireAccess module="inventory"><Inventory fixedTab="materials" /></RequireAccess>} />
+        <Route path="/store/categories-units" element={<RequireAccess module="inventory"><Inventory fixedTab="masters" /></RequireAccess>} />
+        <Route path="/store/consumption" element={<RequireAccess module="inventory"><Inventory fixedTab="consumptionreg" /></RequireAccess>} />
+        <Route path="/store/movements" element={<RequireAccess module="inventory"><Inventory fixedTab="movements" /></RequireAccess>} />
+        <Route path="/store/transfer" element={<RequireAccess module="inventory"><Inventory fixedTab="transfer" /></RequireAccess>} />
+        <Route path="/store/wastage" element={<RequireAccess module="inventory"><Inventory fixedTab="wastage" /></RequireAccess>} />
+        <Route path="/store/count" element={<RequireAccess module="inventory"><Inventory fixedTab="stockcount" /></RequireAccess>} />
+        <Route path="/store/low-stock" element={<RequireAccess module="inventory"><Inventory fixedTab="lowstock" /></RequireAccess>} />
+        <Route path="/store/expiry" element={<RequireAccess module="inventory"><Inventory fixedTab="expiry" /></RequireAccess>} />
         <Route path="/procurement" element={<RequireAccess module="procurement"><Procurement /></RequireAccess>} />
         <Route path="/material-requests" element={<RequireAccess module="matreq"><MaterialRequests /></RequireAccess>} />
         <Route path="/recipes" element={<RequireAccess module="recipes"><Recipes /></RequireAccess>} />

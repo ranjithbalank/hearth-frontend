@@ -38,6 +38,17 @@ const P: Record<string, JSX.Element> = {
   tablemaster: <><rect x="4" y="7" width="16" height="3" rx="1" /><path d="M6 10v9M18 10v9M9 10v4h6v-4" /></>,
   gstmaster: <><circle cx="12" cy="12" r="9" /><path d="M8.5 8.5l7 7" /><circle cx="9" cy="9" r="1" /><circle cx="15" cy="15" r="1" /></>,
   roles: <><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" /><path d="M9.5 12l1.8 1.8 3.2-3.4" /></>,
+  // Store group (Restaurant Inventory spec §6 screens)
+  "store-dashboard": <><path d="M4 19V5" /><path d="M4 15l4-4 3 3 5-6 4 4" /><path d="M4 19h16" /></>,
+  "store-materials": <><rect x="3" y="8" width="8" height="6" rx="1" /><rect x="13" y="8" width="8" height="6" rx="1" /><rect x="8" y="15" width="8" height="6" rx="1" /></>,
+  "store-masters": <><path d="M4 6h16M4 12h16M4 18h10" /><circle cx="18" cy="18" r="2.5" /></>,
+  "store-consumption": <><path d="M7 21h10" /><path d="M6 13h12v3a3 3 0 01-3 3H9a3 3 0 01-3-3z" /><path d="M15 4l-3 6" /></>,
+  "store-movements": <><path d="M4 7h12" /><path d="M13 4l3 3-3 3" /><path d="M20 17H8" /><path d="M11 14l-3 3 3 3" /></>,
+  "store-transfer": <><rect x="2" y="7" width="9" height="7" rx="1" /><rect x="13" y="10" width="9" height="7" rx="1" /><path d="M11 10.5h2" /></>,
+  "store-wastage": <><path d="M5 7h14" /><path d="M9 7V5h6v2" /><path d="M7 7l1 13h8l1-13" /><path d="M10 11v5M14 11v5" /></>,
+  "store-count": <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h2M8 12h2M8 16h2" /><path d="M13 8h3M13 12h3M13 16h3" /></>,
+  "store-lowstock": <><path d="M12 3l9 16H3z" /><path d="M12 9v5" /><circle cx="12" cy="17" r=".5" /></>,
+  "store-expiry": <><circle cx="12" cy="13" r="8" /><path d="M12 9v4l3 2" /><path d="M9 2h6" /></>,
 };
 
 export function NavIcon({ name }: { name: string }) {

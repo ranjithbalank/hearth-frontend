@@ -95,12 +95,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       "Captain": ["pos", "/pos"],
       "Housekeeping": ["housekeeping", "/housekeeping"],
       "Chef / Kitchen": ["kds", "/kds"],
-      "Store Keeper": ["inventory", "/inventory"],
+      "Store Keeper": ["inventory", "/store"],
     };
     const pref = user ? prefs[user.role] : undefined;
     if (pref && canAccess(pref[0])) return pref[1];
     if (canAccess("dashboard")) return "/dashboard";
-    for (const g of NAV) for (const i of g.items) if (canAccess(i.key)) return i.path;
+    for (const g of NAV) for (const i of g.items) if (canAccess(i.module ?? i.key)) return i.path;
     return "/dashboard";
   }
 

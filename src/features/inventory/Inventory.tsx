@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
@@ -21,32 +22,53 @@ interface ConsumptionRow {
   ingredient: string; code: string; unit: string; consumed: string;
   wasted: string; purchased: string; consumption_cost: string; in_stock: string;
 }
-
 interface Uom { id: number; code: string; name: string }
 interface CategoryRow { id: number; name: string }
 
-type Tab = "materials" | "movements" | "consumption" | "expiry" | "masters";
+/** Tab structure per the Restaurant Inventory spec §6. Supplier Master,
+ *  Purchase Entry/GRN, Recipe Master, Menu Item Mapping and Inventory Reports
+ *  are their own screens — the Dashboard tab deep-links to them. */
+type Tab = "dashboard" | "materials" | "masters" | "consumptionreg" | "movements"
+  | "transfer" | "wastage" | "stockcount" | "lowstock" | "expiry";
 const TABS: { key: Tab; label: string }[] = [
-  { key: "materials", label: "Raw materials" },
-  { key: "movements", label: "Movements register" },
-  { key: "consumption", label: "Consumption report" },
-  { key: "expiry", label: "Expiry tracking" },
+  { key: "dashboard", label: "Dashboard" },
+  { key: "materials", label: "Raw material master" },
   { key: "masters", label: "Categories & units" },
-];
-const MOVE_KINDS = [
-  ["", "All"], ["receipt", "Purchase Receipt"], ["consumption", "Recipe Consumption"],
-  ["wastage", "Wastage"], ["transfer", "Stock Transfer"], ["adjustment", "Adjustment"],
-  ["count", "Physical Count"], ["return", "Return"], ["expiry", "Expiry / Damage"],
+  { key: "consumptionreg", label: "Consumption register" },
+  { key: "movements", label: "Movements" },
+  { key: "transfer", label: "Stock transfer" },
+  { key: "wastage", label: "Wastage entry" },
+  { key: "stockcount", label: "Physical count" },
+  { key: "lowstock", label: "Low stock / reorder" },
+  { key: "expiry", label: "Expiry tracking" },
 ];
 
-export function Inventory() {
+const MOVE_KINDS = [
+  ["", "All"], ["receipt", "Purchase Receipt"], ["consumption", "Recipe Consumption"],
+  ["wastage", "Wastage"], ["transfer", "Stock Transfer"], ["production", "Production / Prep"],
+  ["adjustment", "Adjustment"], ["count", "Physical Count"], ["return", "Return"],
+  ["expiry", "Expiry / Damage"],
+];
+
+async function downloadRegister(kind: string, days: number) {
+  const res = await fetch(`/api/inventory/movements/?days=${days}${kind ? `&kind=${kind}` : ""}&fmt=csv`,
+    { headers: { Authorization: `Bearer ${getAccess()}` } });
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${kind || "movements"}-register.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
   const qc = useQueryClient();
   const toast = useToast();
-  const [tab, setTab] = useState<Tab>("materials");
-  const [onlyLow, setOnlyLow] = useState(false);
+  const nav = useNavigate();
+  const [tab, setTab] = useState<Tab>(fixedTab ?? "dashboard");
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [action, setAction] = useState<{ kind: "adjust" | "waste" | "count"; ing: Ingredient } | null>(null);
+  const [action, setAction] = useState<{ kind: "adjust" | "waste" | "count" | "transfer"; ing: Ingredient } | null>(null);
   const [moveKind, setMoveKind] = useState("");
   const [days, setDays] = useState(30);
 
@@ -55,19 +77,24 @@ export function Inventory() {
     queryFn: async () => (await api.get<Ingredient[]>("/inventory/")).data,
   });
   const { data: moves } = useQuery({
-    queryKey: ["inv-moves", moveKind],
-    queryFn: async () => (await api.get<Movement[]>(`/inventory/movements/?days=90${moveKind ? `&kind=${moveKind}` : ""}`)).data,
-    enabled: tab === "movements",
+    queryKey: ["inv-moves", tab, moveKind, days],
+    queryFn: async () => {
+      const kind = tab === "consumptionreg" ? "consumption"
+        : tab === "transfer" ? "transfer"
+        : tab === "wastage" ? "wastage" : moveKind;
+      return (await api.get<Movement[]>(`/inventory/movements/?days=${days}${kind ? `&kind=${kind}` : ""}`)).data;
+    },
+    enabled: ["movements", "consumptionreg", "transfer", "wastage"].includes(tab),
   });
   const { data: consumption } = useQuery({
     queryKey: ["inv-consumption", days],
     queryFn: async () => (await api.get<{ rows: ConsumptionRow[] }>(`/inventory/consumption_report/?days=${days}`)).data,
-    enabled: tab === "consumption",
+    enabled: tab === "dashboard",
   });
   const { data: expiring } = useQuery({
     queryKey: ["inv-expiring"],
     queryFn: async () => (await api.get<Ingredient[]>("/inventory/expiring/?days=30")).data,
-    enabled: tab === "expiry",
+    enabled: tab === "expiry" || tab === "dashboard",
   });
   const { data: uoms } = useQuery({
     queryKey: ["inv-uoms"],
@@ -87,153 +114,113 @@ export function Inventory() {
 
   if (isLoading || !data) return <Spinner />;
   const low = data.filter((i) => i.below_par);
-  const rows = (onlyLow ? low : data).filter((i) =>
+  const stockValue = data.reduce((s, i) => s + Number(i.current_stock) * Number(i.unit_cost), 0);
+  const consumed30 = (consumption?.rows ?? []).reduce((s, r) => s + Number(r.consumption_cost), 0);
+  const rows = data.filter((i) =>
     !q || i.name.toLowerCase().includes(q.toLowerCase()) || i.code.toLowerCase().includes(q.toLowerCase()));
+
+  const registerTable = (title: string, kind: string, extra?: React.ReactNode) => (
+    <>
+      <div className="flex gap-2 mb-3 items-center flex-wrap">
+        {[7, 30, 90].map((d) => (
+          <button key={d} onClick={() => setDays(d)}
+            className={`pill text-xs ${days === d ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            Last {d} days
+          </button>
+        ))}
+        {extra}
+        <button className="btn-outline text-xs py-1 ml-auto" onClick={() => downloadRegister(kind, days)}>
+          Export CSV
+        </button>
+      </div>
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full text-sm">
+          <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
+            <tr>
+              <th className="text-left px-4 py-3">Date / time</th>
+              <th className="text-left px-4 py-3">Material</th>
+              <th className="text-left px-4 py-3">Type</th>
+              <th className="text-right px-4 py-3">In</th>
+              <th className="text-right px-4 py-3">Out</th>
+              <th className="text-right px-4 py-3">Balance</th>
+              <th className="text-left px-4 py-3">Reference</th>
+              <th className="text-left px-4 py-3">By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {moves?.map((m) => (
+              <tr key={m.id} className="border-t border-line">
+                <td className="px-4 py-2.5 text-xs text-muted">{new Date(m.created_at).toLocaleString("en-IN")}</td>
+                <td className="px-4 py-2.5 font-medium">{m.ingredient_name}</td>
+                <td className="px-4 py-2.5"><Badge tone={Number(m.qty) >= 0 ? "pine" : "amber"}>{m.kind_label}</Badge></td>
+                <td className="px-4 py-2.5 text-right text-pine">{Number(m.qty) > 0 ? `${Number(m.qty)} ${m.unit}` : ""}</td>
+                <td className="px-4 py-2.5 text-right text-clay">{Number(m.qty) < 0 ? `${-Number(m.qty)} ${m.unit}` : ""}</td>
+                <td className="px-4 py-2.5 text-right">{Number(m.balance)} {m.unit}</td>
+                <td className="px-4 py-2.5 text-xs text-muted">{m.source || m.reason || "—"}</td>
+                <td className="px-4 py-2.5 text-xs text-muted">{m.created_by || "system"}</td>
+              </tr>
+            ))}
+            {!moves?.length && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted text-sm">No {title.toLowerCase()} in this period.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
 
   return (
     <div>
       <PageHeader
-        title="Inventory & Stock"
+        title={fixedTab ? (TABS.find((t) => t.key === fixedTab)?.label ?? "Store") : "Inventory & Stock"}
         subtitle="Raw materials · consumption auto-deducts from recipes on KOT"
         action={tab === "materials" ? (
           <div className="flex items-center gap-2">
             <input className="input w-48" placeholder="Search name or code…" value={q} onChange={(e) => setQ(e.target.value)} />
-            <button
-              className={`pill border ${onlyLow ? "bg-amber text-white border-amber" : "border-hairline"}`}
-              onClick={() => setOnlyLow((v) => !v)}
-            >
-              Below par ({low.length})
-            </button>
             <button className="btn-primary text-sm" onClick={() => setShowAdd(true)}>+ Raw material</button>
           </div>
         ) : undefined}
       />
 
-      <div className="flex gap-2 mb-4">
-        {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`pill ${tab === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "materials" && (
-        <>
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <Stat tone="dark" label="Materials tracked" value={data.length} />
-            <Stat label="Below reorder level" value={low.length} />
-            <Stat label="Stock value" value={inr(data.reduce((s, i) => s + Number(i.current_stock) * Number(i.unit_cost), 0))} />
-          </div>
-          <div className="card overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
-                <tr>
-                  <th className="text-left px-4 py-3">Code</th>
-                  <th className="text-left px-4 py-3">Material</th>
-                  <th className="text-left px-4 py-3">Category</th>
-                  <th className="text-right px-4 py-3">In stock</th>
-                  <th className="text-right px-4 py-3">Min / Reorder</th>
-                  <th className="text-right px-4 py-3">Rate</th>
-                  <th className="text-left px-4 py-3">Location</th>
-                  <th className="text-left px-4 py-3">Status</th>
-                  <th className="text-right px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((i) => (
-                  <tr key={i.id} className="border-t border-line">
-                    <td className="px-4 py-3 text-xs text-muted font-mono">{i.code}</td>
-                    <td className="px-4 py-3 font-medium">{i.name}</td>
-                    <td className="px-4 py-3 text-muted text-xs">{i.category || "—"}</td>
-                    <td className="px-4 py-3 text-right">{Number(i.current_stock)} {i.unit}</td>
-                    <td className="px-4 py-3 text-right text-muted">{Number(i.min_stock_level)} / {Number(i.reorder_level)}</td>
-                    <td className="px-4 py-3 text-right">{inr(i.unit_cost)}</td>
-                    <td className="px-4 py-3 text-muted text-xs">{i.storage_location || "—"}</td>
-                    <td className="px-4 py-3">
-                      {i.below_min ? <Badge tone="clay">Critical</Badge>
-                        : i.below_par ? <Badge tone="amber">Reorder</Badge>
-                          : <Badge tone="pine">OK</Badge>}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button className="btn-ghost text-xs" onClick={() => setAction({ kind: "adjust", ing: i })}>Adjust</button>
-                      <button className="btn-ghost text-xs text-clay" onClick={() => setAction({ kind: "waste", ing: i })}>Waste</button>
-                      <button className="btn-ghost text-xs" onClick={() => setAction({ kind: "count", ing: i })}>Count</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {tab === "movements" && (
-        <>
-          <div className="flex gap-2 mb-3 flex-wrap items-center">
-            {MOVE_KINDS.map(([k, label]) => (
-              <button key={k} onClick={() => setMoveKind(k)}
-                className={`pill text-xs ${moveKind === k ? "bg-ink text-white" : "bg-hairline text-body"}`}>
-                {label}
-              </button>
-            ))}
-            <button className="btn-outline text-xs py-1 ml-auto"
-              onClick={async () => {
-                const res = await fetch(`/api/inventory/movements/?days=90${moveKind ? `&kind=${moveKind}` : ""}&fmt=csv`,
-                  { headers: { Authorization: `Bearer ${getAccess()}` } });
-                const url = URL.createObjectURL(await res.blob());
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "consumption-register.csv";
-                a.click();
-                URL.revokeObjectURL(url);
-              }}>
-              Export CSV
+      {!fixedTab && (
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {TABS.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`pill text-xs ${tab === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              {t.label}
+              {t.key === "lowstock" && low.length ? ` (${low.length})` : ""}
             </button>
-          </div>
-          <div className="card overflow-x-auto p-0">
-            <table className="w-full text-sm">
-              <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
-                <tr>
-                  <th className="text-left px-4 py-3">Date / time</th>
-                  <th className="text-left px-4 py-3">Material</th>
-                  <th className="text-left px-4 py-3">Type</th>
-                  <th className="text-right px-4 py-3">In</th>
-                  <th className="text-right px-4 py-3">Out</th>
-                  <th className="text-right px-4 py-3">Balance</th>
-                  <th className="text-left px-4 py-3">Reference</th>
-                  <th className="text-left px-4 py-3">By</th>
-                </tr>
-              </thead>
-              <tbody>
-                {moves?.map((m) => (
-                  <tr key={m.id} className="border-t border-line">
-                    <td className="px-4 py-2.5 text-xs text-muted">{new Date(m.created_at).toLocaleString("en-IN")}</td>
-                    <td className="px-4 py-2.5 font-medium">{m.ingredient_name}</td>
-                    <td className="px-4 py-2.5"><Badge tone={Number(m.qty) >= 0 ? "pine" : "amber"}>{m.kind_label}</Badge></td>
-                    <td className="px-4 py-2.5 text-right text-pine">{Number(m.qty) > 0 ? `${Number(m.qty)} ${m.unit}` : ""}</td>
-                    <td className="px-4 py-2.5 text-right text-clay">{Number(m.qty) < 0 ? `${-Number(m.qty)} ${m.unit}` : ""}</td>
-                    <td className="px-4 py-2.5 text-right">{Number(m.balance)} {m.unit}</td>
-                    <td className="px-4 py-2.5 text-xs text-muted">{m.source || m.reason || "—"}</td>
-                    <td className="px-4 py-2.5 text-xs text-muted">{m.created_by || "system"}</td>
-                  </tr>
-                ))}
-                {!moves?.length && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted text-sm">No movements for this filter.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </>
+          ))}
+        </div>
       )}
 
-      {tab === "consumption" && (
+      {tab === "dashboard" && (
         <>
-          <div className="flex gap-2 mb-3">
-            {[7, 30, 90].map((d) => (
-              <button key={d} onClick={() => setDays(d)}
-                className={`pill text-xs ${days === d ? "bg-ink text-white" : "bg-hairline text-body"}`}>
-                Last {d} days
+          <div className="grid grid-cols-5 gap-4 mb-4">
+            <Stat tone="dark" label="Materials tracked" value={data.length} />
+            <Stat label="Stock value" value={inr(stockValue)} />
+            <Stat label="Below reorder level" value={low.length} />
+            <Stat label="Expiring ≤ 30 days" value={expiring?.length ?? 0} />
+            <Stat label={`Consumption cost (${days}d)`} value={inr(consumed30)} />
+          </div>
+
+          {/* Deep links to the sibling screens the spec lists as tabs (§6) */}
+          <div className="grid grid-cols-6 gap-3 mb-4">
+            {[
+              { label: "Supplier Master", path: "/masters/suppliers" },
+              { label: "Purchase Entry / GRN", path: "/procurement" },
+              { label: "Purchase Orders", path: "/masters/purchase-orders" },
+              { label: "Recipe Master", path: "/recipes" },
+              { label: "Material Requests", path: "/material-requests" },
+              { label: "Inventory Reports", path: "/reports" },
+            ].map((l) => (
+              <button key={l.path} className="card p-3 text-sm font-medium hover:bg-cream text-left"
+                onClick={() => nav(l.path)}>
+                {l.label} →
               </button>
             ))}
+          </div>
+
+          <div className="text-xs uppercase tracking-wide text-muted mb-2">
+            Raw material consumption — purchased vs consumed vs wasted (last {days} days)
           </div>
           <div className="card overflow-x-auto p-0">
             <table className="w-full text-sm">
@@ -263,6 +250,137 @@ export function Inventory() {
             </table>
           </div>
         </>
+      )}
+
+      {tab === "materials" && (
+        <div className="card overflow-x-auto p-0">
+          <table className="w-full text-sm">
+            <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
+              <tr>
+                <th className="text-left px-4 py-3">Code</th>
+                <th className="text-left px-4 py-3">Material</th>
+                <th className="text-left px-4 py-3">Category</th>
+                <th className="text-right px-4 py-3">In stock</th>
+                <th className="text-right px-4 py-3">Min / Reorder</th>
+                <th className="text-right px-4 py-3">Rate</th>
+                <th className="text-left px-4 py-3">Location</th>
+                <th className="text-left px-4 py-3">Expiry</th>
+                <th className="text-left px-4 py-3">Status</th>
+                <th className="text-right px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((i) => (
+                <tr key={i.id} className="border-t border-line">
+                  <td className="px-4 py-3 text-xs text-muted font-mono">{i.code}</td>
+                  <td className="px-4 py-3 font-medium">{i.name}</td>
+                  <td className="px-4 py-3 text-muted text-xs">{i.category || "—"}</td>
+                  <td className="px-4 py-3 text-right">{Number(i.current_stock)} {i.unit}</td>
+                  <td className="px-4 py-3 text-right text-muted">{Number(i.min_stock_level)} / {Number(i.reorder_level)}</td>
+                  <td className="px-4 py-3 text-right">{inr(i.unit_cost)}</td>
+                  <td className="px-4 py-3 text-muted text-xs">{i.storage_location || "—"}</td>
+                  <td className="px-4 py-3 text-muted text-xs">{i.expiry_date ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {i.below_min ? <Badge tone="clay">Critical</Badge>
+                      : i.below_par ? <Badge tone="amber">Reorder</Badge>
+                        : <Badge tone="pine">OK</Badge>}
+                  </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    <button className="btn-ghost text-xs" onClick={() => setAction({ kind: "adjust", ing: i })}>Adjust</button>
+                    <button className="btn-ghost text-xs text-clay" onClick={() => setAction({ kind: "waste", ing: i })}>Waste</button>
+                    <button className="btn-ghost text-xs" onClick={() => setAction({ kind: "transfer", ing: i })}>Transfer</button>
+                    <button className="btn-ghost text-xs" onClick={() => setAction({ kind: "count", ing: i })}>Count</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === "masters" && (
+        <div className="grid grid-cols-2 gap-4">
+          <MasterCard
+            title="Raw material categories"
+            hint="Grouping on the material master (spec §6)"
+            rows={(categories ?? []).map((c) => ({ id: c.id, label: c.name }))}
+            endpoint="/inventory-categories/"
+            fields={[{ key: "name", placeholder: "Category name" }]}
+            queryKey="inv-categories"
+          />
+          <MasterCard
+            title="Units of measurement"
+            hint="Base consumption units — KG, GM, L, ML, Nos, Packet…"
+            rows={(uoms ?? []).map((u) => ({ id: u.id, label: `${u.name} (${u.code})` }))}
+            endpoint="/inventory-uoms/"
+            fields={[{ key: "code", placeholder: "Code e.g. kg" }, { key: "name", placeholder: "Name e.g. Kilogram (KG)" }]}
+            queryKey="inv-uoms"
+          />
+        </div>
+      )}
+
+      {tab === "consumptionreg" && registerTable("Recipe consumption", "consumption")}
+
+      {tab === "movements" && registerTable("Movements", moveKind,
+        <>
+          {MOVE_KINDS.map(([k, label]) => (
+            <button key={k} onClick={() => setMoveKind(k)}
+              className={`pill text-xs ${moveKind === k ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              {label}
+            </button>
+          ))}
+        </>
+      )}
+
+      {tab === "transfer" && registerTable("Stock transfers", "transfer",
+        <span className="text-xs text-muted">Use a material's Transfer action to move stock out to / in from another location.</span>
+      )}
+
+      {tab === "wastage" && registerTable("Wastage entries", "wastage",
+        <span className="text-xs text-muted">Use a material's Waste action to record wastage (reason required).</span>
+      )}
+
+      {tab === "stockcount" && (
+        <StockCountSheet materials={rows} onSaved={refresh} q={q} setQ={setQ} />
+      )}
+
+      {tab === "lowstock" && (
+        <div className="card overflow-x-auto p-0">
+          <table className="w-full text-sm">
+            <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
+              <tr>
+                <th className="text-left px-4 py-3">Material</th>
+                <th className="text-right px-4 py-3">In stock</th>
+                <th className="text-right px-4 py-3">Reorder at</th>
+                <th className="text-right px-4 py-3">Shortfall</th>
+                <th className="text-left px-4 py-3">Status</th>
+                <th className="text-right px-4 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {low.map((i) => (
+                <tr key={i.id} className="border-t border-line">
+                  <td className="px-4 py-3 font-medium">{i.name}</td>
+                  <td className="px-4 py-3 text-right">{Number(i.current_stock)} {i.unit}</td>
+                  <td className="px-4 py-3 text-right text-muted">{Number(i.reorder_level)} {i.unit}</td>
+                  <td className="px-4 py-3 text-right text-clay font-medium">
+                    {(Number(i.reorder_level) - Number(i.current_stock)).toFixed(2)} {i.unit}
+                  </td>
+                  <td className="px-4 py-3">
+                    {i.below_min ? <Badge tone="clay">Critical — below minimum</Badge>
+                      : <Badge tone="amber">Below reorder level</Badge>}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button className="btn-outline text-xs py-1" onClick={() => nav("/procurement")}>
+                      Raise purchase order →
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!low.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">Nothing below reorder level — stock is healthy.</td></tr>}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {tab === "expiry" && (
@@ -302,27 +420,6 @@ export function Inventory() {
         </div>
       )}
 
-      {tab === "masters" && (
-        <div className="grid grid-cols-2 gap-4">
-          <MasterCard
-            title="Raw material categories"
-            hint="Grouping on the material master (spec §6)"
-            rows={(categories ?? []).map((c) => ({ id: c.id, label: c.name }))}
-            endpoint="/inventory-categories/"
-            fields={[{ key: "name", placeholder: "Category name" }]}
-            queryKey="inv-categories"
-          />
-          <MasterCard
-            title="Units of measurement"
-            hint="Base consumption units — KG, GM, L, ML, Nos, Packet…"
-            rows={(uoms ?? []).map((u) => ({ id: u.id, label: `${u.name} (${u.code})` }))}
-            endpoint="/inventory-uoms/"
-            fields={[{ key: "code", placeholder: "Code e.g. kg" }, { key: "name", placeholder: "Name e.g. Kilogram (KG)" }]}
-            queryKey="inv-uoms"
-          />
-        </div>
-      )}
-
       {showAdd && (
         <AddMaterialModal
           units={(uoms ?? []).map((u) => u.code)}
@@ -340,6 +437,73 @@ export function Inventory() {
         />
       )}
     </div>
+  );
+}
+
+/** Physical stock count sheet (§6): enter counted quantities; each save posts a
+ *  'count' movement for the difference so the ledger explains the correction. */
+function StockCountSheet({ materials, onSaved, q, setQ }: {
+  materials: Ingredient[]; onSaved: () => void; q: string; setQ: (v: string) => void;
+}) {
+  const toast = useToast();
+  const [counted, setCounted] = useState<Record<number, string>>({});
+  const [savedIds, setSavedIds] = useState<number[]>([]);
+  const save = useMutation({
+    mutationFn: async (ing: Ingredient) =>
+      (await api.post(`/inventory/${ing.id}/count/`, { counted: counted[ing.id] })).data,
+    onSuccess: (_d, ing) => {
+      setSavedIds((s) => [...s, ing.id]);
+      toast(`${ing.name} booked at ${counted[ing.id]} ${ing.unit}`);
+      onSaved();
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save count", "error"),
+  });
+  return (
+    <>
+      <div className="flex gap-2 mb-3 items-center">
+        <input className="input w-64" placeholder="Search material…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <span className="text-xs text-muted">Enter the physically counted quantity — the difference posts as a count movement.</span>
+      </div>
+      <div className="card overflow-x-auto p-0">
+        <table className="w-full text-sm">
+          <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
+            <tr>
+              <th className="text-left px-4 py-3">Material</th>
+              <th className="text-right px-4 py-3">Book stock</th>
+              <th className="text-right px-4 py-3">Counted</th>
+              <th className="text-right px-4 py-3">Difference</th>
+              <th className="text-right px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {materials.map((i) => {
+              const val = counted[i.id] ?? "";
+              const diff = val === "" ? null : Number(val) - Number(i.current_stock);
+              return (
+                <tr key={i.id} className="border-t border-line">
+                  <td className="px-4 py-2.5 font-medium">{i.name} <span className="text-xs text-muted">{i.code}</span></td>
+                  <td className="px-4 py-2.5 text-right">{Number(i.current_stock)} {i.unit}</td>
+                  <td className="px-4 py-2.5 text-right">
+                    <input className="input w-24 text-right" inputMode="decimal" value={val}
+                      onChange={(e) => setCounted({ ...counted, [i.id]: e.target.value })} />
+                  </td>
+                  <td className={`px-4 py-2.5 text-right font-medium ${diff == null ? "text-muted" : diff < 0 ? "text-clay" : "text-pine"}`}>
+                    {diff == null ? "—" : `${diff > 0 ? "+" : ""}${diff.toFixed(3)} ${i.unit}`}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <button className="btn-outline text-xs py-1"
+                      disabled={val === "" || save.isPending || savedIds.includes(i.id)}
+                      onClick={() => save.mutate(i)}>
+                      {savedIds.includes(i.id) ? "✓ Booked" : "Book count"}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -441,31 +605,47 @@ function AddMaterialModal({ units, categories, onDone, onCancel }: {
 }
 
 function StockActionModal({ kind, ing, onDone, onCancel }: {
-  kind: "adjust" | "waste" | "count"; ing: Ingredient; onDone: () => void; onCancel: () => void;
+  kind: "adjust" | "waste" | "count" | "transfer"; ing: Ingredient; onDone: () => void; onCancel: () => void;
 }) {
   const toast = useToast();
   const [qty, setQty] = useState("");
   const [reason, setReason] = useState("");
   const [expired, setExpired] = useState(false);
-  const titles = { adjust: "Stock adjustment", waste: "Wastage entry", count: "Physical stock count" };
+  const [direction, setDirection] = useState<"out" | "in">("out");
+  const [location, setLocation] = useState("");
+  const titles = { adjust: "Stock adjustment", waste: "Wastage entry", count: "Physical stock count", transfer: "Stock transfer" };
   const save = useMutation({
     mutationFn: async () => {
-      const body = kind === "count" ? { counted: qty } : { qty, reason, expired: expired || undefined };
+      const body = kind === "count" ? { counted: qty }
+        : kind === "transfer" ? { qty, direction, location }
+        : { qty, reason, expired: expired || undefined };
       return (await api.post(`/inventory/${ing.id}/${kind}/`, body)).data;
     },
     onSuccess: onDone,
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Failed", "error"),
   });
+  const disabled = !qty || save.isPending
+    || (kind === "waste" && !reason.trim())
+    || (kind === "transfer" && !location.trim());
   return (
     <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
       <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">{titles[kind]}</div>
         <div className="text-sm text-muted mb-4">{ing.name} · in stock {Number(ing.current_stock)} {ing.unit}</div>
         <div className="grid gap-2">
+          {kind === "transfer" && (
+            <div className="grid grid-cols-2 gap-2">
+              <select className="input" value={direction} onChange={(e) => setDirection(e.target.value as "out" | "in")}>
+                <option value="out">Transfer out — to</option>
+                <option value="in">Transfer in — from</option>
+              </select>
+              <input className="input" placeholder="Location / outlet" value={location} onChange={(e) => setLocation(e.target.value)} />
+            </div>
+          )}
           <input className="input" inputMode="decimal" autoFocus
-            placeholder={kind === "count" ? `Counted quantity (${ing.unit})` : kind === "adjust" ? `Qty ± (${ing.unit})` : `Qty wasted (${ing.unit})`}
+            placeholder={kind === "count" ? `Counted quantity (${ing.unit})` : kind === "adjust" ? `Qty ± (${ing.unit})` : `Qty (${ing.unit})`}
             value={qty} onChange={(e) => setQty(e.target.value)} />
-          {kind !== "count" && (
+          {(kind === "adjust" || kind === "waste") && (
             <input className="input" placeholder={`Reason${kind === "waste" ? " (required)" : ""}`} value={reason} onChange={(e) => setReason(e.target.value)} />
           )}
           {kind === "waste" && (
@@ -477,9 +657,7 @@ function StockActionModal({ kind, ing, onDone, onCancel }: {
         </div>
         <div className="flex gap-2 mt-4">
           <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
-          <button className="btn-primary flex-1"
-            disabled={!qty || (kind === "waste" && !reason.trim()) || save.isPending}
-            onClick={() => save.mutate()}>
+          <button className="btn-primary flex-1" disabled={disabled} onClick={() => save.mutate()}>
             Save
           </button>
         </div>
