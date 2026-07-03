@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useToast } from "../../design/Toast";
 import { Badge, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
+
+// Mirrors the backend's KITCHEN_ROLES: only the kitchen marks food ready.
+const KITCHEN_ROLES = ["Chef / Kitchen", "Restaurant Manager", "General Manager",
+  "Managing Director", "Super Admin"];
 
 interface Ticket {
   id: number;
@@ -20,6 +26,9 @@ interface Performance {
 
 export function Kds() {
   const qc = useQueryClient();
+  const toast = useToast();
+  const { user } = useApp();
+  const canBump = KITCHEN_ROLES.includes(user?.role ?? "");
   const { data, isLoading } = useQuery({
     queryKey: ["kds"],
     queryFn: async () => (await api.get<Ticket[]>("/kds/")).data,
@@ -36,6 +45,7 @@ export function Kds() {
     mutationFn: async (t: Ticket) =>
       (await api.post(`/kds/${t.id}/${t.type === "beo" ? "beo_bump" : "bump"}/`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["kds"] }),
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not update the ticket", "error"),
   });
 
   if (isLoading) return <Spinner />;
@@ -83,9 +93,15 @@ export function Kds() {
                   </div>
                 ))}
               </div>
-              <button className="btn-outline w-full text-xs py-1.5" onClick={() => bump.mutate(t)}>
-                {t.kitchen_status === "cooking" ? "Mark ready" : "Serve & clear"}
-              </button>
+              {canBump ? (
+                <button className="btn-outline w-full text-xs py-1.5" onClick={() => bump.mutate(t)}>
+                  {t.kitchen_status === "cooking" ? "Mark ready" : "Serve & clear"}
+                </button>
+              ) : (
+                <div className="text-center text-[11px] text-muted py-1.5">
+                  {t.kitchen_status === "cooking" ? "🍳 kitchen will mark ready" : "ready — dispatch from the POS"}
+                </div>
+              )}
             </div>
           ))}
         </div>
