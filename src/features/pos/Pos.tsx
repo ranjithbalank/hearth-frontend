@@ -10,11 +10,12 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { cacheMenu, enqueue, getCachedMenu, uuid, type OfflineBill } from "../../lib/offline";
 import { useOnline } from "../../lib/useOnline";
-import type { Folio, MenuItem, Order, Table } from "../../lib/types";
+import type { MenuItem, Order, Table } from "../../lib/types";
 import { downloadBillPdf, printKot } from "../print/documents";
 
-type Mode = "dinein" | "takeaway" | "delivery";
-const MODE_LABELS: Record<Mode, string> = { dinein: "Dine-in", takeaway: "Takeaway", delivery: "Delivery" };
+type Mode = "dinein" | "takeaway" | "delivery" | "room";
+const MODE_LABELS: Record<Mode, string> = { dinein: "Dine-in", takeaway: "Takeaway", delivery: "Delivery", room: "Room" };
+interface RoomFolio { folio: number; room: string; guest: string }
 interface Category { id: number; name: string }
 interface ReadyKot { kot: number; kot_no: string; order: number; table: string; captain: string }
 interface TillSession {
@@ -56,7 +57,21 @@ export function Pos() {
       if (r.data.length) setOrderId(r.data[0].id);
     });
   }
-  function startMode(m: Mode) { setMode(m); setTable(null); setOrderId(null); setCat(null); setView("order"); }
+  function startMode(m: Mode) { setMode(m); setTable(null); setRoomFolio(null); setOrderId(null); setCat(null); setView("order"); }
+  // Room channel: pick the in-house guest FIRST — the bill can only post there.
+  const [roomFolio, setRoomFolio] = useState<RoomFolio | null>(null);
+  const [roomPick, setRoomPick] = useState<RoomFolio[] | null>(null);
+  async function openRoomChannel() {
+    const rooms = (await api.get<RoomFolio[]>("/pos/orders/room_folios/")).data;
+    if (!rooms.length) { toast("No in-house guests with an open folio", "error"); return; }
+    setRoomPick(rooms);
+  }
+  function startRoomOrder(f: RoomFolio) {
+    setRoomPick(null);
+    setMode("room"); setTable(null); setOrderId(null); setCat(null);
+    setRoomFolio(f);
+    setView("order");
+  }
 
   const { data: tables } = useQuery({ queryKey: ["tables"], queryFn: async () => (await api.get<Table[]>("/pos/tables/")).data });
   const { data: cats } = useQuery({ queryKey: ["cats"], queryFn: async () => (await api.get<Category[]>("/pos/categories/")).data });
@@ -65,6 +80,13 @@ export function Pos() {
     queryKey: ["order", orderId],
     queryFn: async () => (await api.get<Order>(`/pos/orders/${orderId}/`)).data,
     enabled: orderId !== null,
+  });
+  // Shared tables: every open order on this table (two parties = two bills).
+  const { data: tableOrders } = useQuery({
+    queryKey: ["table-orders", table?.id],
+    queryFn: async () => (await api.get<Order[]>(`/pos/orders/?table=${table!.id}&open=1`)).data,
+    enabled: view === "order" && mode === "dinein" && !!table,
+    refetchInterval: 15000,
   });
 
   const { online, queued, sync } = useOnline();
@@ -97,7 +119,10 @@ export function Pos() {
 
   async function ensureOrder(): Promise<number> {
     if (orderId) return orderId;
-    const o = (await api.post<Order>("/pos/orders/", { mode, table: table?.id ?? null })).data;
+    const o = (await api.post<Order>("/pos/orders/", {
+      mode, table: table?.id ?? null,
+      ...(mode === "room" && roomFolio ? { folio: roomFolio.folio } : {}),
+    })).data;
     setOrderId(o.id);
     return o.id;
   }
@@ -137,7 +162,11 @@ export function Pos() {
       const id = await ensureOrder();
       return (await api.post(`/pos/orders/${id}/add_item/`, payload)).data;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["order", orderId] }); setPicker(null); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["order", orderId] });
+      qc.invalidateQueries({ queryKey: ["table-orders"] });
+      setPicker(null);
+    },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add item", "error"),
   });
 
@@ -251,27 +280,21 @@ export function Pos() {
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Payment failed", "error"),
   });
 
-  // Post-to-room: show the occupied rooms (open folios) and pick the guest.
-  const [roomPick, setRoomPick] = useState<Folio[] | null>(null);
-  async function openRoomPick() {
-    const folios = (await api.get<Folio[]>("/folios/?status=open")).data
-      .filter((f) => f.room_number);
-    if (!folios.length) { toast("No occupied rooms with an open folio", "error"); return; }
-    setRoomPick(folios);
-  }
+  // Room orders post to the folio chosen at order start — nothing to pick here.
   const postToRoom = useMutation({
-    mutationFn: async (folioId: number) =>
-      (await api.post(`/pos/orders/${orderId}/post_to_room/`, { folio: folioId })).data,
-    onSuccess: (o: Order) => { setRoomPick(null); toast(`Posted to room · folio #${o.folio}`); reset(); },
+    mutationFn: async () => (await api.post(`/pos/orders/${orderId}/post_to_room/`, {})).data,
+    onSuccess: () => { toast(`Posted to room ${roomFolio?.room ?? ""} · ${roomFolio?.guest ?? ""}`); reset(); },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not post to room", "error"),
   });
 
   function reset() {
     setOrderId(null);
     setTable(null);
+    setRoomFolio(null);
     setView("floor");
     qc.invalidateQueries({ queryKey: ["tables"] });
     qc.invalidateQueries({ queryKey: ["folios"] });
+    qc.invalidateQueries({ queryKey: ["table-orders"] });
   }
 
   if (isLoading && online) return <Spinner />;
@@ -341,6 +364,7 @@ export function Pos() {
         <div className="flex flex-wrap items-center gap-2 mb-5">
           <button className="btn-outline" onClick={() => startMode("takeaway")}>+ Takeaway</button>
           <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
+          {hms && <button className="btn-outline" onClick={openRoomChannel}>+ Room</button>}
           <button className="btn-outline" onClick={() => setShowReserve(true)}>+ Reserve / Waitlist</button>
           <a className="btn-ghost text-sm" href="/tokens" target="_blank" rel="noreferrer">Token board ↗</a>
           {/* Cash controls are counter business — hidden from captains. */}
@@ -484,8 +508,34 @@ export function Pos() {
       </div>
       <div className="flex items-center gap-3 mb-4">
         <div>
-          <div className="font-display text-xl">{mode === "dinein" ? `Table ${table?.name ?? ""}` : MODE_LABELS[mode]}</div>
-          <div className="text-xs text-muted">{mode === "dinein" ? `${table?.seats ?? 0} seats` : "New order"}</div>
+          <div className="font-display text-xl">
+            {mode === "dinein" ? `Table ${table?.name ?? ""}`
+              : mode === "room" ? `Room ${roomFolio?.room ?? ""}`
+                : MODE_LABELS[mode]}
+          </div>
+          <div className="text-xs text-muted">
+            {mode === "dinein" ? `${table?.seats ?? 0} seats`
+              : mode === "room" ? `${roomFolio?.guest ?? ""} · bill posts to the room folio`
+                : "New order"}
+          </div>
+          {/* Shared table: one tab per party — each gets its own KOTs and bill. */}
+          {mode === "dinein" && !!tableOrders?.length && (
+            <div className="flex gap-1.5 mt-1 flex-wrap">
+              {tableOrders.map((o, ix) => (
+                <button key={o.id}
+                  className={`pill text-xs ${orderId === o.id ? "bg-ink text-white" : "bg-hairline text-body"}`}
+                  onClick={() => setOrderId(o.id)}>
+                  Guest {ix + 1} · {inr(o.totals.total)}{o.status === "billed" ? " · billed" : ""}
+                </button>
+              ))}
+              <button
+                className={`pill text-xs ${orderId === null ? "bg-pine text-white" : "border border-hairline text-body"}`}
+                title="Separate party at this table — new order, new bill"
+                onClick={() => setOrderId(null)}>
+                ＋ New guest
+              </button>
+            </div>
+          )}
         </div>
         <div className="ml-auto flex items-center gap-2">
           {order?.token_no && <Badge tone="pine">Token {order.token_no}</Badge>}
@@ -668,12 +718,22 @@ export function Pos() {
                   <button className="btn-primary" disabled={fireKot.isPending || !unfired} onClick={() => fireKot.mutate()}>
                     {fireKot.isPending ? "Firing…"
                       : !unfired ? "KOT fired ✓"
-                        : mode === "dinein" ? "Fire KOT"
+                        : mode === "dinein" || mode === "room" ? "Fire KOT"
                           : mode === "takeaway" ? "Fire KOT + token slip 🖨"
                             : "Fire KOT + final bill"}
                   </button>
                 )}
-                {billed ? (
+                {mode === "room" ? (
+                  /* Room channel: the ONLY way out is the guest's own folio. */
+                  <button
+                    className="btn-primary"
+                    disabled={postToRoom.isPending || unfired || !order?.lines.length}
+                    title={unfired ? "Fire the KOT before posting" : undefined}
+                    onClick={() => postToRoom.mutate()}
+                  >
+                    Post to room {roomFolio?.room} · {roomFolio?.guest}
+                  </button>
+                ) : billed ? (
                   <>
                     {/* Bill printed but payment failed/pending — settle to free the table. */}
                     <div className={`grid gap-2 ${tenders.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
@@ -698,11 +758,6 @@ export function Pos() {
                     onClick={() => setShowFinal(true)}
                   >
                     Final bill
-                  </button>
-                )}
-                {hms && (
-                  <button className="btn-outline" disabled={postToRoom.isPending || unfired} onClick={openRoomPick}>
-                    Post to room
                   </button>
                 )}
                 <button className="btn-ghost text-xs" onClick={() => order && printKot(order, property?.name ?? "Hearth")}>
@@ -773,9 +828,10 @@ export function Pos() {
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid gap-2 ${hms ? "grid-cols-3" : "grid-cols-2"}`}>
               <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("takeaway"); }}>+ Takeaway</button>
               <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("delivery"); }}>+ Delivery</button>
+              {hms && <button className="btn-outline" onClick={() => { setShowTablePick(false); openRoomChannel(); }}>+ Room</button>}
             </div>
           </div>
         </div>
@@ -784,19 +840,18 @@ export function Pos() {
       {roomPick && (
         <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={() => setRoomPick(null)}>
           <div className="card p-5 w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="font-display text-xl mb-1">Post to room</div>
-            <div className="text-xs text-muted mb-4">Occupied rooms with an open folio — pick the guest.</div>
+            <div className="font-display text-xl mb-1">Room order — which guest?</div>
+            <div className="text-xs text-muted mb-4">
+              The order opens against this guest's folio — the bill can only post there.
+            </div>
             <div className="grid gap-2">
               {roomPick.map((f) => (
-                <button key={f.id} disabled={postToRoom.isPending}
+                <button key={f.folio}
                   className="card p-3 text-left hover:bg-cream flex items-center gap-3"
-                  onClick={() => postToRoom.mutate(f.id)}>
-                  <span className="font-display text-xl w-14">{f.room_number}</span>
-                  <span className="flex-1">
-                    <span className="font-medium">{f.guest_name}</span>
-                    <span className="block text-xs text-muted">balance {inr(f.balance)}</span>
-                  </span>
-                  <span className="text-pine text-sm">Post →</span>
+                  onClick={() => startRoomOrder(f)}>
+                  <span className="font-display text-xl w-14">{f.room}</span>
+                  <span className="flex-1 font-medium">{f.guest}</span>
+                  <span className="text-pine text-sm">Order →</span>
                 </button>
               ))}
             </div>
