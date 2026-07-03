@@ -12,6 +12,8 @@ interface ReportData {
   kpis: { label: string; value: string | number; money?: boolean }[];
   series_label: string;
   bars: { name: string; value: number }[];
+  /** Optional order-level records rendered as a table under the chart. */
+  records?: { columns: string[]; rows: (string | number)[][] };
 }
 
 async function download(report: string, format: "xlsx" | "csv") {
@@ -85,6 +87,43 @@ export function Reports() {
             <div>
               <div className="text-xs uppercase tracking-wide text-muted mb-2">{report.series_label}</div>
               <BarChart bars={report.bars} />
+            </div>
+          </div>
+        )}
+
+        {/* Record-level rows (e.g. every Zomato/Swiggy order) */}
+        {report?.records && (
+          <div className="mt-6">
+            <div className="text-xs uppercase tracking-wide text-muted mb-2">
+              Records ({report.records.rows.length})
+            </div>
+            <div className="overflow-x-auto rounded-card border border-hairline">
+              <table className="w-full text-sm">
+                <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
+                  <tr>
+                    {report.records.columns.map((c) => (
+                      <th key={c} className={`px-4 py-2.5 ${["Items", "Total"].includes(c) ? "text-right" : "text-left"}`}>{c}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.records.rows.map((row, i) => (
+                    <tr key={i} className="border-t border-line">
+                      {row.map((cell, j) => (
+                        <td key={j} className={`px-4 py-2 ${
+                          report.records!.columns[j] === "Total" ? "text-right font-medium"
+                            : report.records!.columns[j] === "Items" ? "text-right" : ""}`}>
+                          {report.records!.columns[j] === "Total" ? inr(cell) : cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  {!report.records.rows.length && (
+                    <tr><td colSpan={report.records.columns.length}
+                      className="px-4 py-6 text-center text-muted text-sm">No records yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
