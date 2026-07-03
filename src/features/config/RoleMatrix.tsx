@@ -87,7 +87,9 @@ export function RoleMatrix() {
 
       {/* Freeze panes: header row and module column stay pinned while the
           matrix scrolls in both directions inside this container. */}
-      <Card className="overflow-auto p-0 max-h-[calc(100vh-230px)]">
+      {/* !p-0: the card's default padding would leave a gap above the sticky
+          header through which scrolled rows stay visible (freeze-pane overlap). */}
+      <Card className="overflow-auto !p-0 max-h-[calc(100vh-230px)]">
         <table className="text-sm border-separate border-spacing-0 min-w-full">
           <thead>
             <tr>
