@@ -96,7 +96,7 @@ export const NAV: NavGroup[] = [
       { key: "store-dashboard", module: "inventory", label: "Store Dashboard", path: "/store" },
       { key: "store-materials", module: "inventory", label: "Raw Material Master", path: "/store/materials" },
       { key: "recipes", label: "Recipes & BOM", path: "/recipes" },
-      { key: "store-consumption", module: "inventory", label: "Consumption Register", path: "/store/consumption" },
+      { key: "store-consumption", module: "inventory", label: "Consumption", path: "/store/consumption" },
       { key: "store-masters", module: "inventory", label: "Categories & Units", path: "/store/categories-units" },
       { key: "store-movements", module: "inventory", label: "Inventory Movements", path: "/store/movements" },
       { key: "store-transfer", module: "inventory", label: "Stock Transfer", path: "/store/transfer" },

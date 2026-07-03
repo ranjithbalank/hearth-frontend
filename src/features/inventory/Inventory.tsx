@@ -34,7 +34,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "materials", label: "Raw material master" },
   { key: "masters", label: "Categories & units" },
-  { key: "consumptionreg", label: "Consumption register" },
+  { key: "consumptionreg", label: "Consumption" },
   { key: "movements", label: "Movements" },
   { key: "transfer", label: "Stock transfer" },
   { key: "wastage", label: "Wastage entry" },
