@@ -32,6 +32,7 @@ const VIEWS = [
   { key: "tax", label: "GST by slab" },
   { key: "source", label: "Bookings by source" },
   { key: "occupancy", label: "Room status" },
+  { key: "aggregator", label: "Zomato / Swiggy" },
   { key: "recipe_consumption", label: "Recipe-wise consumption" },
   { key: "sales_vs_consumption", label: "Sales vs consumption" },
   { key: "purchase_vs_consumption", label: "Purchase vs consumption" },
@@ -97,6 +98,7 @@ export function Reports() {
             { key: "tax", label: "GST summary" },
             { key: "occupancy", label: "Room status" },
             { key: "accounting", label: "Accounting (ERP)" },
+            { key: "aggregator", label: "Zomato/Swiggy records" },
             { key: "guests", label: "Guest report (statutory)" },
           ].map((r) => (
             <div key={r.key} className="rounded-card border border-hairline p-3">
