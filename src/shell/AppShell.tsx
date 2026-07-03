@@ -117,6 +117,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                         <NavLink
                           key={i.key}
                           to={i.path}
+                          // "/store" is a prefix of every Store screen — require an
+                          // exact match so Dashboard doesn't stay lit on all of them.
+                          end={i.path === "/store"}
                           onClick={() => setMobileOpen(false)}
                           className={({ isActive }) =>
                             `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${

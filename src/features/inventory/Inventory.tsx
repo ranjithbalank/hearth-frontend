@@ -70,7 +70,6 @@ export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
   const [tabState, setTab] = useState<Tab>("dashboard");
   const tab = fixedTab ?? tabState;
   const [q, setQ] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
   const [action, setAction] = useState<{ kind: "adjust" | "waste" | "count" | "transfer"; ing: Ingredient } | null>(null);
   const [moveKind, setMoveKind] = useState("");
   const [days, setDays] = useState(30);
@@ -178,7 +177,7 @@ export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
         action={tab === "materials" ? (
           <div className="flex items-center gap-2">
             <input className="input w-48" placeholder="Search name or code…" value={q} onChange={(e) => setQ(e.target.value)} />
-            <button className="btn-primary text-sm" onClick={() => setShowAdd(true)}>+ Raw material</button>
+            <button className="btn-primary text-sm" onClick={() => nav("/store/materials/new")}>+ Raw material</button>
           </div>
         ) : undefined}
       />
@@ -423,14 +422,6 @@ export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
         </div>
       )}
 
-      {showAdd && (
-        <AddMaterialModal
-          units={(uoms ?? []).map((u) => u.code)}
-          categories={(categories ?? []).map((c) => c.name)}
-          onDone={() => { setShowAdd(false); refresh(); }}
-          onCancel={() => setShowAdd(false)}
-        />
-      )}
       {action && (
         <StockActionModal
           kind={action.kind}
@@ -559,51 +550,6 @@ function MasterCard({ title, hint, rows, endpoint, fields, queryKey }: {
         {!rows.length && <div className="text-sm text-muted py-4 text-center">Nothing yet.</div>}
       </div>
     </Card>
-  );
-}
-
-function AddMaterialModal({ units, categories, onDone, onCancel }: {
-  units: string[]; categories: string[]; onDone: () => void; onCancel: () => void;
-}) {
-  const toast = useToast();
-  const [f, setF] = useState({ name: "", unit: "kg", category: "", min_stock_level: "0", reorder_level: "0", unit_cost: "0", storage_location: "", expiry_date: "" });
-  const save = useMutation({
-    mutationFn: async () => (await api.post("/inventory/", { ...f, expiry_date: f.expiry_date || null })).data,
-    onSuccess: onDone,
-    onError: (e: any) => toast(e?.response?.data?.name?.[0] ?? "Could not save material", "error"),
-  });
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
-  return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
-        <div className="font-display text-xl mb-4">New raw material</div>
-        <div className="grid gap-2">
-          <input className="input" placeholder="Name" value={f.name} onChange={set("name")} />
-          <div className="grid grid-cols-2 gap-2">
-            <select className="input" value={f.unit} onChange={set("unit")}>
-              {units.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
-            <select className="input" value={f.category} onChange={set("category")}>
-              <option value="">Category…</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <input className="input" inputMode="decimal" placeholder="Min level" value={f.min_stock_level} onChange={set("min_stock_level")} />
-            <input className="input" inputMode="decimal" placeholder="Reorder at" value={f.reorder_level} onChange={set("reorder_level")} />
-            <input className="input" inputMode="decimal" placeholder="Rate ₹" value={f.unit_cost} onChange={set("unit_cost")} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <input className="input" placeholder="Storage location" value={f.storage_location} onChange={set("storage_location")} />
-            <input className="input" type="date" value={f.expiry_date} onChange={set("expiry_date")} />
-          </div>
-        </div>
-        <div className="flex gap-2 mt-4">
-          <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
-          <button className="btn-primary flex-1" disabled={!f.name.trim() || save.isPending} onClick={() => save.mutate()}>Save</button>
-        </div>
-      </div>
-    </div>
   );
 }
 

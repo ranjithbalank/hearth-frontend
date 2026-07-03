@@ -26,6 +26,7 @@ import { Executive } from "./features/executive/Executive";
 import { Folios } from "./features/folio/Folios";
 import { Hr } from "./features/hr/Hr";
 import { Inventory } from "./features/inventory/Inventory";
+import { NewRawMaterial } from "./features/inventory/NewRawMaterial";
 import { Kds } from "./features/kds/Kds";
 import { MaterialRequests } from "./features/matreq/MaterialRequests";
 import { Notifications } from "./features/notifications/Notifications";
@@ -108,6 +109,7 @@ export default function App() {
         <Route path="/inventory" element={<RequireAccess module="inventory"><Inventory /></RequireAccess>} />
         <Route path="/store" element={<RequireAccess module="inventory"><Inventory fixedTab="dashboard" /></RequireAccess>} />
         <Route path="/store/materials" element={<RequireAccess module="inventory"><Inventory fixedTab="materials" /></RequireAccess>} />
+        <Route path="/store/materials/new" element={<RequireAccess module="inventory"><NewRawMaterial /></RequireAccess>} />
         <Route path="/store/categories-units" element={<RequireAccess module="inventory"><Inventory fixedTab="masters" /></RequireAccess>} />
         <Route path="/store/consumption" element={<RequireAccess module="inventory"><Inventory fixedTab="consumptionreg" /></RequireAccess>} />
         <Route path="/store/movements" element={<RequireAccess module="inventory"><Inventory fixedTab="movements" /></RequireAccess>} />
