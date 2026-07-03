@@ -28,14 +28,13 @@ interface CategoryRow { id: number; name: string }
 /** Tab structure per the Restaurant Inventory spec §6. Supplier Master,
  *  Purchase Entry/GRN, Recipe Master, Menu Item Mapping and Inventory Reports
  *  are their own screens — the Dashboard tab deep-links to them. */
-type Tab = "dashboard" | "materials" | "masters" | "consumptionreg" | "movements"
+type Tab = "dashboard" | "materials" | "masters" | "movements"
   | "transfer" | "wastage" | "stockcount" | "lowstock" | "expiry";
 const TABS: { key: Tab; label: string }[] = [
   { key: "dashboard", label: "Dashboard" },
   { key: "materials", label: "Raw material master" },
   { key: "masters", label: "Categories & units" },
-  { key: "consumptionreg", label: "Consumption" },
-  { key: "movements", label: "Movements" },
+  { key: "movements", label: "Movements & consumption" },
   { key: "transfer", label: "Stock transfer" },
   { key: "wastage", label: "Wastage entry" },
   { key: "stockcount", label: "Physical count" },
@@ -81,12 +80,11 @@ export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
   const { data: moves } = useQuery({
     queryKey: ["inv-moves", tab, moveKind, days],
     queryFn: async () => {
-      const kind = tab === "consumptionreg" ? "consumption"
-        : tab === "transfer" ? "transfer"
+      const kind = tab === "transfer" ? "transfer"
         : tab === "wastage" ? "wastage" : moveKind;
       return (await api.get<Movement[]>(`/inventory/movements/?days=${days}${kind ? `&kind=${kind}` : ""}`)).data;
     },
-    enabled: ["movements", "consumptionreg", "transfer", "wastage"].includes(tab),
+    enabled: ["movements", "transfer", "wastage"].includes(tab),
   });
   const { data: consumption } = useQuery({
     queryKey: ["inv-consumption", days],
@@ -320,8 +318,6 @@ export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
           />
         </div>
       )}
-
-      {tab === "consumptionreg" && registerTable("Recipe consumption", "consumption")}
 
       {tab === "movements" && registerTable("Movements", moveKind,
         <>

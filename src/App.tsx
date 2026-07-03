@@ -112,7 +112,7 @@ export default function App() {
         <Route path="/store/materials" element={<RequireAccess module="inventory"><Inventory fixedTab="materials" /></RequireAccess>} />
         <Route path="/store/materials/new" element={<RequireAccess module="inventory"><NewRawMaterial /></RequireAccess>} />
         <Route path="/store/categories-units" element={<RequireAccess module="inventory"><Inventory fixedTab="masters" /></RequireAccess>} />
-        <Route path="/store/consumption" element={<RequireAccess module="inventory"><Inventory fixedTab="consumptionreg" /></RequireAccess>} />
+        <Route path="/store/consumption" element={<RequireAccess module="inventory"><Inventory fixedTab="movements" /></RequireAccess>} />
         <Route path="/store/movements" element={<RequireAccess module="inventory"><Inventory fixedTab="movements" /></RequireAccess>} />
         <Route path="/store/transfer" element={<RequireAccess module="inventory"><Inventory fixedTab="transfer" /></RequireAccess>} />
         <Route path="/store/wastage" element={<RequireAccess module="inventory"><Inventory fixedTab="wastage" /></RequireAccess>} />
