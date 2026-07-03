@@ -11,8 +11,8 @@ import type { Entitlement, Role, User } from "../../lib/types";
 
 const ROLES: Role[] = [
   "Super Admin", "Admin", "Managing Director", "CEO", "General Manager",
-  "Finance", "Front Office", "F&B Cashier", "Captain", "Housekeeping",
-  "Chef / Kitchen", "Store Keeper",
+  "Finance", "Restaurant Manager", "Front Office", "F&B Cashier", "Captain",
+  "Housekeeping", "Chef / Kitchen", "Store Keeper",
 ];
 
 function UsersPanel() {
