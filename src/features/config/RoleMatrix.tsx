@@ -85,13 +85,15 @@ export function RoleMatrix() {
         <span className="flex items-center gap-1.5"><span className="text-pine">✓</span> Full access (not editable)</span>
       </div>
 
-      <Card className="overflow-x-auto p-0">
-        <table className="w-full text-sm">
-          <thead className="bg-cream">
+      {/* Freeze panes: header row and module column stay pinned while the
+          matrix scrolls in both directions inside this container. */}
+      <Card className="overflow-auto p-0 max-h-[calc(100vh-230px)]">
+        <table className="w-full text-sm border-separate border-spacing-0">
+          <thead>
             <tr>
-              <th className="text-left px-4 py-3 sticky left-0 bg-cream min-w-[220px] text-xs uppercase tracking-wide text-muted">Module</th>
+              <th className="text-left px-4 py-3 sticky left-0 top-0 z-30 bg-cream min-w-[220px] text-xs uppercase tracking-wide text-muted border-b border-hairline">Module</th>
               {data.roles.map((r) => (
-                <th key={r} className="px-3 py-3 text-center whitespace-nowrap">
+                <th key={r} className="px-3 py-3 text-center whitespace-nowrap sticky top-0 z-20 bg-cream border-b border-hairline">
                   <div className="font-semibold text-body">{r}</div>
                   {isProtected(r) && <div className="text-[10px] font-normal text-pine">full access</div>}
                 </th>
@@ -103,17 +105,18 @@ export function RoleMatrix() {
               <Fragment key={g.title}>
                 <tr>
                   <td colSpan={data.roles.length + 1} className="px-4 pt-4 pb-1">
-                    <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                    {/* sticky-left so the group label stays visible on horizontal scroll */}
+                    <span className="sticky left-4 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
                       <span className="h-2.5 w-2.5 rounded-sm" style={{ background: g.color }} />
                       {g.title}
                     </span>
                   </td>
                 </tr>
                 {g.modules.map((module) => (
-                  <tr key={module} className="border-t border-line hover:bg-cream/40">
-                    <td className="px-4 py-2 sticky left-0 bg-surface font-medium">{labelOf(module)}</td>
+                  <tr key={module} className="hover:bg-cream/40">
+                    <td className="px-4 py-2 sticky left-0 z-10 bg-surface font-medium border-t border-line">{labelOf(module)}</td>
                     {data.roles.map((_, i) => (
-                      <td key={i} className="px-3 py-2 text-center"><Cell module={module} roleIndex={i} /></td>
+                      <td key={i} className="px-3 py-2 text-center border-t border-line"><Cell module={module} roleIndex={i} /></td>
                     ))}
                   </tr>
                 ))}

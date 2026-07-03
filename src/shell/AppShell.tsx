@@ -203,6 +203,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               || location.pathname.startsWith("/store")
               || location.pathname.startsWith("/recipes")
               || location.pathname === "/inventory"
+              || location.pathname === "/config/roles"
               ? "" : "max-w-[1180px]"
           }`}
         >
