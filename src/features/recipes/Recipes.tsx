@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
@@ -25,6 +26,7 @@ export function Recipes() {
   const qc = useQueryClient();
   const ask = usePrompt();
   const toast = useToast();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"recipes" | "mapping">("recipes");
   const [editing, setEditing] = useState<MappingRow | null>(null);
 
@@ -67,7 +69,15 @@ export function Recipes() {
 
   return (
     <div>
-      <PageHeader title="Recipes & BOM" subtitle="Plate cost &amp; margin · auto-deducts on KOT" />
+      <PageHeader
+        title="Recipes & BOM"
+        subtitle="Plate cost &amp; margin · auto-deducts on KOT"
+        action={
+          <button className="btn-primary text-sm" onClick={() => navigate("/recipes/new")}>
+            + Create recipe
+          </button>
+        }
+      />
 
       <div className="flex gap-2 mb-4">
         <button onClick={() => setTab("recipes")}

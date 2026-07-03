@@ -32,6 +32,7 @@ import { MaterialRequests } from "./features/matreq/MaterialRequests";
 import { Notifications } from "./features/notifications/Notifications";
 import { OnlineOrders } from "./features/online/OnlineOrders";
 import { Procurement } from "./features/procurement/Procurement";
+import { NewRecipe } from "./features/recipes/NewRecipe";
 import { Recipes } from "./features/recipes/Recipes";
 import { Revenue } from "./features/revenue/Revenue";
 import { CheckIn } from "./features/frontdesk/CheckIn";
@@ -121,6 +122,7 @@ export default function App() {
         <Route path="/procurement" element={<RequireAccess module="procurement"><Procurement /></RequireAccess>} />
         <Route path="/material-requests" element={<RequireAccess module="matreq"><MaterialRequests /></RequireAccess>} />
         <Route path="/recipes" element={<RequireAccess module="recipes"><Recipes /></RequireAccess>} />
+        <Route path="/recipes/new" element={<RequireAccess module="recipes"><NewRecipe /></RequireAccess>} />
         <Route path="/banquets" element={<RequireAccess module="banquets"><Banquets /></RequireAccess>} />
         <Route path="/hr" element={<RequireAccess module="hr"><Hr /></RequireAccess>} />
         <Route path="/accounting" element={<RequireAccess module="accounting"><Accounting /></RequireAccess>} />
