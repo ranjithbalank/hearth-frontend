@@ -94,7 +94,7 @@ export function NewRecipe() {
               value={dish.price} onChange={(e) => setDish({ ...dish, price: e.target.value })} />
           </div>
           <div>
-            <label className="text-xs text-muted">Menu category</label>
+            <label className="text-xs text-muted">Menu category *</label>
             <input className="input w-full" list="menu-cats" placeholder="e.g. Mains"
               value={dish.category} onChange={(e) => setDish({ ...dish, category: e.target.value })} />
             <datalist id="menu-cats">
@@ -190,7 +190,7 @@ export function NewRecipe() {
           <div className="flex-1" />
           <button className="btn-ghost" onClick={() => nav("/recipes")}>Cancel</button>
           <button className="btn-primary"
-            disabled={!dish.name.trim() || !(price > 0) || !validLines.length || save.isPending}
+            disabled={!dish.name.trim() || !dish.category.trim() || !(price > 0) || !validLines.length || save.isPending}
             onClick={() => save.mutate()}>
             {save.isPending ? "Saving…" : "Save — put dish on the menu"}
           </button>
