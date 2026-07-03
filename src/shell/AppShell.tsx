@@ -194,11 +194,16 @@ export function AppShell({ children }: { children: ReactNode }) {
             <NotificationBell />
           </div>
         </header>
-        {/* Workstation screens (POS / KDS / online-order board) use the full width;
-            reading/admin pages stay capped for comfortable line lengths. */}
+        {/* Workstation screens (POS / KDS / online-order board) and the Store's
+            table-heavy screens use the full width; reading/admin pages stay
+            capped for comfortable line lengths. */}
         <div
           className={`mx-auto w-full px-4 md:px-8 py-6 md:py-8 ${
-            ["/pos", "/kds", "/online-orders"].includes(location.pathname) ? "" : "max-w-[1180px]"
+            ["/pos", "/kds", "/online-orders"].includes(location.pathname)
+              || location.pathname.startsWith("/store")
+              || location.pathname.startsWith("/recipes")
+              || location.pathname === "/inventory"
+              ? "" : "max-w-[1180px]"
           }`}
         >
           {children}
