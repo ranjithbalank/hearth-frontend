@@ -42,6 +42,8 @@ export function Pos() {
   // Role↔tender mapping (mirrors the backend): captains settle digital payments
   // tableside; cash is collected only at the cashier counter.
   const tenders = user?.role === "Captain" ? ["UPI", "Gateway"] : ["Cash", "UPI", "Gateway"];
+  // Captains work the tables — takeaway/delivery/room orders are counter flows.
+  const isCaptain = user?.role === "Captain";
 
   const [mode, setMode] = useState<Mode>("dinein");
   const [table, setTable] = useState<Table | null>(null);
@@ -377,9 +379,13 @@ export function Pos() {
         {banner}
         {readyStrip}
         <div className="flex flex-wrap items-center gap-2 mb-5">
-          <button className="btn-outline" onClick={() => startMode("takeaway")}>+ Takeaway</button>
-          <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
-          {hms && <button className="btn-outline" onClick={openRoomChannel}>+ Room</button>}
+          {!isCaptain && (
+            <>
+              <button className="btn-outline" onClick={() => startMode("takeaway")}>+ Takeaway</button>
+              <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
+              {hms && <button className="btn-outline" onClick={openRoomChannel}>+ Room</button>}
+            </>
+          )}
           <button className="btn-outline" onClick={() => setShowReserve(true)}>+ Reserve / Waitlist</button>
           <a className="btn-ghost text-sm" href="/tokens" target="_blank" rel="noreferrer">Token board ↗</a>
           {/* Cash controls are counter business — hidden from captains. */}
@@ -885,11 +891,13 @@ export function Pos() {
                 </button>
               ))}
             </div>
-            <div className={`grid gap-2 ${hms ? "grid-cols-3" : "grid-cols-2"}`}>
-              <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("takeaway"); }}>+ Takeaway</button>
-              <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("delivery"); }}>+ Delivery</button>
-              {hms && <button className="btn-outline" onClick={() => { setShowTablePick(false); openRoomChannel(); }}>+ Room</button>}
-            </div>
+            {!isCaptain && (
+              <div className={`grid gap-2 ${hms ? "grid-cols-3" : "grid-cols-2"}`}>
+                <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("takeaway"); }}>+ Takeaway</button>
+                <button className="btn-outline" onClick={() => { setShowTablePick(false); startMode("delivery"); }}>+ Delivery</button>
+                {hms && <button className="btn-outline" onClick={() => { setShowTablePick(false); openRoomChannel(); }}>+ Room</button>}
+              </div>
+            )}
           </div>
         </div>
       )}
