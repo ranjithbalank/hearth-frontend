@@ -94,6 +94,14 @@ export function Pos() {
   for (const o of floorOrders ?? []) {
     if (o.table) ordersByTable.set(o.table, [...(ordersByTable.get(o.table) ?? []), o]);
   }
+  // Phone (captain view): the table cards stay compact, so the guest switcher
+  // lives inside the order screen as a thumb-sized strip.
+  const { data: tableOrders } = useQuery({
+    queryKey: ["table-orders", table?.id],
+    queryFn: async () => (await api.get<Order[]>(`/pos/orders/?table=${table!.id}&open=1`)).data,
+    enabled: view === "order" && mode === "dinein" && !!table,
+    refetchInterval: 15000,
+  });
 
   const { online, queued, sync } = useOnline();
 
@@ -171,6 +179,7 @@ export function Pos() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["order", orderId] });
       qc.invalidateQueries({ queryKey: ["floor-orders"] });
+      qc.invalidateQueries({ queryKey: ["table-orders"] });
       setPicker(null);
     },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add item", "error"),
@@ -449,29 +458,35 @@ export function Pos() {
               >
                 <div className="font-display text-xl">{t.name}</div>
                 <div className={`text-xs mt-0.5 ${running ? "opacity-80" : "text-muted"}`}>{t.seats} seats</div>
-                {/* Every party's bill lives on the card — tap it directly. */}
+                {/* Desktop: every party's bill lives on the card — tap it directly.
+                    Phone (captain view): keep the card compact, switch bills inside the order screen. */}
                 {checks.length ? (
-                  <div className="mt-2 space-y-1">
-                    {checks.map((o, ix) => (
+                  <>
+                    <div className="mt-2 space-y-1 hidden md:block">
+                      {checks.map((o, ix) => (
+                        <button
+                          key={o.id}
+                          className={`w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 ${
+                            running ? "bg-white/15 hover:bg-white/25" : "bg-cream hover:bg-hairline"}`}
+                          onClick={(e) => { e.stopPropagation(); openTable(t, o.id); }}
+                        >
+                          <span>G{ix + 1}{o.status === "billed" ? " 🧾" : ""}</span>
+                          <span>{inr(o.totals.total)}</span>
+                        </button>
+                      ))}
                       <button
-                        key={o.id}
-                        className={`w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 ${
-                          running ? "bg-white/15 hover:bg-white/25" : "bg-cream hover:bg-hairline"}`}
-                        onClick={(e) => { e.stopPropagation(); openTable(t, o.id); }}
+                        className={`w-full rounded-lg px-2 py-1 text-xs text-left ${
+                          running ? "bg-white/10 hover:bg-white/20 opacity-90" : "bg-surface border border-dashed border-hairline hover:bg-cream"}`}
+                        title="Another party at this table — separate bill"
+                        onClick={(e) => { e.stopPropagation(); openTable(t, null); }}
                       >
-                        <span>G{ix + 1}{o.status === "billed" ? " 🧾" : ""}</span>
-                        <span>{inr(o.totals.total)}</span>
+                        ＋ Guest
                       </button>
-                    ))}
-                    <button
-                      className={`w-full rounded-lg px-2 py-1 text-xs text-left ${
-                        running ? "bg-white/10 hover:bg-white/20 opacity-90" : "bg-surface border border-dashed border-hairline hover:bg-cream"}`}
-                      title="Another party at this table — separate bill"
-                      onClick={(e) => { e.stopPropagation(); openTable(t, null); }}
-                    >
-                      ＋ Guest
-                    </button>
-                  </div>
+                    </div>
+                    <div className="md:hidden text-[10px] uppercase tracking-wide mt-1">
+                      {checks.length > 1 ? `👥 ${checks.length} bills` : "● Running"}
+                    </div>
+                  </>
                 ) : (
                   <div className="text-[10px] uppercase tracking-wide mt-1">
                     {t.status === "reserved" ? "● Reserved" : t.status === "printed" ? "● Bill printed" : "Free"}
@@ -542,6 +557,30 @@ export function Pos() {
         </div>
         <button className="btn-ghost text-sm shrink-0" onClick={() => setShowTablePick(true)}>⊞ Tables</button>
       </div>
+
+      {/* Mobile guest switcher — desktop picks bills on the floor cards instead. */}
+      {mode === "dinein" && !!tableOrders?.length && (
+        <div className="md:hidden flex gap-2 overflow-x-auto pb-2 mb-2 -mx-1 px-1">
+          {tableOrders.map((o, ix) => (
+            <button
+              key={o.id}
+              className={`shrink-0 rounded-xl border px-4 py-2.5 text-sm font-medium ${
+                orderId === o.id ? "bg-ink text-white border-ink" : "bg-surface border-hairline"}`}
+              onClick={() => setOrderId(o.id)}
+            >
+              G{ix + 1} · {inr(o.totals.total)}{o.status === "billed" ? " 🧾" : ""}
+            </button>
+          ))}
+          <button
+            className={`shrink-0 rounded-xl border-2 border-dashed px-4 py-2.5 text-sm font-medium ${
+              orderId === null ? "border-pine text-pine bg-pine-50" : "border-hairline text-muted"}`}
+            onClick={() => setOrderId(null)}
+          >
+            ＋ Guest
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-4">
         <div>
           <div className="font-display text-xl">
