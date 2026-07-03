@@ -50,11 +50,15 @@ export function Pos() {
   // Table-first flow: start on the floor, drill into a table's order screen.
   const [view, setView] = useState<"floor" | "order">("floor");
 
+  // Guest chooser: a table with several parties shows big cards to pick a bill.
+  const [guestPick, setGuestPick] = useState<Order[] | null>(null);
+
   function openTable(t: Table) {
     setMode("dinein"); setTable(t); setOrderId(null); setCat(null); setView("order");
-    // Resume the table's running order (KOT fired / billed) instead of starting a blank one.
+    // One running order resumes silently; several open the guest chooser.
     api.get<Order[]>(`/pos/orders/?table=${t.id}&open=1`).then((r) => {
-      if (r.data.length) setOrderId(r.data[0].id);
+      if (r.data.length === 1) setOrderId(r.data[0].id);
+      else if (r.data.length > 1) { setOrderId(r.data[0].id); setGuestPick(r.data); }
     });
   }
   function startMode(m: Mode) { setMode(m); setTable(null); setRoomFolio(null); setOrderId(null); setCat(null); setView("order"); }
@@ -518,23 +522,15 @@ export function Pos() {
               : mode === "room" ? `${roomFolio?.guest ?? ""} · bill posts to the room folio`
                 : "New order"}
           </div>
-          {/* Shared table: one tab per party — each gets its own KOTs and bill. */}
+          {/* Shared table: one chip opens the guest chooser (separate bills). */}
           {mode === "dinein" && !!tableOrders?.length && (
-            <div className="flex gap-1.5 mt-1 flex-wrap">
-              {tableOrders.map((o, ix) => (
-                <button key={o.id}
-                  className={`pill text-xs ${orderId === o.id ? "bg-ink text-white" : "bg-hairline text-body"}`}
-                  onClick={() => setOrderId(o.id)}>
-                  Guest {ix + 1} · {inr(o.totals.total)}{o.status === "billed" ? " · billed" : ""}
-                </button>
-              ))}
-              <button
-                className={`pill text-xs ${orderId === null ? "bg-pine text-white" : "border border-hairline text-body"}`}
-                title="Separate party at this table — new order, new bill"
-                onClick={() => setOrderId(null)}>
-                ＋ New guest
-              </button>
-            </div>
+            <button
+              className="pill text-xs bg-hairline text-body mt-1 self-start"
+              onClick={() => setGuestPick(tableOrders)}
+            >
+              👥 {tableOrders.length} bill{tableOrders.length > 1 ? "s" : ""} on this table
+              {orderId ? ` · viewing guest ${Math.max(1, tableOrders.findIndex((o) => o.id === orderId) + 1)}` : " · new guest"} ▾
+            </button>
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -856,6 +852,51 @@ export function Pos() {
               ))}
             </div>
             <button className="btn-ghost w-full mt-3" onClick={() => setRoomPick(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Guest chooser — separate parties on one table, each with its own bill. */}
+      {guestPick && table && (
+        <div className="fixed inset-0 bg-ink/40 flex items-end md:items-center justify-center z-50"
+          onClick={() => setGuestPick(null)}>
+          <div className="card p-5 w-full md:w-[440px] max-h-[80vh] overflow-y-auto rounded-b-none md:rounded-card"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="font-display text-xl mb-1">Table {table.name} — whose bill?</div>
+            <div className="text-xs text-muted mb-4">Each party has its own order, KOTs and bill.</div>
+            <div className="grid gap-2">
+              {guestPick.map((o, ix) => (
+                <button key={o.id}
+                  className={`card p-4 text-left hover:bg-cream flex items-center gap-3 ${
+                    orderId === o.id ? "ring-2 ring-pine" : ""}`}
+                  onClick={() => { setOrderId(o.id); setGuestPick(null); }}>
+                  <span className="h-10 w-10 rounded-full bg-pine-50 text-pine flex items-center justify-center font-semibold">
+                    G{ix + 1}
+                  </span>
+                  <span className="flex-1">
+                    <span className="font-medium">Guest {ix + 1}</span>
+                    <span className="block text-xs text-muted">
+                      {o.lines.length} item{o.lines.length === 1 ? "" : "s"}
+                      {o.lines.length ? ` — ${o.lines.slice(0, 3).map((l) => l.name).join(", ")}${o.lines.length > 3 ? "…" : ""}` : ""}
+                    </span>
+                  </span>
+                  <span className="text-right">
+                    <span className="font-semibold">{inr(o.totals.total)}</span>
+                    {o.status === "billed" && <span className="block text-[10px] uppercase text-amber-600">billed</span>}
+                  </span>
+                </button>
+              ))}
+              <button
+                className="rounded-card border-2 border-dashed border-pine/40 p-4 text-left hover:bg-pine-50/40 flex items-center gap-3"
+                onClick={() => { setOrderId(null); setGuestPick(null); }}>
+                <span className="h-10 w-10 rounded-full bg-pine text-white flex items-center justify-center text-xl">＋</span>
+                <span>
+                  <span className="font-medium block">New guest at this table</span>
+                  <span className="text-xs text-muted">Separate party — starts a fresh order &amp; bill</span>
+                </span>
+              </button>
+            </div>
+            <button className="btn-ghost w-full mt-3" onClick={() => setGuestPick(null)}>Close</button>
           </div>
         </div>
       )}
