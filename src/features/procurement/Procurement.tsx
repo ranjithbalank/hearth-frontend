@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
 
 interface PoLine { ingredient: string; qty: string; rate: string; received_qty: string }
 interface Po { id: number; supplier: string; status: string; total: string; lines: PoLine[] }
+interface SupplierOpt { id: number; name: string }
+interface IngredientOpt { id: number; name: string; unit: string; unit_cost: string; below_par: boolean }
 
 const TONE: Record<string, "info" | "amber" | "pine"> = {
   pending: "amber",
@@ -17,6 +20,7 @@ const TONE: Record<string, "info" | "amber" | "pine"> = {
 export function Procurement() {
   const qc = useQueryClient();
   const [msg, setMsg] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const { data: pos, isLoading } = useQuery({
     queryKey: ["pos"],
@@ -30,8 +34,9 @@ export function Procurement() {
   const receive = useMutation({
     mutationFn: async (po: Po) => (await api.post(`/purchase-orders/${po.id}/receive/`)).data,
     onSuccess: (_d, po) => {
-      setMsg(`Goods received against PO #${po.id} — stock updated`);
+      setMsg(`Goods received against PO #${po.id} — stock & purchase rates updated`);
       qc.invalidateQueries({ queryKey: ["pos"] });
+      qc.invalidateQueries({ queryKey: ["ingredients"] });
     },
   });
 
@@ -39,8 +44,28 @@ export function Procurement() {
 
   return (
     <div>
-      <PageHeader title="Procurement" subtitle="Purchase orders &amp; goods receipt" />
+      <PageHeader
+        title="Procurement"
+        subtitle="Purchase orders &amp; goods receipt — receiving posts stock automatically"
+        action={
+          <button className="btn-primary text-sm" onClick={() => setCreating(true)}>
+            + New purchase order
+          </button>
+        }
+      />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
+
+      {creating && (
+        <NewPoModal
+          onDone={(id) => {
+            setCreating(false);
+            setMsg(`PO #${id} raised — awaiting approval`);
+            qc.invalidateQueries({ queryKey: ["pos"] });
+          }}
+          onCancel={() => setCreating(false)}
+        />
+      )}
+
       <div className="space-y-3">
         {pos.map((po) => (
           <Card key={po.id}>
@@ -66,6 +91,108 @@ export function Procurement() {
             </div>
           </Card>
         ))}
+        {!pos.length && (
+          <Card><div className="text-sm text-muted text-center py-6">
+            No purchase orders yet — raise one to bring stock in.
+          </div></Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+interface DraftLine { ingredient: number | null; qty: string; rate: string }
+const EMPTY: DraftLine = { ingredient: null, qty: "", rate: "" };
+
+function NewPoModal({ onDone, onCancel }: { onDone: (id: number) => void; onCancel: () => void }) {
+  const toast = useToast();
+  const [supplier, setSupplier] = useState<number | null>(null);
+  const [lines, setLines] = useState<DraftLine[]>([{ ...EMPTY }]);
+
+  const { data: suppliers } = useQuery({
+    queryKey: ["suppliers"],
+    queryFn: async () => (await api.get<SupplierOpt[]>("/suppliers/")).data,
+  });
+  const { data: materials } = useQuery({
+    queryKey: ["ingredients"],
+    queryFn: async () => (await api.get<IngredientOpt[]>("/inventory/")).data,
+  });
+  const byId = new Map((materials ?? []).map((m) => [m.id, m]));
+
+  const setLine = (i: number, patch: Partial<DraftLine>) =>
+    setLines(lines.map((l, ix) => (ix === i ? { ...l, ...patch } : l)));
+
+  const valid = lines.filter((l) => l.ingredient && Number(l.qty) > 0);
+  const total = valid.reduce((s, l) => {
+    const m = byId.get(l.ingredient!);
+    return s + Number(l.qty) * Number(l.rate || m?.unit_cost || 0);
+  }, 0);
+
+  const save = useMutation({
+    mutationFn: async () => (await api.post("/purchase-orders/", {
+      supplier,
+      lines: valid.map((l) => ({ ingredient: l.ingredient, qty: l.qty, rate: l.rate || undefined })),
+    })).data,
+    onSuccess: (d: { id: number }) => onDone(d.id),
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not raise the PO", "error"),
+  });
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
+      <div className="card p-5 w-[560px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-1">New purchase order</div>
+        <div className="text-sm text-muted mb-3">
+          On goods receipt the stock and purchase rates update automatically.
+        </div>
+        <select className="input mb-3" value={supplier ?? ""}
+          onChange={(e) => setSupplier(Number(e.target.value) || null)}>
+          <option value="">Supplier…</option>
+          {suppliers?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <div className="grid grid-cols-[1fr_90px_110px_32px] gap-2 text-xs text-muted uppercase tracking-wide mb-1 px-1">
+          <span>Raw material</span><span>Qty</span><span>Rate ₹</span><span></span>
+        </div>
+        <div className="space-y-2 overflow-y-auto flex-1">
+          {lines.map((l, i) => {
+            const m = l.ingredient ? byId.get(l.ingredient) : undefined;
+            return (
+              <div key={i} className="grid grid-cols-[1fr_90px_110px_32px] gap-2 items-center">
+                <select className="input" value={l.ingredient ?? ""}
+                  onChange={(e) => {
+                    const mat = byId.get(Number(e.target.value));
+                    setLine(i, { ingredient: mat?.id ?? null, rate: l.rate || (mat?.unit_cost ?? "") });
+                  }}>
+                  <option value="">Pick a material…</option>
+                  {materials?.map((mat) => (
+                    <option key={mat.id} value={mat.id}>
+                      {mat.name}{mat.below_par ? " ⚠ low" : ""}
+                    </option>
+                  ))}
+                </select>
+                <input className="input" inputMode="decimal" placeholder={m ? m.unit : "Qty"}
+                  value={l.qty} onChange={(e) => setLine(i, { qty: e.target.value })} />
+                <input className="input" inputMode="decimal" placeholder="Rate"
+                  value={l.rate} onChange={(e) => setLine(i, { rate: e.target.value })} />
+                <button className="btn-ghost text-clay text-sm"
+                  onClick={() => setLines(lines.length > 1 ? lines.filter((_, ix) => ix !== i) : [{ ...EMPTY }])}>
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        <button className="btn-outline text-xs mt-2" onClick={() => setLines([...lines, { ...EMPTY }])}>
+          ＋ Add line
+        </button>
+        <div className="flex items-center gap-2 mt-4">
+          <div className="font-semibold text-sm">Total {inr(total)}</div>
+          <div className="flex-1" />
+          <button className="btn-ghost" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary" disabled={!supplier || !valid.length || save.isPending}
+            onClick={() => save.mutate()}>
+            Raise PO
+          </button>
+        </div>
       </div>
     </div>
   );
