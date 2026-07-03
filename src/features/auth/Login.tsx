@@ -4,12 +4,18 @@ import { Logo } from "../../design/ui";
 import { useApp } from "../../lib/app-context";
 
 const DEMO = [
+  { username: "superadmin", role: "Super Admin" },
+  { username: "admin", role: "Admin" },
   { username: "md", role: "Managing Director" },
+  { username: "ceo", role: "CEO" },
   { username: "gm", role: "General Manager" },
+  { username: "finance", role: "Finance" },
   { username: "frontoffice", role: "Front Office" },
   { username: "cashier", role: "F&B Cashier" },
   { username: "captain", role: "Captain" },
   { username: "housekeeping", role: "Housekeeping" },
+  { username: "chef", role: "Chef / Kitchen" },
+  { username: "store", role: "Store Keeper" },
 ];
 
 export function Login() {

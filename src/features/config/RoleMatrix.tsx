@@ -124,7 +124,7 @@ export function RoleMatrix() {
       </Card>
 
       <p className="text-xs text-muted mt-3">
-        Managing Director &amp; General Manager always have full access and can't be edited. Changes
+        Super Admin, Managing Director &amp; General Manager always have full access and can't be edited. Changes
         apply immediately, are enforced server-side on every request, and refresh each user's menu on
         next sign-in.
       </p>

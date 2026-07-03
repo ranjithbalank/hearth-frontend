@@ -6,7 +6,9 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
+import { useApp } from "../../lib/app-context";
 import type { Reservation, Room } from "../../lib/types";
+import { RoomServiceFlow } from "./RoomService";
 import { WalkInForm } from "./WalkInForm";
 
 const SOURCE_TONE: Record<string, "pine" | "clay" | "amber" | "info"> = {
@@ -18,8 +20,10 @@ const SOURCE_TONE: Record<string, "pine" | "clay" | "amber" | "info"> = {
 
 export function FrontDesk() {
   const nav = useNavigate();
+  const { property } = useApp();
   const [walkin, setWalkin] = useState(false);
   const [hkPick, setHkPick] = useState(false);
+  const [roomService, setRoomService] = useState(false);
 
   const { data: arrivals, isLoading } = useQuery({
     queryKey: ["arrivals"],
@@ -35,6 +39,9 @@ export function FrontDesk() {
         subtitle="Arrivals & walk-in check-in"
         action={
           <div className="flex items-center gap-2">
+            {property?.entitlement?.restaurant && (
+              <button className="btn-outline text-sm" onClick={() => setRoomService(true)}>🍽 Order food</button>
+            )}
             <button className="btn-outline text-sm" onClick={() => setHkPick(true)}>🧹 Request cleaning</button>
             <Badge tone="pine">{arrivals?.length ?? 0} arriving</Badge>
           </div>
@@ -42,6 +49,8 @@ export function FrontDesk() {
       />
 
       {hkPick && <RequestCleaningModal onClose={() => setHkPick(false)} />}
+
+      {roomService && <RoomServiceFlow onClose={() => setRoomService(false)} />}
 
       {walkin && <WalkInForm onCancel={() => setWalkin(false)} onCreated={(id) => nav(`/checkin?reservation=${id}`)} />}
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
@@ -32,6 +32,18 @@ export function Folios() {
 
   const sel = folios?.find((f) => f.id === selId) ?? null;
 
+  // Clicking a guest far down the list jumps the view back up to the details
+  // (the app shell scrolls inside <main>, not the window).
+  const detailRef = useRef<HTMLDivElement>(null);
+  function select(id: number) {
+    setSelId(id);
+    requestAnimationFrame(() => {
+      const scroller = detailRef.current?.closest("main");
+      if (scroller) scroller.scrollTo({ top: 0, behavior: "smooth" });
+      else window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
+
   const checkout = useMutation({
     mutationFn: async (folio: Folio) =>
       (await api.post(`/folios/${folio.id}/checkout/`, { tender })).data as Folio,
@@ -55,7 +67,8 @@ export function Folios() {
       (await api.post(`/folios/${id}/billing_mode/`, { mode })).data,
     onSuccess: (f: Folio) => {
       toast(f.effective_billing_mode === "with_gst"
-        ? "Bill switched to GST tax invoice" : "Bill switched to bill of supply (no GST)");
+        ? "Bill switched to GST tax invoice"
+        : "Room switched to bill of supply — food keeps GST");
       qc.invalidateQueries({ queryKey: ["folios"] });
     },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not switch", "error"),
@@ -65,19 +78,27 @@ export function Folios() {
   if (!folios?.length) return <><PageHeader title="Folios" /><EmptyState title="No folios yet" hint="Check in a guest from Front Desk." /></>;
 
   const needle = q.trim().toLowerCase();
-  const visible = folios.filter((f) =>
+  const matches = folios.filter((f) =>
     !needle || f.guest_name.toLowerCase().includes(needle) || (f.room_number ?? "").toLowerCase().includes(needle));
+  // The selected guest is pinned to the top of the list.
+  const visible = [...matches.filter((f) => f.id === selId),
+                   ...matches.filter((f) => f.id !== selId)];
 
   return (
     <div>
-      <PageHeader title="Guest Folios" subtitle="Charge ledger &amp; settlement" />
+      <PageHeader
+        title={sel ? `Guest Folios — ${sel.guest_name}` : "Guest Folios"}
+        subtitle={sel
+          ? `Room ${sel.room_number ?? "—"} · Balance ${inr(sel.projected_balance ?? sel.balance)} · ${sel.status}`
+          : "Charge ledger & settlement"}
+      />
       <div className="grid grid-cols-[300px_1fr] gap-4">
         <div className="space-y-2">
           <input className="input w-full mb-1" placeholder="Search guest or room…" value={q} onChange={(e) => setQ(e.target.value)} />
           {visible.map((f) => (
             <button
               key={f.id}
-              onClick={() => setSelId(f.id)}
+              onClick={() => select(f.id)}
               className={`w-full text-left card p-4 ${selId === f.id ? "ring-2 ring-pine" : ""}`}
             >
               <div className="flex justify-between items-center">
@@ -94,6 +115,10 @@ export function Folios() {
         </div>
 
         {sel && (
+          // Sticky keeps the card in view while scrolling; scroll-mt keeps the
+          // jump-to-details from tucking the name under the shell header.
+          <div ref={detailRef}
+            className="sticky top-4 self-start max-h-[calc(100vh-2rem)] overflow-y-auto scroll-mt-4">
           <Card>
             <div className="flex justify-between items-start mb-4">
               <div>
@@ -108,7 +133,7 @@ export function Folios() {
                   className={`pill text-xs ${sel.effective_billing_mode === "with_gst"
                     ? "bg-pine-50 text-pine border border-pine/40"
                     : "bg-amber-50 text-amber-700 border border-amber-300"}`}
-                  title="Toggle: GST tax invoice ↔ bill of supply (recomputes the bill)"
+                  title="Toggle: GST tax invoice ↔ bill of supply. Applies to room charges only — food always keeps GST."
                   disabled={billingMode.isPending}
                   onClick={() => billingMode.mutate({
                     id: sel.id,
@@ -158,7 +183,15 @@ export function Folios() {
                     <td className="py-2 text-right font-medium">{inr(l.total)}</td>
                   </tr>
                 ))}
-                {!sel.lines.length && (
+                {sel.pending_charges?.map((c) => (
+                  <tr key={c.description} className="border-t border-line text-muted">
+                    <td className="py-2">{c.description}</td>
+                    <td className="py-2 text-right">—</td>
+                    <td className="py-2 text-right">—</td>
+                    <td className="py-2 text-right font-medium">{inr(c.total)}</td>
+                  </tr>
+                ))}
+                {!sel.lines.length && !sel.pending_charges?.length && (
                   <tr><td colSpan={4} className="py-4 text-center text-muted">No charges posted yet.</td></tr>
                 )}
               </tbody>
@@ -226,8 +259,10 @@ export function Folios() {
               </div>
             )}
           </Card>
+          </div>
         )}
       </div>
+
     </div>
   );
 }

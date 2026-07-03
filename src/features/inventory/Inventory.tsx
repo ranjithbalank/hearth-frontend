@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { Badge, PageHeader, Spinner, Stat } from "../../design/ui";
-import { api } from "../../lib/api";
+import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
+import { api, getAccess } from "../../lib/api";
 import { useToast } from "../../design/Toast";
 import { inr } from "../../lib/money";
 
@@ -22,17 +22,17 @@ interface ConsumptionRow {
   wasted: string; purchased: string; consumption_cost: string; in_stock: string;
 }
 
-type Tab = "materials" | "movements" | "consumption" | "expiry";
+interface Uom { id: number; code: string; name: string }
+interface CategoryRow { id: number; name: string }
+
+type Tab = "materials" | "movements" | "consumption" | "expiry" | "masters";
 const TABS: { key: Tab; label: string }[] = [
   { key: "materials", label: "Raw materials" },
   { key: "movements", label: "Movements register" },
   { key: "consumption", label: "Consumption report" },
   { key: "expiry", label: "Expiry tracking" },
+  { key: "masters", label: "Categories & units" },
 ];
-
-const UNITS = ["kg", "g", "l", "ml", "pc", "pkt"];
-const CATEGORIES = ["Vegetables", "Meat / Seafood", "Dairy", "Spices", "Beverages",
-  "Packaging Materials", "Cleaning Materials", "Other Consumables"];
 const MOVE_KINDS = [
   ["", "All"], ["receipt", "Purchase Receipt"], ["consumption", "Recipe Consumption"],
   ["wastage", "Wastage"], ["transfer", "Stock Transfer"], ["adjustment", "Adjustment"],
@@ -68,6 +68,14 @@ export function Inventory() {
     queryKey: ["inv-expiring"],
     queryFn: async () => (await api.get<Ingredient[]>("/inventory/expiring/?days=30")).data,
     enabled: tab === "expiry",
+  });
+  const { data: uoms } = useQuery({
+    queryKey: ["inv-uoms"],
+    queryFn: async () => (await api.get<Uom[]>("/inventory-uoms/")).data,
+  });
+  const { data: categories } = useQuery({
+    queryKey: ["inv-categories"],
+    queryFn: async () => (await api.get<CategoryRow[]>("/inventory-categories/")).data,
   });
 
   function refresh() {
@@ -162,13 +170,26 @@ export function Inventory() {
 
       {tab === "movements" && (
         <>
-          <div className="flex gap-2 mb-3 flex-wrap">
+          <div className="flex gap-2 mb-3 flex-wrap items-center">
             {MOVE_KINDS.map(([k, label]) => (
               <button key={k} onClick={() => setMoveKind(k)}
                 className={`pill text-xs ${moveKind === k ? "bg-ink text-white" : "bg-hairline text-body"}`}>
                 {label}
               </button>
             ))}
+            <button className="btn-outline text-xs py-1 ml-auto"
+              onClick={async () => {
+                const res = await fetch(`/api/inventory/movements/?days=90${moveKind ? `&kind=${moveKind}` : ""}&fmt=csv`,
+                  { headers: { Authorization: `Bearer ${getAccess()}` } });
+                const url = URL.createObjectURL(await res.blob());
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "consumption-register.csv";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>
+              Export CSV
+            </button>
           </div>
           <div className="card overflow-x-auto p-0">
             <table className="w-full text-sm">
@@ -281,7 +302,35 @@ export function Inventory() {
         </div>
       )}
 
-      {showAdd && <AddMaterialModal onDone={() => { setShowAdd(false); refresh(); }} onCancel={() => setShowAdd(false)} />}
+      {tab === "masters" && (
+        <div className="grid grid-cols-2 gap-4">
+          <MasterCard
+            title="Raw material categories"
+            hint="Grouping on the material master (spec §6)"
+            rows={(categories ?? []).map((c) => ({ id: c.id, label: c.name }))}
+            endpoint="/inventory-categories/"
+            fields={[{ key: "name", placeholder: "Category name" }]}
+            queryKey="inv-categories"
+          />
+          <MasterCard
+            title="Units of measurement"
+            hint="Base consumption units — KG, GM, L, ML, Nos, Packet…"
+            rows={(uoms ?? []).map((u) => ({ id: u.id, label: `${u.name} (${u.code})` }))}
+            endpoint="/inventory-uoms/"
+            fields={[{ key: "code", placeholder: "Code e.g. kg" }, { key: "name", placeholder: "Name e.g. Kilogram (KG)" }]}
+            queryKey="inv-uoms"
+          />
+        </div>
+      )}
+
+      {showAdd && (
+        <AddMaterialModal
+          units={(uoms ?? []).map((u) => u.code)}
+          categories={(categories ?? []).map((c) => c.name)}
+          onDone={() => { setShowAdd(false); refresh(); }}
+          onCancel={() => setShowAdd(false)}
+        />
+      )}
       {action && (
         <StockActionModal
           kind={action.kind}
@@ -294,7 +343,61 @@ export function Inventory() {
   );
 }
 
-function AddMaterialModal({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+function MasterCard({ title, hint, rows, endpoint, fields, queryKey }: {
+  title: string; hint: string; rows: { id: number; label: string }[];
+  endpoint: string; fields: { key: string; placeholder: string }[]; queryKey: string;
+}) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [form, setForm] = useState<Record<string, string>>({});
+  const add = useMutation({
+    mutationFn: async () => (await api.post(endpoint, form)).data,
+    onSuccess: () => { setForm({}); qc.invalidateQueries({ queryKey: [queryKey] }); },
+    onError: (e: any) => {
+      const d = e?.response?.data;
+      toast(d?.detail ?? d?.name?.[0] ?? d?.code?.[0] ?? "Could not save", "error");
+    },
+  });
+  const remove = useMutation({
+    mutationFn: async (id: number) => (await api.delete(`${endpoint}${id}/`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: [queryKey] }),
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not delete", "error"),
+  });
+  const complete = fields.every((f) => (form[f.key] ?? "").trim());
+  return (
+    <Card>
+      <div className="font-semibold">{title}</div>
+      <div className="text-xs text-muted mb-3">{hint}</div>
+      <div className="flex gap-2 mb-3">
+        {fields.map((f) => (
+          <input key={f.key} className="input flex-1" placeholder={f.placeholder}
+            value={form[f.key] ?? ""}
+            onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+        ))}
+        <button className="btn-primary text-sm" disabled={!complete || add.isPending}
+          onClick={() => add.mutate()}>
+          Add
+        </button>
+      </div>
+      <div className="space-y-1">
+        {rows.map((r) => (
+          <div key={r.id} className="flex items-center justify-between text-sm border-t border-line py-1.5">
+            <span>{r.label}</span>
+            <button className="btn-ghost text-xs text-clay" disabled={remove.isPending}
+              onClick={() => remove.mutate(r.id)}>
+              Delete
+            </button>
+          </div>
+        ))}
+        {!rows.length && <div className="text-sm text-muted py-4 text-center">Nothing yet.</div>}
+      </div>
+    </Card>
+  );
+}
+
+function AddMaterialModal({ units, categories, onDone, onCancel }: {
+  units: string[]; categories: string[]; onDone: () => void; onCancel: () => void;
+}) {
   const toast = useToast();
   const [f, setF] = useState({ name: "", unit: "kg", category: "", min_stock_level: "0", reorder_level: "0", unit_cost: "0", storage_location: "", expiry_date: "" });
   const save = useMutation({
@@ -311,11 +414,11 @@ function AddMaterialModal({ onDone, onCancel }: { onDone: () => void; onCancel: 
           <input className="input" placeholder="Name" value={f.name} onChange={set("name")} />
           <div className="grid grid-cols-2 gap-2">
             <select className="input" value={f.unit} onChange={set("unit")}>
-              {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+              {units.map((u) => <option key={u} value={u}>{u}</option>)}
             </select>
             <select className="input" value={f.category} onChange={set("category")}>
               <option value="">Category…</option>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-3 gap-2">

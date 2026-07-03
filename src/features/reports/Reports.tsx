@@ -32,6 +32,11 @@ const VIEWS = [
   { key: "tax", label: "GST by slab" },
   { key: "source", label: "Bookings by source" },
   { key: "occupancy", label: "Room status" },
+  { key: "recipe_consumption", label: "Recipe-wise consumption" },
+  { key: "sales_vs_consumption", label: "Sales vs consumption" },
+  { key: "purchase_vs_consumption", label: "Purchase vs consumption" },
+  { key: "food_cost", label: "Food cost" },
+  { key: "item_profitability", label: "Item profitability" },
 ];
 
 export function Reports() {

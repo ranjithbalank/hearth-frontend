@@ -1,10 +1,16 @@
 export type Role =
+  | "Super Admin"
+  | "Admin"
   | "Managing Director"
+  | "CEO"
   | "General Manager"
+  | "Finance"
   | "Front Office"
   | "F&B Cashier"
   | "Captain"
-  | "Housekeeping";
+  | "Housekeeping"
+  | "Chef / Kitchen"
+  | "Store Keeper";
 
 export interface User {
   id: number;
@@ -105,6 +111,9 @@ export interface Folio {
   company_name: string;
   billing_mode: string;
   effective_billing_mode: string;
+  /** Room nights that post at check-out — preview so the bill isn't ₹0 pre-audit. */
+  pending_charges: { description: string; total: string }[];
+  projected_balance: string;
 }
 
 export interface Variant {

@@ -84,12 +84,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
    *  the user can actually reach if their preferred one isn't enabled. */
   function landing(): string {
     const prefs: Record<string, [string, string]> = {
+      "Super Admin": ["execdashboard", "/executive"],
+      "Admin": ["settings", "/settings"],
       "Managing Director": ["execdashboard", "/executive"],
+      "CEO": ["execdashboard", "/executive"],
       "General Manager": ["dashboard", "/dashboard"],
+      "Finance": ["accounting", "/accounting"],
       "Front Office": ["frontdesk", "/frontdesk"],
       "F&B Cashier": ["pos", "/pos"],
       "Captain": ["pos", "/pos"],
       "Housekeeping": ["housekeeping", "/housekeeping"],
+      "Chef / Kitchen": ["kds", "/kds"],
+      "Store Keeper": ["inventory", "/inventory"],
     };
     const pref = user ? prefs[user.role] : undefined;
     if (pref && canAccess(pref[0])) return pref[1];
