@@ -17,7 +17,10 @@ type Mode = "dinein" | "takeaway" | "delivery" | "room";
 const MODE_LABELS: Record<Mode, string> = { dinein: "Dine-in", takeaway: "Takeaway", delivery: "Delivery", room: "Room" };
 interface RoomFolio { folio: number; room: string; guest: string }
 interface Category { id: number; name: string }
-interface ReadyKot { kot: number; kot_no: string; order: number; table: string; captain: string }
+interface ReadyKot {
+  kot: number; kot_no: string; order: number; table: string; captain: string;
+  online: boolean; platform: string; token_no: number | null;
+}
 interface TillSession {
   id: number; status: string; opened_by: string; opening_float: string; opened_at: string;
   counted_cash: string | null; expected_cash: string | null; variance: string | null;
@@ -129,6 +132,17 @@ export function Pos() {
     mutationFn: async (kot: number) => (await api.post("/pos/orders/serve/", { kot })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["ready-kots"] }),
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not mark served", "error"),
+  });
+  // Online orders: once the kitchen marks ready, the counter dispatches the rider.
+  const dispatchOrder = useMutation({
+    mutationFn: async (orderIdToSend: number) =>
+      (await api.post(`/pos/orders/${orderIdToSend}/online_status/`, { status: "dispatched" })).data,
+    onSuccess: () => {
+      toast("Dispatched 🛵");
+      qc.invalidateQueries({ queryKey: ["ready-kots"] });
+      qc.invalidateQueries({ queryKey: ["online-orders"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not dispatch", "error"),
   });
   // Cache the menu so the POS keeps working through an outage (NFR-002).
   useEffect(() => { if (items?.length) cacheMenu(items); }, [items]);
@@ -325,19 +339,29 @@ export function Pos() {
   const unfired = order?.lines.some((l) => !l.kot_fired) ?? false;
   const billed = order?.status === "billed";
 
-  // Serve board: every ready round for my tables, with one-tap "Delivered".
+  // Serve board: kitchen-ready rounds. Tables get "Delivered"; online orders
+  // (Zomato/Swiggy/QR) get "Dispatch" — the counter's half of the handshake.
   const readyStrip = !!readyKots?.length && (
     <div className="card p-3 mb-4 bg-pine-50 border border-pine/30">
-      <div className="text-[10px] uppercase tracking-wide text-pine font-semibold mb-2">🔔 Ready to serve</div>
+      <div className="text-[10px] uppercase tracking-wide text-pine font-semibold mb-2">🔔 Ready from the kitchen</div>
       <div className="flex flex-wrap gap-2">
         {readyKots.map((k) => (
           <div key={k.kot} className="flex items-center gap-2 rounded-lg border border-pine/30 bg-surface px-3 py-1.5 text-sm">
-            <span className="font-semibold">{k.table}</span>
-            <span className="text-xs text-muted">{k.kot_no}{k.captain ? ` · ${k.captain}` : ""}</span>
-            <button className="btn-primary text-xs py-1 px-2.5" disabled={serveKot.isPending}
-              onClick={() => serveKot.mutate(k.kot)}>
-              Delivered ✓
-            </button>
+            <span className="font-semibold">
+              {k.online ? `${k.platform}${k.token_no ? ` · Token ${k.token_no}` : ""}` : k.table}
+            </span>
+            <span className="text-xs text-muted">{k.kot_no}{k.captain && !k.online ? ` · ${k.captain}` : ""}</span>
+            {k.online && !isCaptain ? (
+              <button className="btn-primary text-xs py-1 px-2.5" disabled={dispatchOrder.isPending}
+                onClick={() => dispatchOrder.mutate(k.order)}>
+                Dispatch 🛵
+              </button>
+            ) : (
+              <button className="btn-primary text-xs py-1 px-2.5" disabled={serveKot.isPending}
+                onClick={() => serveKot.mutate(k.kot)}>
+                Delivered ✓
+              </button>
+            )}
           </div>
         ))}
       </div>

@@ -6,9 +6,11 @@ import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
 import type { MenuItem, Order } from "../../lib/types";
 
-const NEXT: Record<string, { status: string; label: string }> = {
-  received: { status: "accepted", label: "Accept" },
-  accepted: { status: "ready", label: "Mark ready" },
+// The counter only accepts and dispatches — "ready" is the kitchen's call
+// (the chef bumps the ticket on the KDS, which advances the board here).
+const NEXT: Record<string, { status: string; label: string } | undefined> = {
+  received: { status: "accepted", label: "Accept + push to kitchen" },
+  accepted: undefined,
   ready: { status: "dispatched", label: "Dispatch" },
 };
 const PLATFORM_TONE: Record<string, "clay" | "amber" | "info"> = {
@@ -36,6 +38,7 @@ export function OnlineOrders() {
     mutationFn: async ({ o, status }: { o: Order; status: string }) =>
       (await api.post(`/pos/orders/${o.id}/online_status/`, { status })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["online-orders"] }),
+    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Could not update the order"),
   });
 
   const simulate = useMutation({
@@ -93,7 +96,12 @@ export function OnlineOrders() {
                   {o.prepaid && <Badge tone="pine">prepaid</Badge>}
                 </div>
                 <div className="flex items-center gap-2 mt-3">
-                  <Badge tone="muted">{o.online_status}</Badge>
+                  <Badge tone={o.online_status === "ready" ? "pine" : "muted"}>{o.online_status}</Badge>
+                  {o.online_status === "accepted" && (
+                    <span className="text-xs text-muted ml-auto" title="The chef marks it ready on the Kitchen Display">
+                      🍳 kitchen cooking…
+                    </span>
+                  )}
                   {next && (
                     <button className="btn-primary text-xs py-1 ml-auto"
                       onClick={() => advance.mutate({ o, status: next.status })}>
