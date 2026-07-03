@@ -187,17 +187,32 @@ export function Inventory({ fixedTab, tabGroup, title }: {
         ) : undefined}
       />
 
-      {!fixedTab && (
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {visibleTabs.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`pill text-xs ${tab === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
-              {t.label}
-              {t.key === "lowstock" && low.length ? ` (${low.length})` : ""}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* tabGroup renders a left-side menu (like the app nav, but inside the
+          screen); the combined view keeps its horizontal pills. */}
+      <div className={tabGroup ? "grid grid-cols-[220px_1fr] gap-4 items-start" : ""}>
+        {tabGroup ? (
+          <div className="card p-2 space-y-1 sticky top-4">
+            {visibleTabs.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`w-full text-left rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                  tab === t.key ? "bg-pine text-white font-medium" : "text-body hover:bg-cream"}`}>
+                {t.label}
+                {t.key === "lowstock" && low.length ? ` (${low.length})` : ""}
+              </button>
+            ))}
+          </div>
+        ) : !fixedTab && (
+          <div className="flex gap-2 mb-4 flex-wrap">
+            {visibleTabs.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`pill text-xs ${tab === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+                {t.label}
+                {t.key === "lowstock" && low.length ? ` (${low.length})` : ""}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="min-w-0">
 
       {tab === "dashboard" && (
         <>
@@ -424,6 +439,8 @@ export function Inventory({ fixedTab, tabGroup, title }: {
           </table>
         </div>
       )}
+        </div>
+      </div>
 
       {action && (
         <StockActionModal
