@@ -65,7 +65,10 @@ export function Inventory({ fixedTab }: { fixedTab?: Tab }) {
   const qc = useQueryClient();
   const toast = useToast();
   const nav = useNavigate();
-  const [tab, setTab] = useState<Tab>(fixedTab ?? "dashboard");
+  // fixedTab must win on every render: React keeps this component mounted when
+  // routing between /store/* screens, so state seeded from the prop goes stale.
+  const [tabState, setTab] = useState<Tab>("dashboard");
+  const tab = fixedTab ?? tabState;
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [action, setAction] = useState<{ kind: "adjust" | "waste" | "count" | "transfer"; ing: Ingredient } | null>(null);
