@@ -21,14 +21,19 @@ interface MappingRow {
   recipe_id: number | null; plate_cost: string | null; lines: MappingLine[];
 }
 interface IngredientOpt { id: number; name: string; unit: string }
+interface ConsumptionRow {
+  item: string; plates: number; cost: string;
+  lines: { name: string; qty: string; unit: string; cost: string }[];
+}
 
 export function Recipes() {
   const qc = useQueryClient();
   const ask = usePrompt();
   const toast = useToast();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"recipes" | "mapping">("recipes");
+  const [tab, setTab] = useState<"recipes" | "mapping" | "consumption">("recipes");
   const [editing, setEditing] = useState<MappingRow | null>(null);
+  const [days, setDays] = useState(30);
 
   const { data, isLoading } = useQuery({
     queryKey: ["recipes"],
@@ -38,6 +43,11 @@ export function Recipes() {
     queryKey: ["recipe-mapping"],
     queryFn: async () => (await api.get<MappingRow[]>("/recipes/mapping/")).data,
     enabled: tab === "mapping",
+  });
+  const { data: consumption } = useQuery({
+    queryKey: ["recipe-consumption", days],
+    queryFn: async () => (await api.get<{ rows: ConsumptionRow[] }>(`/recipes/consumption/?days=${days}`)).data,
+    enabled: tab === "consumption",
   });
 
   function refresh() {
@@ -87,6 +97,10 @@ export function Recipes() {
         <button onClick={() => setTab("mapping")}
           className={`pill ${tab === "mapping" ? "bg-ink text-white" : "bg-hairline text-body"}`}>
           Menu item mapping{unmappedCount ? ` (${unmappedCount} unmapped)` : ""}
+        </button>
+        <button onClick={() => setTab("consumption")}
+          className={`pill ${tab === "consumption" ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+          Raw material consumption
         </button>
       </div>
 
@@ -171,6 +185,60 @@ export function Recipes() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {tab === "consumption" && (
+        <>
+          <div className="flex gap-2 mb-3">
+            {[7, 30, 90].map((d) => (
+              <button key={d} onClick={() => setDays(d)}
+                className={`pill text-xs ${days === d ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+                Last {d} days
+              </button>
+            ))}
+            <span className="text-xs text-muted self-center">
+              Plates fired × recipe = raw material drawn. The Store's Consumption Register holds the same numbers material-wise.
+            </span>
+          </div>
+          <div className="card overflow-x-auto p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="text-left px-4 py-3">Dish</th>
+                  <th className="text-right px-4 py-3">Plates fired</th>
+                  <th className="text-left px-4 py-3">Raw materials drawn</th>
+                  <th className="text-right px-4 py-3">Consumption cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {consumption?.rows.map((r) => (
+                  <tr key={r.item} className="border-t border-line align-top">
+                    <td className="px-4 py-3 font-medium">{r.item}</td>
+                    <td className="px-4 py-3 text-right">{r.plates}</td>
+                    <td className="px-4 py-3">
+                      <div className="space-y-0.5">
+                        {r.lines.map((l) => (
+                          <div key={l.name} className="flex justify-between gap-6 text-xs">
+                            <span>{l.name}</span>
+                            <span className="text-muted">
+                              {Number(l.qty)} {l.unit}{l.cost ? ` · ${inr(l.cost)}` : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium">{inr(r.cost)}</td>
+                  </tr>
+                ))}
+                {!consumption?.rows.length && (
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-muted text-sm">
+                    No dishes fired in this period.
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {editing && (
