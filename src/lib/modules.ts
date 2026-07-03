@@ -85,17 +85,18 @@ export const NAV: NavGroup[] = [
       { key: "online", label: "Online Orders", path: "/online-orders" },
       { key: "procurement", label: "Procurement", path: "/procurement" },
       { key: "matreq", label: "Material Requests", path: "/material-requests" },
-      { key: "recipes", label: "Recipes & BOM", path: "/recipes" },
     ],
   },
   {
     // Store: the Restaurant Inventory spec's §6 tabs as separate screens.
+    // Raw materials → recipes → consumption sit together: that's the flow.
     title: "Store",
     color: "#D4B483",
     items: [
       { key: "store-dashboard", module: "inventory", label: "Store Dashboard", path: "/store" },
       { key: "store-materials", module: "inventory", label: "Raw Material Master", path: "/store/materials" },
       { key: "store-masters", module: "inventory", label: "Categories & Units", path: "/store/categories-units" },
+      { key: "recipes", label: "Recipes & BOM", path: "/recipes" },
       { key: "store-consumption", module: "inventory", label: "Consumption Register", path: "/store/consumption" },
       { key: "store-movements", module: "inventory", label: "Inventory Movements", path: "/store/movements" },
       { key: "store-transfer", module: "inventory", label: "Stock Transfer", path: "/store/transfer" },
