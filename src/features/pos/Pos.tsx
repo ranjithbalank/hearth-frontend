@@ -50,15 +50,12 @@ export function Pos() {
   // Table-first flow: start on the floor, drill into a table's order screen.
   const [view, setView] = useState<"floor" | "order">("floor");
 
-  // Guest chooser: a table with several parties shows big cards to pick a bill.
-  const [guestPick, setGuestPick] = useState<Order[] | null>(null);
-
-  function openTable(t: Table) {
-    setMode("dinein"); setTable(t); setOrderId(null); setCat(null); setView("order");
-    // One running order resumes silently; several open the guest chooser.
+  function openTable(t: Table, resumeOrder?: number | null) {
+    setMode("dinein"); setTable(t); setOrderId(resumeOrder ?? null); setCat(null); setView("order");
+    if (resumeOrder !== undefined) return;   // floor chip chose explicitly (id or new)
+    // Plain table tap: resume the first running order.
     api.get<Order[]>(`/pos/orders/?table=${t.id}&open=1`).then((r) => {
-      if (r.data.length === 1) setOrderId(r.data[0].id);
-      else if (r.data.length > 1) { setOrderId(r.data[0].id); setGuestPick(r.data); }
+      if (r.data.length) setOrderId(r.data[0].id);
     });
   }
   function startMode(m: Mode) { setMode(m); setTable(null); setRoomFolio(null); setOrderId(null); setCat(null); setView("order"); }
@@ -85,13 +82,18 @@ export function Pos() {
     queryFn: async () => (await api.get<Order>(`/pos/orders/${orderId}/`)).data,
     enabled: orderId !== null,
   });
-  // Shared tables: every open order on this table (two parties = two bills).
-  const { data: tableOrders } = useQuery({
-    queryKey: ["table-orders", table?.id],
-    queryFn: async () => (await api.get<Order[]>(`/pos/orders/?table=${table!.id}&open=1`)).data,
-    enabled: view === "order" && mode === "dinein" && !!table,
+  // Shared tables: all running orders, grouped per table for the floor grid —
+  // each party shows as its own bill chip right on the table card.
+  const { data: floorOrders } = useQuery({
+    queryKey: ["floor-orders"],
+    queryFn: async () => (await api.get<Order[]>("/pos/orders/?open=1")).data,
+    enabled: view === "floor",
     refetchInterval: 15000,
   });
+  const ordersByTable = new Map<number, Order[]>();
+  for (const o of floorOrders ?? []) {
+    if (o.table) ordersByTable.set(o.table, [...(ordersByTable.get(o.table) ?? []), o]);
+  }
 
   const { online, queued, sync } = useOnline();
 
@@ -168,7 +170,7 @@ export function Pos() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["order", orderId] });
-      qc.invalidateQueries({ queryKey: ["table-orders"] });
+      qc.invalidateQueries({ queryKey: ["floor-orders"] });
       setPicker(null);
     },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add item", "error"),
@@ -298,7 +300,7 @@ export function Pos() {
     setView("floor");
     qc.invalidateQueries({ queryKey: ["tables"] });
     qc.invalidateQueries({ queryKey: ["folios"] });
-    qc.invalidateQueries({ queryKey: ["table-orders"] });
+    qc.invalidateQueries({ queryKey: ["floor-orders"] });
   }
 
   if (isLoading && online) return <Spinner />;
@@ -425,29 +427,59 @@ export function Pos() {
         )}
         <div className="text-xs uppercase tracking-wide text-muted mb-2">Tables</div>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-3">
-          {tables?.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => openTable(t)}
-              className={`rounded-card border p-4 text-center transition-colors ${
-                t.status === "running"
-                  ? "bg-clay/90 text-white border-clay"
-                  : t.status === "printed"
-                    ? "bg-amber-100 border-amber-400"
-                    : t.status === "reserved"
-                      ? "bg-pine-50 border-pine"
-                      : "bg-surface hover:bg-cream border-hairline"
-              }`}
-            >
-              <div className="font-display text-xl">{t.name}</div>
-              <div className={`text-xs mt-0.5 ${t.status === "running" ? "opacity-80" : "text-muted"}`}>{t.seats} seats</div>
-              <div className="text-[10px] uppercase tracking-wide mt-1">
-                {t.status === "running" ? "● Running"
-                  : t.status === "printed" ? "● Bill printed"
-                    : t.status === "reserved" ? "● Reserved" : "Free"}
+          {tables?.map((t) => {
+            const checks = ordersByTable.get(t.id) ?? [];
+            const running = t.status === "running";
+            return (
+              <div
+                key={t.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openTable(t)}
+                onKeyDown={(e) => e.key === "Enter" && openTable(t)}
+                className={`rounded-card border p-3 text-center transition-colors cursor-pointer ${
+                  running
+                    ? "bg-clay/90 text-white border-clay"
+                    : t.status === "printed"
+                      ? "bg-amber-100 border-amber-400"
+                      : t.status === "reserved"
+                        ? "bg-pine-50 border-pine"
+                        : "bg-surface hover:bg-cream border-hairline"
+                }`}
+              >
+                <div className="font-display text-xl">{t.name}</div>
+                <div className={`text-xs mt-0.5 ${running ? "opacity-80" : "text-muted"}`}>{t.seats} seats</div>
+                {/* Every party's bill lives on the card — tap it directly. */}
+                {checks.length ? (
+                  <div className="mt-2 space-y-1">
+                    {checks.map((o, ix) => (
+                      <button
+                        key={o.id}
+                        className={`w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 ${
+                          running ? "bg-white/15 hover:bg-white/25" : "bg-cream hover:bg-hairline"}`}
+                        onClick={(e) => { e.stopPropagation(); openTable(t, o.id); }}
+                      >
+                        <span>G{ix + 1}{o.status === "billed" ? " 🧾" : ""}</span>
+                        <span>{inr(o.totals.total)}</span>
+                      </button>
+                    ))}
+                    <button
+                      className={`w-full rounded-lg px-2 py-1 text-xs text-left ${
+                        running ? "bg-white/10 hover:bg-white/20 opacity-90" : "bg-surface border border-dashed border-hairline hover:bg-cream"}`}
+                      title="Another party at this table — separate bill"
+                      onClick={(e) => { e.stopPropagation(); openTable(t, null); }}
+                    >
+                      ＋ Guest
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-[10px] uppercase tracking-wide mt-1">
+                    {t.status === "reserved" ? "● Reserved" : t.status === "printed" ? "● Bill printed" : "Free"}
+                  </div>
+                )}
               </div>
-            </button>
-          ))}
+            );
+          })}
           {!tables?.length && (
             <div className="col-span-full text-sm text-muted py-8 text-center">
               No tables configured — add them in Table Master.
@@ -522,16 +554,6 @@ export function Pos() {
               : mode === "room" ? `${roomFolio?.guest ?? ""} · bill posts to the room folio`
                 : "New order"}
           </div>
-          {/* Shared table: one chip opens the guest chooser (separate bills). */}
-          {mode === "dinein" && !!tableOrders?.length && (
-            <button
-              className="pill text-xs bg-hairline text-body mt-1 self-start"
-              onClick={() => setGuestPick(tableOrders)}
-            >
-              👥 {tableOrders.length} bill{tableOrders.length > 1 ? "s" : ""} on this table
-              {orderId ? ` · viewing guest ${Math.max(1, tableOrders.findIndex((o) => o.id === orderId) + 1)}` : " · new guest"} ▾
-            </button>
-          )}
         </div>
         <div className="ml-auto flex items-center gap-2">
           {order?.token_no && <Badge tone="pine">Token {order.token_no}</Badge>}
@@ -852,51 +874,6 @@ export function Pos() {
               ))}
             </div>
             <button className="btn-ghost w-full mt-3" onClick={() => setRoomPick(null)}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {/* Guest chooser — separate parties on one table, each with its own bill. */}
-      {guestPick && table && (
-        <div className="fixed inset-0 bg-ink/40 flex items-end md:items-center justify-center z-50"
-          onClick={() => setGuestPick(null)}>
-          <div className="card p-5 w-full md:w-[440px] max-h-[80vh] overflow-y-auto rounded-b-none md:rounded-card"
-            onClick={(e) => e.stopPropagation()}>
-            <div className="font-display text-xl mb-1">Table {table.name} — whose bill?</div>
-            <div className="text-xs text-muted mb-4">Each party has its own order, KOTs and bill.</div>
-            <div className="grid gap-2">
-              {guestPick.map((o, ix) => (
-                <button key={o.id}
-                  className={`card p-4 text-left hover:bg-cream flex items-center gap-3 ${
-                    orderId === o.id ? "ring-2 ring-pine" : ""}`}
-                  onClick={() => { setOrderId(o.id); setGuestPick(null); }}>
-                  <span className="h-10 w-10 rounded-full bg-pine-50 text-pine flex items-center justify-center font-semibold">
-                    G{ix + 1}
-                  </span>
-                  <span className="flex-1">
-                    <span className="font-medium">Guest {ix + 1}</span>
-                    <span className="block text-xs text-muted">
-                      {o.lines.length} item{o.lines.length === 1 ? "" : "s"}
-                      {o.lines.length ? ` — ${o.lines.slice(0, 3).map((l) => l.name).join(", ")}${o.lines.length > 3 ? "…" : ""}` : ""}
-                    </span>
-                  </span>
-                  <span className="text-right">
-                    <span className="font-semibold">{inr(o.totals.total)}</span>
-                    {o.status === "billed" && <span className="block text-[10px] uppercase text-amber-600">billed</span>}
-                  </span>
-                </button>
-              ))}
-              <button
-                className="rounded-card border-2 border-dashed border-pine/40 p-4 text-left hover:bg-pine-50/40 flex items-center gap-3"
-                onClick={() => { setOrderId(null); setGuestPick(null); }}>
-                <span className="h-10 w-10 rounded-full bg-pine text-white flex items-center justify-center text-xl">＋</span>
-                <span>
-                  <span className="font-medium block">New guest at this table</span>
-                  <span className="text-xs text-muted">Separate party — starts a fresh order &amp; bill</span>
-                </span>
-              </button>
-            </div>
-            <button className="btn-ghost w-full mt-3" onClick={() => setGuestPick(null)}>Close</button>
           </div>
         </div>
       )}
