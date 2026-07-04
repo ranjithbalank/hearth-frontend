@@ -27,11 +27,23 @@ const NEXT_LABEL: Record<string, string> = { requested: "Approve", approved: "Is
 const UNIVERSAL_APPROVERS = ["General Manager", "Managing Director", "Super Admin"];
 // Mirrors the backend's DEPARTMENT_APPROVERS, for the "who approves this"
 // hint while composing a new request (before the API has assigned an id).
+// Banquets and Front Office's own supplies have no department-specific
+// approver — Front Office is the only role that would raise them, so it
+// can't also sign off on them; those two fall to a manager instead.
 const DEPT_APPROVER_LABEL: Record<string, string> = {
   Kitchen: "Restaurant Manager", Bar: "Restaurant Manager",
-  Banquets: "Front Office", Housekeeping: "Front Office", "Front Office": "Front Office",
-  Maintenance: "Housekeeping",
+  Housekeeping: "Front Office", Maintenance: "Housekeeping",
+  Banquets: "General Manager", "Front Office": "General Manager",
 };
+// A role can't raise a request for a department it also approves — that's
+// the exact bug the user caught (Restaurant Manager requesting Kitchen stock
+// and being the only one who could then approve it). Mirrors the backend's
+// role_can_request_department; GM/MD/Super Admin are exempt.
+const UNIVERSAL_ROLE_NAMES = ["Super Admin", "Managing Director", "General Manager"];
+function roleCanRequestDepartment(role: string, department: string): boolean {
+  if (UNIVERSAL_ROLE_NAMES.includes(role)) return true;
+  return DEPT_APPROVER_LABEL[department] !== role;
+}
 // Mirrors the backend's INDENT_ISSUER_ROLES — only stock custodians issue.
 const ISSUER_ROLES = ["Super Admin", "Managing Director", "General Manager",
   "Restaurant Manager", "Store Keeper"];
@@ -95,6 +107,7 @@ export function MaterialRequests() {
 
       {creating && (
         <NewRequestModal
+          role={user?.role ?? ""}
           onDone={(department) => {
             setCreating(false);
             const who = DEPT_APPROVER_LABEL[department] ?? "a manager";
@@ -106,28 +119,38 @@ export function MaterialRequests() {
       )}
 
       {/* Segregated by design: nobody sees every department's indents dumped
-          together. "My requests" tracks what YOU raised; "Approval queue" is
-          only what's actually waiting on your desk right now. */}
-      <div className="flex gap-6 mb-5 border-b border-hairline">
-        {([
-          { key: "queue" as const, label: "Approval queue" },
-          { key: "mine" as const, label: "My requests" },
-        ]).map((t) => {
-          const active = tab === t.key;
-          return (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`relative pb-2.5 text-sm font-semibold transition-colors ${
-                active ? "text-ink" : "text-muted hover:text-body"}`}>
-              {t.label}
-              {active && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-pine rounded-full" />}
-            </button>
-          );
-        })}
-      </div>
+          together. "My requests" tracks what YOU raised. The other tab is
+          "Approval queue" for department-scoped roles (only what's waiting
+          on your desk), but "All requests" for Super Admin/MD/GM — they're
+          universal approvers+issuers already, so they get full oversight:
+          every department, every status, including completed history. */}
+      {(() => {
+        const isUniversal = !!user && UNIVERSAL_ROLE_NAMES.includes(user.role);
+        return (
+          <div className="flex gap-6 mb-5 border-b border-hairline">
+            {([
+              { key: "queue" as const, label: isUniversal ? "All requests" : "Approval queue" },
+              { key: "mine" as const, label: "My requests" },
+            ]).map((t) => {
+              const active = tab === t.key;
+              return (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={`relative pb-2.5 text-sm font-semibold transition-colors ${
+                    active ? "text-ink" : "text-muted hover:text-body"}`}>
+                  {t.label}
+                  {active && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-pine rounded-full" />}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {isLoading ? <Spinner /> : !data?.length ? (
         <EmptyState
-          title={tab === "queue" ? "Nothing awaiting your approval" : "You haven't raised any indents"}
+          title={tab === "queue"
+            ? (user && UNIVERSAL_ROLE_NAMES.includes(user.role) ? "No indents raised yet" : "Nothing awaiting your approval")
+            : "You haven't raised any indents"}
           hint={tab === "queue"
             ? "Requests from departments you approve (or that are ready to issue) will show up here."
             : "Use \"+ Request materials\" to raise one."}
@@ -175,9 +198,14 @@ interface DraftLine { ingredient: number | null; qty: string }
 const EMPTY: DraftLine = { ingredient: null, qty: "" };
 const DEPARTMENTS = ["Kitchen", "Bar", "Housekeeping", "Banquets", "Front Office", "Maintenance"];
 
-function NewRequestModal({ onDone, onCancel }: { onDone: (department: string) => void; onCancel: () => void }) {
+function NewRequestModal({ role, onDone, onCancel }: {
+  role: string; onDone: (department: string) => void; onCancel: () => void;
+}) {
   const toast = useToast();
-  const [department, setDepartment] = useState("Kitchen");
+  // Hide departments this role would only be able to raise and never see
+  // approved (it's the department's own approver) — matches the backend.
+  const selectable = DEPARTMENTS.filter((d) => roleCanRequestDepartment(role, d));
+  const [department, setDepartment] = useState(selectable[0] ?? DEPARTMENTS[0]);
   const [lines, setLines] = useState<DraftLine[]>([{ ...EMPTY }]);
 
   // Scoped picklist (not /inventory/ — most roles that can raise an indent
@@ -209,8 +237,13 @@ function NewRequestModal({ onDone, onCancel }: { onDone: (department: string) =>
           then the store keeper issues the stock.
         </div>
         <select className="input mb-3" value={department} onChange={(e) => setDepartment(e.target.value)}>
-          {DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
+          {selectable.map((d) => <option key={d}>{d}</option>)}
         </select>
+        {!selectable.length && (
+          <div className="text-xs text-clay mb-3">
+            You approve every department — ask someone on the floor to raise this one instead.
+          </div>
+        )}
         <div className="space-y-2 overflow-y-auto flex-1">
           {lines.map((l, i) => (
             <div key={i} className="grid grid-cols-[1fr_100px_32px] gap-2 items-center">
@@ -237,7 +270,7 @@ function NewRequestModal({ onDone, onCancel }: { onDone: (department: string) =>
         </button>
         <div className="flex gap-2 mt-4">
           <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
-          <button className="btn-primary flex-1" disabled={!valid.length || save.isPending}
+          <button className="btn-primary flex-1" disabled={!valid.length || !selectable.length || save.isPending}
             onClick={() => save.mutate()}>
             Raise indent
           </button>
