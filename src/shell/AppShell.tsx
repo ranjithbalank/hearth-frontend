@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { NavIcon } from "../design/NavIcon";
+import { useToast } from "../design/Toast";
 import { Logo } from "../design/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/app-context";
@@ -18,15 +19,41 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
+interface Alert { severity: string; module: string; title: string; detail: string }
+
 function NotificationBell() {
   const nav = useNavigate();
   const { canAccess } = useApp();
+  const toast = useToast();
   const { data } = useQuery({
     queryKey: ["notif-count"],
-    queryFn: async () => (await api.get<{ count: number }>("/notifications/")).data,
+    queryFn: async () => (await api.get<{ count: number; alerts: Alert[] }>("/notifications/")).data,
     refetchInterval: 15000,
     enabled: canAccess("notifications"),
   });
+
+  // Pop a toast for whatever's genuinely NEW since the last poll — the point
+  // is the right person notices "chicken request approved, go issue it" the
+  // moment it happens, without having to sit on the Notifications screen.
+  // `seen` starts as null so the first load just establishes a baseline
+  // instead of replaying every pre-existing alert as a fresh toast.
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    const keyOf = (a: Alert) => `${a.severity}|${a.module}|${a.title}|${a.detail}`;
+    if (seen.current === null) {
+      seen.current = new Set(data.alerts.map(keyOf));
+      return;
+    }
+    for (const a of data.alerts) {
+      const key = keyOf(a);
+      if ((a.severity === "warning" || a.severity === "critical") && !seen.current.has(key)) {
+        toast(a.detail ? `${a.title} · ${a.detail}` : a.title, a.severity === "critical" ? "error" : "info");
+      }
+    }
+    seen.current = new Set(data.alerts.map(keyOf));
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!canAccess("notifications")) return null;
   const count = data?.count ?? 0;
   return (
