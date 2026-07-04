@@ -48,6 +48,9 @@ export interface Property {
   doc_footer: string;
   currency: string;
   entitlement: Entitlement;
+  gst_billing_mode: string;
+  zomato_commission_pct: string;
+  swiggy_commission_pct: string;
 }
 
 export interface Room {

@@ -42,6 +42,16 @@ export function RoomServiceFlow({ onClose }: { onClose: () => void }) {
     refetchInterval: 15000, // live kitchen status
   });
 
+  const delivered = useMutation({
+    mutationFn: async (id: number) =>
+      (await api.post(`/folios/${folio!.id}/room_service_delivered/`, { order: id })).data,
+    onSuccess: () => {
+      toast("Delivered to the room ✓");
+      qc.invalidateQueries({ queryKey: ["room-service-orders"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not confirm", "error"),
+  });
+
   const cancel = useMutation({
     mutationFn: async ({ id, reason }: { id: number; reason: string }) =>
       (await api.post(`/folios/${folio!.id}/room_service_cancel/`, { order: id, reason })).data,
@@ -124,6 +134,12 @@ export function RoomServiceFlow({ onClose }: { onClose: () => void }) {
                       : o.kitchen_status === "cooking" ? "amber" : "muted"}>
                       {o.kitchen_status}
                     </Badge>
+                    {o.kitchen_status === "ready" && (
+                      <button className="btn-outline text-xs py-0.5" disabled={delivered.isPending}
+                        onClick={() => delivered.mutate(o.order)}>
+                        Delivered ✓
+                      </button>
+                    )}
                     {o.cancellable && (
                       <button className="btn-ghost text-xs text-clay" disabled={cancel.isPending}
                         onClick={async () => {

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
@@ -9,7 +10,10 @@ import { inr } from "../../lib/money";
 interface PoLine { ingredient: string; qty: string; rate: string; received_qty: string }
 interface Po { id: number; supplier: string; status: string; total: string; lines: PoLine[] }
 interface SupplierOpt { id: number; name: string }
-interface IngredientOpt { id: number; name: string; unit: string; unit_cost: string; below_par: boolean }
+interface IngredientOpt {
+  id: number; name: string; unit: string; unit_cost: string; below_par: boolean;
+  current_stock: string; reorder_level: string;
+}
 
 const TONE: Record<string, "info" | "amber" | "pine"> = {
   pending: "amber",
@@ -21,6 +25,10 @@ export function Procurement() {
   const qc = useQueryClient();
   const [msg, setMsg] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  // Arriving from Low Stock: open the PO form pre-filled with the shortfalls.
+  const [params, setParams] = useSearchParams();
+  const prefillLow = params.get("prefill") === "low";
+  useEffect(() => { if (prefillLow) setCreating(true); }, [prefillLow]);
 
   const { data: pos, isLoading } = useQuery({
     queryKey: ["pos"],
@@ -57,12 +65,14 @@ export function Procurement() {
 
       {creating && (
         <NewPoModal
+          prefillLow={prefillLow}
           onDone={(id) => {
             setCreating(false);
+            if (prefillLow) setParams({});
             setMsg(`PO #${id} raised — awaiting approval`);
             qc.invalidateQueries({ queryKey: ["pos"] });
           }}
-          onCancel={() => setCreating(false)}
+          onCancel={() => { setCreating(false); if (prefillLow) setParams({}); }}
         />
       )}
 
@@ -104,7 +114,9 @@ export function Procurement() {
 interface DraftLine { ingredient: number | null; qty: string; rate: string }
 const EMPTY: DraftLine = { ingredient: null, qty: "", rate: "" };
 
-function NewPoModal({ onDone, onCancel }: { onDone: (id: number) => void; onCancel: () => void }) {
+function NewPoModal({ prefillLow, onDone, onCancel }: {
+  prefillLow?: boolean; onDone: (id: number) => void; onCancel: () => void;
+}) {
   const toast = useToast();
   const [supplier, setSupplier] = useState<number | null>(null);
   const [lines, setLines] = useState<DraftLine[]>([{ ...EMPTY }]);
@@ -118,6 +130,19 @@ function NewPoModal({ onDone, onCancel }: { onDone: (id: number) => void; onCanc
     queryFn: async () => (await api.get<IngredientOpt[]>("/inventory/")).data,
   });
   const byId = new Map((materials ?? []).map((m) => [m.id, m]));
+
+  // Low-stock prefill: every below-par material with its shortfall quantity.
+  useEffect(() => {
+    if (!prefillLow || !materials) return;
+    const low = materials.filter((m) => m.below_par);
+    if (low.length) {
+      setLines(low.map((m) => ({
+        ingredient: m.id,
+        qty: String(Math.max(Number(m.reorder_level) - Number(m.current_stock), 0)),
+        rate: m.unit_cost,
+      })));
+    }
+  }, [prefillLow, materials]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setLine = (i: number, patch: Partial<DraftLine>) =>
     setLines(lines.map((l, ix) => (ix === i ? { ...l, ...patch } : l)));

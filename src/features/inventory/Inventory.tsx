@@ -391,7 +391,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                       : <Badge tone="amber">Below reorder level</Badge>}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button className="btn-outline text-xs py-1" onClick={() => nav("/procurement")}>
+                    <button className="btn-outline text-xs py-1" onClick={() => nav("/procurement?prefill=low")}>
                       Raise purchase order →
                     </button>
                   </td>

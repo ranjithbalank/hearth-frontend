@@ -340,6 +340,53 @@ const FLAGS: { key: keyof Entitlement; label: string; desc: string }[] = [
   { key: "rms", label: "Revenue Management", desc: "Forecasting and dynamic pricing" },
 ];
 
+function CommissionPanel() {
+  const { property, refreshProperty } = useApp();
+  const [zomato, setZomato] = useState(property?.zomato_commission_pct ?? "25");
+  const [swiggy, setSwiggy] = useState(property?.swiggy_commission_pct ?? "23");
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch("/auth/property/", {
+        zomato_commission_pct: zomato, swiggy_commission_pct: swiggy,
+      });
+      await refreshProperty();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="mb-4">
+      <div className="font-semibold mb-1">Aggregator commission</div>
+      <div className="text-sm text-muted mb-4">
+        Used by the Zomato/Swiggy report to show net realization after the platform's cut.
+      </div>
+      <div className="grid grid-cols-2 gap-4 max-w-md">
+        <div>
+          <label className="text-xs text-muted">Zomato commission %</label>
+          <input className="input w-full" inputMode="decimal" value={zomato}
+            onChange={(e) => setZomato(e.target.value)} />
+        </div>
+        <div>
+          <label className="text-xs text-muted">Swiggy commission %</label>
+          <input className="input w-full" inputMode="decimal" value={swiggy}
+            onChange={(e) => setSwiggy(e.target.value)} />
+        </div>
+      </div>
+      <div className="flex items-center gap-3 mt-3">
+        <button className="btn-primary" onClick={save} disabled={saving}>Save</button>
+        {saved && <span className="text-sm text-pine">Saved ✓</span>}
+      </div>
+    </Card>
+  );
+}
+
 export function Settings() {
   const { property, refreshProperty } = useApp();
   const [saving, setSaving] = useState<string | null>(null);
@@ -371,6 +418,7 @@ export function Settings() {
 
       <PropertyPanel />
       <LetterheadPanel />
+      {property?.entitlement.restaurant && <CommissionPanel />}
 
       <MfaPanel />
 
