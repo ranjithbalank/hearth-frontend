@@ -116,12 +116,13 @@ export function Banquets() {
         ))}
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-3 mb-5">
         {TABS.map((t) => {
           const count = data.events.filter((e) => e.status === t.status).length;
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`pill ${tab === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              className={`rounded-pill text-base font-bold px-6 py-3 transition-colors ${
+                tab === t.key ? "bg-ink text-white" : "bg-hairline text-body hover:bg-hairline/70"}`}>
               {t.label} ({count})
             </button>
           );
@@ -152,10 +153,10 @@ export function Banquets() {
               <button className="btn-ghost text-xs" onClick={() => setEditing(e)}>Adjust</button>
             )}
             {e.status === "tentative" && (
-              <button className="btn-outline" onClick={() => confirm.mutate(e)}>Confirm</button>
+              <button className="btn-outline text-base px-5 py-2.5" onClick={() => confirm.mutate(e)}>Confirm</button>
             )}
             {e.status === "confirmed" && !e.billed && (
-              <button className="btn-primary" onClick={() => bill.mutate(e)}>Bill event</button>
+              <button className="btn-primary text-base px-5 py-2.5" onClick={() => bill.mutate(e)}>Bill event</button>
             )}
           </Card>
         ))}
