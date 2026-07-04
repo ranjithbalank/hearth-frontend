@@ -6,10 +6,15 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
 import { inr } from "../../lib/money";
 
+// Plate cost & margin are ownership-level P&L info — Chef and Restaurant
+// Manager build/run recipes without needing to see them.
+const COST_VISIBLE_ROLES = ["Super Admin", "Managing Director", "General Manager"];
+
 interface Recipe {
-  id: number; item: string; price: string; plate_cost: string; margin_pct: number;
+  id: number; item: string; price: string; plate_cost?: string; margin_pct?: number;
   ingredients: { name: string; qty: string; unit: string }[];
 }
 interface MappingLine {
@@ -22,8 +27,8 @@ interface MappingRow {
 }
 interface IngredientOpt { id: number; name: string; unit: string }
 interface ConsumptionRow {
-  item: string; plates: number; cost: string;
-  lines: { name: string; qty: string; unit: string; cost: string }[];
+  item: string; plates: number; cost: string | null;
+  lines: { name: string; qty: string; unit: string; cost: string | null }[];
 }
 
 export function Recipes() {
@@ -31,6 +36,8 @@ export function Recipes() {
   const ask = usePrompt();
   const toast = useToast();
   const navigate = useNavigate();
+  const { user } = useApp();
+  const canSeeCost = COST_VISIBLE_ROLES.includes(user?.role ?? "");
   const [tab, setTab] = useState<"recipes" | "mapping" | "consumption">("recipes");
   const [editing, setEditing] = useState<MappingRow | null>(null);
   const [days, setDays] = useState(30);
@@ -81,7 +88,7 @@ export function Recipes() {
     <div>
       <PageHeader
         title="Recipes & BOM"
-        subtitle="Plate cost &amp; margin · auto-deducts on KOT"
+        subtitle={canSeeCost ? "Plate cost & margin · auto-deducts on KOT" : "Auto-deducts raw materials on KOT"}
         action={
           <button className="btn-primary text-sm" onClick={() => navigate("/recipes/new")}>
             + Create recipe
@@ -110,13 +117,17 @@ export function Recipes() {
             <Card key={r.id}>
               <div className="flex items-center justify-between">
                 <div className="font-semibold">{r.item}</div>
-                <Badge tone={r.margin_pct >= 65 ? "pine" : r.margin_pct >= 50 ? "amber" : "clay"}>
-                  {r.margin_pct}% margin
-                </Badge>
+                {canSeeCost && r.margin_pct != null && (
+                  <Badge tone={r.margin_pct >= 65 ? "pine" : r.margin_pct >= 50 ? "amber" : "clay"}>
+                    {r.margin_pct}% margin
+                  </Badge>
+                )}
               </div>
               <div className="flex gap-4 mt-2 text-sm">
                 <div><span className="text-muted">Sells </span>{inr(r.price)}</div>
-                <div><span className="text-muted">Cost </span>{inr(r.plate_cost)}</div>
+                {canSeeCost && r.plate_cost != null && (
+                  <div><span className="text-muted">Cost </span>{inr(r.plate_cost)}</div>
+                )}
               </div>
               <div className="mt-3 border-t border-line pt-2 space-y-1">
                 {r.ingredients.map((ing) => (
@@ -152,7 +163,7 @@ export function Recipes() {
                 <th className="text-left px-4 py-3">Category</th>
                 <th className="text-right px-4 py-3">Price</th>
                 <th className="text-left px-4 py-3">Recipe</th>
-                <th className="text-right px-4 py-3">Plate cost</th>
+                {canSeeCost && <th className="text-right px-4 py-3">Plate cost</th>}
                 <th className="text-right px-4 py-3">Actions</th>
               </tr>
             </thead>
@@ -167,7 +178,7 @@ export function Recipes() {
                       ? <span className="text-xs">{m.lines.map((l) => l.name).join(", ")}</span>
                       : <Badge tone="amber">Unmapped — no stock deduction</Badge>}
                   </td>
-                  <td className="px-4 py-3 text-right">{m.plate_cost ? inr(m.plate_cost) : "—"}</td>
+                  {canSeeCost && <td className="px-4 py-3 text-right">{m.plate_cost ? inr(m.plate_cost) : "—"}</td>}
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <button className="btn-ghost text-xs" onClick={() => setEditing(m)}>
                       {m.recipe_id ? "Edit" : "Map recipe"}
@@ -181,7 +192,7 @@ export function Recipes() {
                   </td>
                 </tr>
               ))}
-              {!mapping?.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">No menu items yet.</td></tr>}
+              {!mapping?.length && <tr><td colSpan={canSeeCost ? 6 : 5} className="px-4 py-8 text-center text-muted text-sm">No menu items yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -207,7 +218,7 @@ export function Recipes() {
                   <th className="text-left px-4 py-3">Dish</th>
                   <th className="text-right px-4 py-3">Plates fired</th>
                   <th className="text-left px-4 py-3">Raw materials drawn</th>
-                  <th className="text-right px-4 py-3">Consumption cost</th>
+                  {canSeeCost && <th className="text-right px-4 py-3">Consumption cost</th>}
                 </tr>
               </thead>
               <tbody>
@@ -221,17 +232,17 @@ export function Recipes() {
                           <div key={l.name} className="flex justify-between gap-6 text-xs">
                             <span>{l.name}</span>
                             <span className="text-muted">
-                              {Number(l.qty)} {l.unit}{l.cost ? ` · ${inr(l.cost)}` : ""}
+                              {Number(l.qty)} {l.unit}{canSeeCost && l.cost ? ` · ${inr(l.cost)}` : ""}
                             </span>
                           </div>
                         ))}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right font-medium">{inr(r.cost)}</td>
+                    {canSeeCost && <td className="px-4 py-3 text-right font-medium">{r.cost ? inr(r.cost) : "—"}</td>}
                   </tr>
                 ))}
                 {!consumption?.rows.length && (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-muted text-sm">
+                  <tr><td colSpan={canSeeCost ? 4 : 3} className="px-4 py-8 text-center text-muted text-sm">
                     No dishes fired in this period.
                   </td></tr>
                 )}

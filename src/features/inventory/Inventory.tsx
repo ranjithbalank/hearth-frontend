@@ -10,7 +10,9 @@ import { inr } from "../../lib/money";
 interface Ingredient {
   id: number; code: string; name: string; unit: string; category: string;
   current_stock: string; min_stock_level: string; reorder_level: string;
-  unit_cost: string; storage_location: string; expiry_date: string | null;
+  // Absent entirely (not just "0") for Chef — purchase rate is a
+  // procurement figure, not something a cook needs. Render "—", not ₹0.00.
+  unit_cost?: string; storage_location: string; expiry_date: string | null;
   below_par: boolean; below_min: boolean;
 }
 interface Movement {
@@ -20,7 +22,8 @@ interface Movement {
 }
 interface ConsumptionRow {
   ingredient: string; code: string; unit: string; consumed: string;
-  wasted: string; purchased: string; consumption_cost: string; in_stock: string;
+  // null for Chef — same rule as the ingredient rate (see IngredientSerializer).
+  wasted: string; purchased: string; consumption_cost: string | null; in_stock: string;
 }
 interface Uom { id: number; code: string; name: string }
 interface CategoryRow { id: number; name: string }
@@ -126,8 +129,17 @@ export function Inventory({ fixedTab, tabGroup, title }: {
 
   if (isLoading || !data) return <Spinner />;
   const low = data.filter((i) => i.below_par);
-  const stockValue = data.reduce((s, i) => s + Number(i.current_stock) * Number(i.unit_cost), 0);
-  const consumed30 = (consumption?.rows ?? []).reduce((s, r) => s + Number(r.consumption_cost), 0);
+  // Rates are hidden from Chef entirely (see IngredientSerializer) — rather
+  // than silently total to ₹0, don't show a stock-value figure at all when
+  // any material's rate is missing.
+  const canSeeRates = data.every((i) => i.unit_cost != null);
+  const stockValue = canSeeRates
+    ? data.reduce((s, i) => s + Number(i.current_stock) * Number(i.unit_cost), 0)
+    : null;
+  const canSeeConsumptionCost = (consumption?.rows ?? []).every((r) => r.consumption_cost != null);
+  const consumed30 = canSeeConsumptionCost
+    ? (consumption?.rows ?? []).reduce((s, r) => s + Number(r.consumption_cost), 0)
+    : null;
   const rows = data.filter((i) =>
     !q || i.name.toLowerCase().includes(q.toLowerCase()) || i.code.toLowerCase().includes(q.toLowerCase()));
 
@@ -223,10 +235,10 @@ export function Inventory({ fixedTab, tabGroup, title }: {
         <>
           <div className="grid grid-cols-5 gap-4 mb-4">
             <Stat tone="dark" label="Materials tracked" value={data.length} />
-            <Stat label="Stock value" value={inr(stockValue)} />
+            <Stat label="Stock value" value={stockValue == null ? "—" : inr(stockValue)} />
             <Stat label="Below reorder level" value={low.length} />
             <Stat label="Expiring ≤ 30 days" value={expiring?.length ?? 0} />
-            <Stat label={`Consumption cost (${days}d)`} value={inr(consumed30)} />
+            <Stat label={`Consumption cost (${days}d)`} value={consumed30 == null ? "—" : inr(consumed30)} />
           </div>
 
           {/* Deep links to the sibling screens the spec lists as tabs (§6) */}
@@ -269,7 +281,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                     <td className="px-4 py-3 text-right">{Number(r.consumed)} {r.unit}</td>
                     <td className="px-4 py-3 text-right text-clay">{Number(r.wasted)} {r.unit}</td>
                     <td className="px-4 py-3 text-right text-muted">{Number(r.in_stock)} {r.unit}</td>
-                    <td className="px-4 py-3 text-right font-medium">{inr(r.consumption_cost)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{r.consumption_cost == null ? "—" : inr(r.consumption_cost)}</td>
                   </tr>
                 ))}
                 {!consumption?.rows.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">No consumption in this period.</td></tr>}
@@ -304,7 +316,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                   <td className="px-4 py-3 text-muted text-xs">{i.category || "—"}</td>
                   <td className="px-4 py-3 text-right">{Number(i.current_stock)} {i.unit}</td>
                   <td className="px-4 py-3 text-right text-muted">{Number(i.min_stock_level)} / {Number(i.reorder_level)}</td>
-                  <td className="px-4 py-3 text-right">{inr(i.unit_cost)}</td>
+                  <td className="px-4 py-3 text-right">{i.unit_cost == null ? "—" : inr(i.unit_cost)}</td>
                   <td className="px-4 py-3 text-muted text-xs">{i.storage_location || "—"}</td>
                   <td className="px-4 py-3 text-muted text-xs">{i.expiry_date ?? "—"}</td>
                   <td className="px-4 py-3">

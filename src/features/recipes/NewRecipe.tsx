@@ -5,9 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
 import { inr } from "../../lib/money";
 
-interface IngredientOpt { id: number; name: string; unit: string; unit_cost: string; current_stock: string }
+// Plate cost & margin are ownership-level P&L info — Chef and Restaurant
+// Manager build recipes without needing to see them.
+const COST_VISIBLE_ROLES = ["Super Admin", "Managing Director", "General Manager"];
+
+interface IngredientOpt { id: number; name: string; unit: string; unit_cost?: string; current_stock: string }
 interface CategoryOpt { id: number; name: string }
 
 interface Line { ingredient: number | null; qty: string; unit: string; wastage_pct: string }
@@ -28,6 +33,8 @@ export function NewRecipe() {
   const nav = useNavigate();
   const toast = useToast();
   const qc = useQueryClient();
+  const { user } = useApp();
+  const canSeeCost = COST_VISIBLE_ROLES.includes(user?.role ?? "");
   const [dish, setDish] = useState({ name: "", price: "", category: "", gst_rate: "5", diet: "veg" });
   const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }]);
 
@@ -45,9 +52,11 @@ export function NewRecipe() {
     setLines(lines.map((l, ix) => (ix === i ? { ...l, ...patch } : l)));
 
   // Live plate cost: Σ per-serving draw (in the material's base unit, incl. wastage) × rate.
+  // Chef doesn't get ingredient unit_cost from the API at all, so this naturally computes
+  // nothing for them — the cost/margin card below is hidden for the same reason.
   const lineCost = (l: Line) => {
     const m = l.ingredient ? byId.get(l.ingredient) : undefined;
-    if (!m || !Number(l.qty)) return 0;
+    if (!m || !Number(l.qty) || m.unit_cost == null) return 0;
     const base = toBase(Number(l.qty), l.unit || m.unit, m.unit);
     const waste = 1 + (Number(l.wastage_pct) || 0) / 100;
     return base * waste * Number(m.unit_cost);
@@ -63,8 +72,10 @@ export function NewRecipe() {
       lines: validLines.map((l) => ({ ingredient: l.ingredient, qty: l.qty,
         unit: l.unit, wastage_pct: l.wastage_pct || "0" })),
     })).data,
-    onSuccess: (d: { item: string; plate_cost: string }) => {
-      toast(`"${d.item}" is on the menu · plate cost ${inr(d.plate_cost)} · stock deducts on every KOT`);
+    onSuccess: (d: { item: string; plate_cost?: string }) => {
+      toast(d.plate_cost
+        ? `"${d.item}" is on the menu · plate cost ${inr(d.plate_cost)} · stock deducts on every KOT`
+        : `"${d.item}" is on the menu · stock deducts on every KOT`);
       qc.invalidateQueries({ queryKey: ["recipes"] });
       qc.invalidateQueries({ queryKey: ["recipe-mapping"] });
       nav("/recipes");
@@ -126,15 +137,15 @@ export function NewRecipe() {
           Each line is what ONE plate draws from the store — units convert automatically
           (250 g against a kg-stocked material = 0.25 kg) and wastage % inflates the draw.
         </div>
-        <div className="grid grid-cols-[1fr_90px_80px_90px_110px_32px] gap-2 text-xs text-muted uppercase tracking-wide mb-1 px-1">
+        <div className={`grid ${canSeeCost ? "grid-cols-[1fr_90px_80px_90px_110px_32px]" : "grid-cols-[1fr_90px_80px_90px_32px]"} gap-2 text-xs text-muted uppercase tracking-wide mb-1 px-1`}>
           <span>Raw material</span><span>Qty</span><span>Unit</span><span>Waste %</span>
-          <span className="text-right">Line cost</span><span></span>
+          {canSeeCost && <span className="text-right">Line cost</span>}<span></span>
         </div>
         <div className="space-y-2">
           {lines.map((l, i) => {
             const m = l.ingredient ? byId.get(l.ingredient) : undefined;
             return (
-              <div key={i} className="grid grid-cols-[1fr_90px_80px_90px_110px_32px] gap-2 items-center">
+              <div key={i} className={`grid ${canSeeCost ? "grid-cols-[1fr_90px_80px_90px_110px_32px]" : "grid-cols-[1fr_90px_80px_90px_32px]"} gap-2 items-center`}>
                 <select className="input" value={l.ingredient ?? ""}
                   onChange={(e) => {
                     const mat = byId.get(Number(e.target.value));
@@ -153,7 +164,9 @@ export function NewRecipe() {
                   value={l.unit} onChange={(e) => setLine(i, { unit: e.target.value })} />
                 <input className="input" inputMode="decimal" placeholder="0"
                   value={l.wastage_pct} onChange={(e) => setLine(i, { wastage_pct: e.target.value })} />
-                <div className="text-right text-sm font-medium">{lineCost(l) ? inr(lineCost(l)) : "—"}</div>
+                {canSeeCost && (
+                  <div className="text-right text-sm font-medium">{lineCost(l) ? inr(lineCost(l)) : "—"}</div>
+                )}
                 <button className="btn-ghost text-clay text-sm"
                   onClick={() => setLines(lines.length > 1 ? lines.filter((_, ix) => ix !== i) : [{ ...EMPTY_LINE }])}>
                   ✕
@@ -169,24 +182,28 @@ export function NewRecipe() {
 
       <Card className="mb-4">
         <div className="flex items-center gap-6 flex-wrap">
-          <div>
-            <div className="text-xs text-muted uppercase tracking-wide">Plate cost</div>
-            <div className="stat-num text-2xl">{inr(plateCost)}</div>
-          </div>
+          {canSeeCost && (
+            <div>
+              <div className="text-xs text-muted uppercase tracking-wide">Plate cost</div>
+              <div className="stat-num text-2xl">{inr(plateCost)}</div>
+            </div>
+          )}
           <div>
             <div className="text-xs text-muted uppercase tracking-wide">Selling price</div>
             <div className="stat-num text-2xl">{price ? inr(price) : "—"}</div>
           </div>
-          <div>
-            <div className="text-xs text-muted uppercase tracking-wide">Margin</div>
-            <div className="stat-num text-2xl">
-              {marginPct == null ? "—" : (
-                <Badge tone={marginPct >= 65 ? "pine" : marginPct >= 50 ? "amber" : "clay"}>
-                  {marginPct}%
-                </Badge>
-              )}
+          {canSeeCost && (
+            <div>
+              <div className="text-xs text-muted uppercase tracking-wide">Margin</div>
+              <div className="stat-num text-2xl">
+                {marginPct == null ? "—" : (
+                  <Badge tone={marginPct >= 65 ? "pine" : marginPct >= 50 ? "amber" : "clay"}>
+                    {marginPct}%
+                  </Badge>
+                )}
+              </div>
             </div>
-          </div>
+          )}
           <div className="flex-1" />
           <button className="btn-ghost" onClick={() => nav("/recipes")}>Cancel</button>
           <button className="btn-primary"
