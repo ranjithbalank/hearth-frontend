@@ -31,6 +31,12 @@ const TONE: Record<string, "amber" | "info" | "pine"> = {
   completed: "pine",
 };
 
+type Tab = "enquiry" | "confirmed" | "completed";
+const TABS: { key: Tab; label: string; status: string }[] = [
+  { key: "enquiry", label: "Enquiry", status: "tentative" },
+  { key: "confirmed", label: "Confirmed", status: "confirmed" },
+  { key: "completed", label: "Completed", status: "completed" },
+];
 
 export function Banquets() {
   const qc = useQueryClient();
@@ -39,6 +45,7 @@ export function Banquets() {
   const [msg, setMsg] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
   const [editing, setEditing] = useState<Event | null>(null);
+  const [tab, setTab] = useState<Tab>("enquiry");
 
   const { data, isLoading } = useQuery({
     queryKey: ["banquets"],
@@ -47,7 +54,11 @@ export function Banquets() {
 
   const confirm = useMutation({
     mutationFn: async (e: Event) => (await api.post(`/banquets/${e.id}/confirm/`)).data,
-    onSuccess: () => { toast("Event confirmed"); qc.invalidateQueries({ queryKey: ["banquets"] }); },
+    onSuccess: () => {
+      toast("Event confirmed");
+      setTab("confirmed"); // follow the event to its new tab
+      qc.invalidateQueries({ queryKey: ["banquets"] });
+    },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not confirm", "error"),
   });
   const bill = useMutation({
@@ -60,6 +71,8 @@ export function Banquets() {
   });
 
   if (isLoading || !data) return <Spinner />;
+  const activeStatus = TABS.find((t) => t.key === tab)?.status;
+  const visible = data.events.filter((e) => e.status === activeStatus);
 
   return (
     <div>
@@ -79,20 +92,23 @@ export function Banquets() {
           onSaved={(edited) => {
             setBooking(false); setEditing(null);
             setMsg(edited ? "Event updated" : "Event enquiry booked (tentative)");
+            if (!edited) setTab("enquiry"); // new bookings start as an enquiry
             qc.invalidateQueries({ queryKey: ["banquets"] });
           }}
         />
       )}
 
-      {/* Walk-in enquiry — dedicated area */}
-      <div className="rounded-card border-2 border-dashed border-clay/30 bg-clay/5 p-5 mb-6 flex items-center gap-4">
-        <div className="h-12 w-12 rounded-xl bg-clay flex items-center justify-center text-white text-xl">＋</div>
-        <div className="flex-1">
-          <div className="font-semibold text-ink">Walk-in enquiry</div>
-          <div className="text-sm text-muted">A customer wants to book a function? Capture the enquiry and hold a hall.</div>
+      {/* Walk-in enquiry — dedicated area, only where it's relevant */}
+      {tab === "enquiry" && (
+        <div className="rounded-card border-2 border-dashed border-clay/30 bg-clay/5 p-5 mb-6 flex items-center gap-4">
+          <div className="h-12 w-12 rounded-xl bg-clay flex items-center justify-center text-white text-xl">＋</div>
+          <div className="flex-1">
+            <div className="font-semibold text-ink">Walk-in enquiry</div>
+            <div className="text-sm text-muted">A customer wants to book a function? Capture the enquiry and hold a hall.</div>
+          </div>
+          <button className="btn-primary" onClick={() => setBooking(true)}>Book an event</button>
         </div>
-        <button className="btn-primary" onClick={() => setBooking(true)}>Book an event</button>
-      </div>
+      )}
 
       <div className="flex flex-wrap gap-2 mb-5">
         {data.spaces.map((s) => (
@@ -100,8 +116,20 @@ export function Banquets() {
         ))}
       </div>
 
+      <div className="flex gap-2 mb-4">
+        {TABS.map((t) => {
+          const count = data.events.filter((e) => e.status === t.status).length;
+          return (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`pill ${tab === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              {t.label} ({count})
+            </button>
+          );
+        })}
+      </div>
+
       <div className="space-y-3">
-        {data.events.map((e) => (
+        {visible.map((e) => (
           <Card key={e.id} className="flex items-center gap-4">
             <div className="flex-1">
               <div className="font-semibold">{e.title} {e.event_type && <span className="text-muted font-normal">· {e.event_type}</span>}</div>
@@ -131,6 +159,13 @@ export function Banquets() {
             )}
           </Card>
         ))}
+        {!visible.length && (
+          <div className="text-sm text-muted text-center py-10">
+            {tab === "enquiry" ? "No open enquiries — capture a walk-in above."
+              : tab === "confirmed" ? "No confirmed events yet."
+                : "No completed events yet."}
+          </div>
+        )}
       </div>
     </div>
   );
