@@ -57,13 +57,15 @@ export const NAV: NavGroup[] = [
   {
     title: "Rooms",
     color: "#7FC6B3",
+    // Guest-lifecycle order: arrival & booking, then in-house tracking,
+    // then departure, then the support ops that run alongside a stay.
     items: [
       { key: "dashboard", label: "Dashboard", path: "/dashboard" },
       { key: "frontdesk", label: "Front Desk", path: "/frontdesk" },
-      { key: "checkout", label: "Check-Out", path: "/checkout" },
-      { key: "livegrid", label: "Live Grid", path: "/livegrid" },
       { key: "reservations", label: "Reservations", path: "/reservations" },
+      { key: "livegrid", label: "Live Grid", path: "/livegrid" },
       { key: "folio", label: "Folios", path: "/folios" },
+      { key: "checkout", label: "Check-Out", path: "/checkout" },
       { key: "housekeeping", label: "Housekeeping", path: "/housekeeping" },
       { key: "banquets", label: "Banquets & Events", path: "/banquets" },
     ],
@@ -89,15 +91,15 @@ export const NAV: NavGroup[] = [
   },
   {
     // Store: the Restaurant Inventory spec's §6 tabs as separate screens.
-    // Raw materials → recipes → consumption sit together: that's the flow.
+    // Data → its setup → what's built from it → the ledger → daily tools.
     title: "Store",
     color: "#D4B483",
     items: [
       { key: "store-dashboard", module: "inventory", label: "Store Dashboard", path: "/store" },
       { key: "store-materials", module: "inventory", label: "Raw Material Master", path: "/store/materials" },
+      { key: "store-masters", module: "inventory", label: "Categories & Units", path: "/store/categories-units" },
       { key: "recipes", label: "Recipes & BOM", path: "/recipes" },
       { key: "store-movements", module: "inventory", label: "Movements & Consumption", path: "/store/movements" },
-      { key: "store-masters", module: "inventory", label: "Categories & Units", path: "/store/categories-units" },
       // Low stock, expiry, wastage, count and transfer live inside one screen.
       { key: "store-control", module: "inventory", label: "Stock Control", path: "/store/stock-control" },
     ],
@@ -108,6 +110,9 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "accounting", label: "Accounting", path: "/accounting" },
       { key: "tax", label: "Tax & GST", path: "/tax" },
+      // Finance's payables-oversight view of POs (approve/receive, no
+      // create) — sits with its actual audience, not among directory masters.
+      { key: "pomanage", label: "Purchase Orders", path: "/masters/purchase-orders" },
       { key: "engineering", label: "Engineering", path: "/engineering" },
       { key: "hr", label: "HR & Staff", path: "/hr" },
       { key: "crm", label: "Guest CRM", path: "/crm" },
@@ -122,12 +127,12 @@ export const NAV: NavGroup[] = [
   {
     title: "Masters",
     color: "#C7A8DA",
+    // Pure directory / master data — no transactional workflows here.
     items: [
       { key: "customers", label: "Customers", path: "/masters/customers" },
       { key: "suppliers", label: "Suppliers", path: "/masters/suppliers" },
       { key: "vendors", label: "Vendors", path: "/masters/vendors" },
       { key: "employees", label: "Employees", path: "/masters/employees" },
-      { key: "pomanage", label: "Purchase Orders", path: "/masters/purchase-orders" },
     ],
   },
   {
