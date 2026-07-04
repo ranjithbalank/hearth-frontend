@@ -34,6 +34,13 @@ export function Procurement() {
     queryKey: ["pos"],
     queryFn: async () => (await api.get<Po[]>("/purchase-orders/")).data,
   });
+  // Live below-par count, right here — no need to go through Inventory first.
+  const { data: lowStock } = useQuery({
+    queryKey: ["ingredients-low"],
+    queryFn: async () => (await api.get<IngredientOpt[]>("/inventory/?below_par=1")).data,
+    refetchInterval: 30000,
+  });
+  const lowCount = lowStock?.length ?? 0;
 
   const approve = useMutation({
     mutationFn: async (po: Po) => (await api.post(`/purchase-orders/${po.id}/approve/`)).data,
@@ -45,6 +52,7 @@ export function Procurement() {
       setMsg(`Goods received against PO #${po.id} — stock & purchase rates updated`);
       qc.invalidateQueries({ queryKey: ["pos"] });
       qc.invalidateQueries({ queryKey: ["ingredients"] });
+      qc.invalidateQueries({ queryKey: ["ingredients-low"] });
     },
   });
 
@@ -56,9 +64,19 @@ export function Procurement() {
         title="Procurement"
         subtitle="Purchase orders &amp; goods receipt — receiving posts stock automatically"
         action={
-          <button className="btn-primary text-sm" onClick={() => setCreating(true)}>
-            + New purchase order
-          </button>
+          <div className="flex items-center gap-2">
+            {lowCount > 0 ? (
+              <button className="btn-outline text-sm border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                onClick={() => setParams({ prefill: "low" })}>
+                ⚠ Suggest reorder ({lowCount})
+              </button>
+            ) : (
+              <span className="text-xs text-muted">✓ Stock levels OK</span>
+            )}
+            <button className="btn-primary text-sm" onClick={() => setCreating(true)}>
+              + New purchase order
+            </button>
+          </div>
         }
       />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
