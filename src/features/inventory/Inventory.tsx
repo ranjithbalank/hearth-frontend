@@ -80,9 +80,14 @@ export function Inventory({ fixedTab, tabGroup, title }: {
   const [moveKind, setMoveKind] = useState("");
   const [days, setDays] = useState(30);
 
+  // Stock changes from other screens (a GRN received in Procurement, a
+  // recipe firing on the POS) don't invalidate this query on their own if
+  // this screen is just sitting open — poll lightly so it self-heals
+  // instead of showing stale numbers until you navigate away and back.
   const { data, isLoading } = useQuery({
     queryKey: ["ingredients"],
     queryFn: async () => (await api.get<Ingredient[]>("/inventory/")).data,
+    refetchInterval: 20000,
   });
   const { data: moves } = useQuery({
     queryKey: ["inv-moves", tab, moveKind, days],
