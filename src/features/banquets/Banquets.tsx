@@ -98,17 +98,15 @@ export function Banquets() {
         />
       )}
 
-      {/* Walk-in enquiry — dedicated area, only where it's relevant */}
-      {tab === "enquiry" && (
-        <div className="rounded-card border-2 border-dashed border-clay/30 bg-clay/5 p-5 mb-6 flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-clay flex items-center justify-center text-white text-xl">＋</div>
-          <div className="flex-1">
-            <div className="font-semibold text-ink">Walk-in enquiry</div>
-            <div className="text-sm text-muted">A customer wants to book a function? Capture the enquiry and hold a hall.</div>
-          </div>
-          <button className="btn-primary" onClick={() => setBooking(true)}>Book an event</button>
+      {/* Walk-in enquiry — always available, whichever tab you're looking at */}
+      <div className="rounded-card border-2 border-dashed border-clay/30 bg-clay/5 p-5 mb-6 flex items-center gap-4">
+        <div className="h-12 w-12 rounded-xl bg-clay flex items-center justify-center text-white text-xl">＋</div>
+        <div className="flex-1">
+          <div className="font-semibold text-ink">Walk-in enquiry</div>
+          <div className="text-sm text-muted">A customer wants to book a function? Capture the enquiry and hold a hall.</div>
         </div>
-      )}
+        <button className="btn-primary" onClick={() => setBooking(true)}>Book an event</button>
+      </div>
 
       <div className="flex flex-wrap gap-2 mb-5">
         {data.spaces.map((s) => (
