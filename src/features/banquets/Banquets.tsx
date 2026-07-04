@@ -116,14 +116,16 @@ export function Banquets() {
         ))}
       </div>
 
-      <div className="flex gap-3 mb-5">
+      <div className="flex gap-6 mb-5 border-b border-hairline">
         {TABS.map((t) => {
           const count = data.events.filter((e) => e.status === t.status).length;
+          const active = tab === t.key;
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`rounded-pill text-base font-bold px-6 py-3 transition-colors ${
-                tab === t.key ? "bg-ink text-white" : "bg-hairline text-body hover:bg-hairline/70"}`}>
-              {t.label} ({count})
+              className={`relative pb-2.5 text-sm font-semibold transition-colors ${
+                active ? "text-ink" : "text-muted hover:text-body"}`}>
+              {t.label} <span className={active ? "text-ink" : "text-muted"}>({count})</span>
+              {active && <span className="absolute left-0 right-0 -bottom-px h-0.5 bg-pine rounded-full" />}
             </button>
           );
         })}
@@ -153,10 +155,10 @@ export function Banquets() {
               <button className="btn-ghost text-xs" onClick={() => setEditing(e)}>Adjust</button>
             )}
             {e.status === "tentative" && (
-              <button className="btn-outline text-base px-5 py-2.5" onClick={() => confirm.mutate(e)}>Confirm</button>
+              <button className="btn-outline" onClick={() => confirm.mutate(e)}>Confirm</button>
             )}
             {e.status === "confirmed" && !e.billed && (
-              <button className="btn-primary text-base px-5 py-2.5" onClick={() => bill.mutate(e)}>Bill event</button>
+              <button className="btn-primary" onClick={() => bill.mutate(e)}>Bill event</button>
             )}
           </Card>
         ))}
