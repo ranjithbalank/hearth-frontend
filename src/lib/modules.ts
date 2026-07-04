@@ -21,7 +21,8 @@ export const MODULE_ENTITLEMENT: Record<string, keyof Entitlement | undefined> =
   pos: "restaurant",
   kds: "restaurant",
   online: "restaurant",
-  matreq: "restaurant",
+  // matreq (material requests) is a shared service — hotel-only properties
+  // use it for housekeeping/front-office/maintenance indents too.
   inventory: "restaurant",
   procurement: "restaurant",
   pomanage: "restaurant",
@@ -84,7 +85,6 @@ export const NAV: NavGroup[] = [
       { key: "kds", label: "Kitchen Display", path: "/kds" },
       { key: "online", label: "Online Orders", path: "/online-orders" },
       { key: "procurement", label: "Procurement", path: "/procurement" },
-      { key: "matreq", label: "Material Requests", path: "/material-requests" },
     ],
   },
   {
@@ -111,6 +111,9 @@ export const NAV: NavGroup[] = [
       { key: "engineering", label: "Engineering", path: "/engineering" },
       { key: "hr", label: "HR & Staff", path: "/hr" },
       { key: "crm", label: "Guest CRM", path: "/crm" },
+      // Shared across every department (Kitchen/Bar/Housekeeping/Front Office/
+      // Maintenance/Banquets/Admin) — not restaurant-only, so it lives here.
+      { key: "matreq", label: "Material Requests", path: "/material-requests" },
       { key: "notifications", label: "Notifications", path: "/notifications" },
       { key: "reports", label: "Reports", path: "/reports" },
       { key: "settings", label: "Settings", path: "/settings" },
