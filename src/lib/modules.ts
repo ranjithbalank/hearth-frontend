@@ -55,6 +55,17 @@ export const NAV: NavGroup[] = [
     items: [{ key: "execdashboard", label: "Executive Overview", path: "/executive" }],
   },
   {
+    // Cross-cutting, not a "Back office" thing — every department raises
+    // its own indents (Chef, Housekeeping, Front Office, Cashier...) and a
+    // different department head approves each one. A Chef's sidebar would
+    // otherwise show this under a heading literally called "Back office",
+    // which reads as management-only when it's actually their daily floor
+    // work. Own top-level slot instead, same idea as "Executive" above.
+    title: "Requests",
+    color: "#B8A28C",
+    items: [{ key: "matreq", label: "Material Requests", path: "/material-requests" }],
+  },
+  {
     title: "Rooms",
     color: "#7FC6B3",
     // Guest-lifecycle order: arrival & booking, then in-house tracking,
@@ -116,9 +127,6 @@ export const NAV: NavGroup[] = [
       { key: "engineering", label: "Engineering", path: "/engineering" },
       { key: "hr", label: "HR & Staff", path: "/hr" },
       { key: "crm", label: "Guest CRM", path: "/crm" },
-      // Shared across every department (Kitchen/Bar/Housekeeping/Front Office/
-      // Maintenance/Banquets/Admin) — not restaurant-only, so it lives here.
-      { key: "matreq", label: "Material Requests", path: "/material-requests" },
       { key: "notifications", label: "Notifications", path: "/notifications" },
       { key: "reports", label: "Reports", path: "/reports" },
       { key: "settings", label: "Settings", path: "/settings" },
