@@ -205,6 +205,7 @@ export const NAV: NavGroup[] = [
     color: "#A9C5A2",
     zone: ZONE_BACK_OFFICE,
     items: [
+      { key: "branchmaster", label: "Branch Master", path: "/config/branches" },
       { key: "roles", label: "Role Mapping", path: "/config/roles" },
       { key: "settings", label: "Settings", path: "/settings" },
     ],

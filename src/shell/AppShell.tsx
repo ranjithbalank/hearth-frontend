@@ -21,6 +21,43 @@ function Chevron({ open }: { open: boolean }) {
 
 interface Alert { severity: string; module: string; title: string; detail: string }
 
+/** Only appears for people who actually operate across more than one
+ * branch — a Bar Captain or Housekeeping login with a single assignment
+ * never sees this, they just land on their branch. */
+function BranchSwitcher() {
+  const { user, activeBranch, setBranch } = useApp();
+  const allBranches = user?.branches === "*";
+  const { data: everyBranch } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => (await api.get<{ id: number; name: string; code: string }[]>("/auth/branches/")).data,
+    enabled: allBranches,
+  });
+
+  const options = allBranches
+    ? everyBranch ?? []
+    : Array.from(
+        new Map(
+          (Array.isArray(user?.branches) ? user.branches : [])
+            .map((a) => [a.branch, { id: a.branch, name: a.branch_name, code: a.branch_code }]),
+        ).values(),
+      );
+
+  if (options.length <= 1 && !allBranches) return null;
+  if (options.length === 0) return null;
+
+  return (
+    <select
+      className="input py-1.5 text-xs max-w-[180px]"
+      value={activeBranch ?? ""}
+      onChange={(e) => setBranch(e.target.value ? Number(e.target.value) : null)}
+      title="Switch branch"
+    >
+      {allBranches && <option value="">All branches</option>}
+      {options.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+    </select>
+  );
+}
+
 function NotificationBell() {
   const nav = useNavigate();
   const { canAccess } = useApp();
@@ -233,6 +270,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="pill bg-pine-50 text-pine capitalize hidden sm:inline-flex">{property?.edition} edition</span>
+            <BranchSwitcher />
             <NotificationBell />
           </div>
         </header>

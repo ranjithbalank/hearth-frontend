@@ -7,7 +7,80 @@ import { Card, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount, digits, gstin as gstinFilter } from "../../lib/inputs";
 import { useApp } from "../../lib/app-context";
-import type { Entitlement, Role, User } from "../../lib/types";
+import type { Branch, BranchAccess, Entitlement, Role, User } from "../../lib/types";
+
+const PROTECTED_ROLES: Role[] = ["Super Admin", "Managing Director", "General Manager"];
+
+/** Which branch(es) a user operates in, and as what role there — the
+ * "where" layer on top of the role dropdown above, which only decides
+ * "what". Super Admin/MD/GM need no rows: they're all-branch implicitly. */
+function BranchAccessCell({ user, branches }: { user: User; branches: Branch[] }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [adding, setAdding] = useState(false);
+  const [branchId, setBranchId] = useState<number | "">("");
+  const [role, setRole] = useState<Role>(user.role);
+  const [endDate, setEndDate] = useState("");
+
+  const { data: access } = useQuery({
+    queryKey: ["branch-access", user.id],
+    queryFn: async () => (await api.get<BranchAccess[]>(`/auth/branch-access/?user=${user.id}`)).data,
+    enabled: user.branches !== "*",
+  });
+
+  const grant = useMutation({
+    mutationFn: async () => (await api.post("/auth/branch-access/", {
+      user: user.id, branch: branchId, role, end_date: endDate || null,
+    })).data,
+    onSuccess: () => {
+      setAdding(false); setBranchId(""); setEndDate("");
+      qc.invalidateQueries({ queryKey: ["branch-access", user.id] });
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add — already assigned to this branch in this role?", "error"),
+  });
+
+  const revoke = useMutation({
+    mutationFn: async (id: number) => api.delete(`/auth/branch-access/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["branch-access", user.id] });
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+
+  if (user.branches === "*" || PROTECTED_ROLES.includes(user.role)) {
+    return <span className="pill bg-pine-50 text-pine">All branches</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {access?.map((a) => (
+        <span key={a.id} className="pill bg-hairline text-body flex items-center gap-1">
+          {a.branch_code} · {a.role}{a.end_date ? ` (until ${a.end_date})` : ""}
+          <button className="text-muted hover:text-clay ml-0.5" title="Remove" onClick={() => revoke.mutate(a.id)}>×</button>
+        </span>
+      ))}
+      {adding ? (
+        <span className="flex items-center gap-1">
+          <select className="input py-1 text-xs" value={branchId} onChange={(e) => setBranchId(Number(e.target.value) || "")}>
+            <option value="">Branch…</option>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.code}</option>)}
+          </select>
+          <select className="input py-1 text-xs" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+            {ROLES.filter((r) => !PROTECTED_ROLES.includes(r)).map((r) => <option key={r}>{r}</option>)}
+          </select>
+          <input type="date" className="input py-1 text-xs w-32" placeholder="Until (optional)"
+            value={endDate} onChange={(e) => setEndDate(e.target.value)} title="Temporary — leave blank for standing" />
+          <button className="btn-primary text-xs px-2 py-1" disabled={!branchId || grant.isPending}
+            onClick={() => grant.mutate()}>Add</button>
+          <button className="btn-ghost text-xs px-2 py-1" onClick={() => setAdding(false)}>Cancel</button>
+        </span>
+      ) : (
+        <button className="pill bg-cream text-muted hover:text-pine" onClick={() => setAdding(true)}>+ Add branch</button>
+      )}
+    </div>
+  );
+}
 
 const ROLES: Role[] = [
   "Super Admin", "Admin", "Managing Director", "CEO", "General Manager",
@@ -24,6 +97,10 @@ function UsersPanel() {
   const { data: users } = useQuery({
     queryKey: ["users"],
     queryFn: async () => (await api.get<User[]>("/auth/users/")).data,
+  });
+  const { data: branches } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => (await api.get<Branch[]>("/auth/branches/")).data,
   });
   const create = useMutation({
     mutationFn: async () => (await api.post("/auth/users/", f)).data,
@@ -63,7 +140,8 @@ function UsersPanel() {
         <thead className="text-muted text-xs uppercase">
           <tr>
             <th className="text-left py-2">Name</th><th className="text-left py-2">Username</th>
-            <th className="text-left py-2">Role</th><th className="text-left py-2">Cap</th>
+            <th className="text-left py-2">Role</th><th className="text-left py-2">Branches</th>
+            <th className="text-left py-2">Cap</th>
             <th className="text-right py-2">Status</th>
           </tr>
         </thead>
@@ -73,6 +151,9 @@ function UsersPanel() {
               <td className="py-2 font-medium">{u.name}</td>
               <td className="py-2 font-mono text-xs">{u.username}</td>
               <td className="py-2">{u.role}</td>
+              <td className="py-2">
+                {branches && <BranchAccessCell user={u} branches={branches} />}
+              </td>
               <td className="py-2 text-muted">
                 {u.discount_cap_type === "percent" ? `${Number(u.discount_cap_value)}%`
                   : u.discount_cap_type === "fixed" ? `₹${Number(u.discount_cap_value)}` : "—"}

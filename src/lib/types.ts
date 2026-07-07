@@ -16,6 +16,17 @@ export type Role =
   | "Bar Captain"
   | "Bar Cashier";
 
+export interface BranchAccess {
+  id: number;
+  user: number;
+  branch: number;
+  branch_name: string;
+  branch_code: string;
+  role: Role;
+  start_date: string | null;
+  end_date: string | null;
+}
+
 export interface User {
   id: number;
   username: string;
@@ -28,6 +39,27 @@ export interface User {
   discount_cap_type?: string;
   discount_cap_value?: string;
   is_active?: boolean;
+  /** "*" for Super Admin/MD/GM (implicit all-branch access); otherwise this login's branch+role assignments. */
+  branches?: BranchAccess[] | "*";
+}
+
+export interface Branch {
+  id: number;
+  name: string;
+  code: string;
+  address: string;
+  city: string;
+  state: string;
+  gstin: string;
+  edition: "" | "hotel" | "restaurant" | "both";
+  hms: boolean;
+  restaurant: boolean;
+  banquets: boolean;
+  rms: boolean;
+  invoice_prefix: string;
+  status: "onboarding" | "active" | "closed";
+  logo: string;
+  created_at: string;
 }
 
 export interface Entitlement {

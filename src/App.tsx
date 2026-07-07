@@ -11,6 +11,7 @@ import { BarPos } from "./features/barpos/BarPos";
 import { BarTableMaster } from "./features/barpos/BarTableMaster";
 import { Booking } from "./features/booking/Booking";
 import { Channel } from "./features/channel/Channel";
+import { BranchMaster } from "./features/config/BranchMaster";
 import { CateringPrices } from "./features/config/CateringPrices";
 import { GstMaster } from "./features/config/GstMaster";
 import { MenuMaster } from "./features/config/MenuMaster";
@@ -148,6 +149,7 @@ export default function App() {
         <Route path="/config/tables" element={<RequireAccess module="tablemaster"><TableMaster /></RequireAccess>} />
         <Route path="/config/catering" element={<RequireAccess module="cateringmaster"><CateringPrices /></RequireAccess>} />
         <Route path="/config/roles" element={<RequireAccess module="roles"><RoleMatrix /></RequireAccess>} />
+        <Route path="/config/branches" element={<RequireAccess module="branchmaster"><BranchMaster /></RequireAccess>} />
         <Route path="*" element={<Navigate to={landing()} replace />} />
       </Routes>
     </AppShell>

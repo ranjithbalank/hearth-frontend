@@ -41,6 +41,7 @@ const P: Record<string, JSX.Element> = {
   bartablemaster: <><rect x="4" y="7" width="16" height="3" rx="1" /><path d="M6 10v9M18 10v9M9 10v4h6v-4" /></>,
   gstmaster: <><circle cx="12" cy="12" r="9" /><path d="M8.5 8.5l7 7" /><circle cx="9" cy="9" r="1" /><circle cx="15" cy="15" r="1" /></>,
   roles: <><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" /><path d="M9.5 12l1.8 1.8 3.2-3.4" /></>,
+  branchmaster: <><path d="M6 20V10a6 6 0 0112 0v10" /><circle cx="12" cy="10" r="2.3" /><path d="M3 20h18" /></>,
   // Store group (Restaurant Inventory spec §6 screens)
   "store-dashboard": <><path d="M4 19V5" /><path d="M4 15l4-4 3 3 5-6 4 4" /><path d="M4 19h16" /></>,
   "store-materials": <><rect x="3" y="8" width="8" height="6" rx="1" /><rect x="13" y="8" width="8" height="6" rx="1" /><rect x="8" y="15" width="8" height="6" rx="1" /></>,
