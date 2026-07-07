@@ -7,6 +7,7 @@ import { api, getAccess } from "../../lib/api";
 import { inr } from "../../lib/money";
 
 interface Group { group: string; tiles: string[] }
+interface Catalogue { groups: Group[]; allowed_reports: string[] }
 interface ReportData {
   title: string;
   kpis: { label: string; value: string | number; money?: boolean }[];
@@ -42,18 +43,35 @@ const VIEWS = [
   { key: "item_profitability", label: "Item profitability" },
 ];
 
+const QUICK_EXPORTS = [
+  { key: "sales", label: "Sales summary" },
+  { key: "tax", label: "GST summary" },
+  { key: "occupancy", label: "Room status" },
+  { key: "accounting", label: "Accounting (ERP)" },
+  { key: "aggregator", label: "Zomato/Swiggy records" },
+  { key: "guests", label: "Guest report (statutory)" },
+];
+
 export function Reports() {
   const [view, setView] = useState("sales");
   const { data, isLoading } = useQuery({
     queryKey: ["catalogue"],
-    queryFn: async () => (await api.get<Group[]>("/reports/catalogue/")).data,
+    queryFn: async () => (await api.get<Catalogue>("/reports/catalogue/")).data,
   });
+  // Only show tabs/exports for reports this role can actually pull —
+  // matches the backend's per-report scoping (see ROLE_REPORT_ACCESS). Falls
+  // back to the first allowed tab if the default "sales" somehow isn't one.
+  const allowed = new Set(data?.allowed_reports ?? []);
+  const activeView = allowed.has(view) ? view : VIEWS.find((v) => allowed.has(v.key))?.key ?? view;
   const { data: report } = useQuery({
-    queryKey: ["report-view", view],
-    queryFn: async () => (await api.get<ReportData>(`/reports/view/?report=${view}`)).data,
+    queryKey: ["report-view", activeView],
+    queryFn: async () => (await api.get<ReportData>(`/reports/view/?report=${activeView}`)).data,
+    enabled: !!data,
   });
 
   if (isLoading || !data) return <Spinner />;
+
+  const visibleViews = VIEWS.filter((v) => allowed.has(v.key));
 
   return (
     <div>
@@ -62,9 +80,9 @@ export function Reports() {
       {/* In-app report viewer with chart */}
       <Card className="mb-4">
         <div className="flex flex-wrap gap-2 mb-4">
-          {VIEWS.map((v) => (
+          {visibleViews.map((v) => (
             <button key={v.key} onClick={() => setView(v.key)}
-              className={`pill ${view === v.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              className={`pill ${activeView === v.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
               {v.label}
             </button>
           ))}
@@ -80,8 +98,8 @@ export function Reports() {
                 </div>
               ))}
               <div className="flex gap-2">
-                <button className="btn-outline text-xs py-1" onClick={() => download(view, "xlsx")}>Export XLSX</button>
-                <button className="btn-ghost text-xs py-1" onClick={() => download(view, "csv")}>CSV</button>
+                <button className="btn-outline text-xs py-1" onClick={() => download(activeView, "xlsx")}>Export XLSX</button>
+                <button className="btn-ghost text-xs py-1" onClick={() => download(activeView, "csv")}>CSV</button>
               </div>
             </div>
             <div>
@@ -132,14 +150,7 @@ export function Reports() {
       <Card className="mb-4">
         <div className="font-semibold mb-3">Quick exports</div>
         <div className="grid grid-cols-4 gap-3">
-          {[
-            { key: "sales", label: "Sales summary" },
-            { key: "tax", label: "GST summary" },
-            { key: "occupancy", label: "Room status" },
-            { key: "accounting", label: "Accounting (ERP)" },
-            { key: "aggregator", label: "Zomato/Swiggy records" },
-            { key: "guests", label: "Guest report (statutory)" },
-          ].map((r) => (
+          {QUICK_EXPORTS.filter((r) => allowed.has(r.key)).map((r) => (
             <div key={r.key} className="rounded-card border border-hairline p-3">
               <div className="font-medium text-sm mb-2">{r.label}</div>
               <div className="flex gap-2">
@@ -152,7 +163,7 @@ export function Reports() {
       </Card>
 
       <div className="grid grid-cols-2 gap-4">
-        {data.map((g) => (
+        {data.groups.map((g) => (
           <Card key={g.group}>
             <div className="font-semibold mb-3">{g.group}</div>
             <div className="flex flex-wrap gap-2">

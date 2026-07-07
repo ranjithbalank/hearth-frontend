@@ -16,6 +16,7 @@ const P: Record<string, JSX.Element> = {
   pos: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8M8 11h8M8 15h4" /></>,
   kds: <><path d="M7 21h10" /><path d="M6 13h12v3a3 3 0 01-3 3H9a3 3 0 01-3-3z" /><path d="M8 13a4 4 0 018 0" /><path d="M12 5v3" /></>,
   online: <><path d="M3 7l9-4 9 4-9 4z" /><path d="M3 7v10l9 4 9-4V7" /><path d="M12 11v10" /></>,
+  barpos: <><path d="M6 4h12l-2.5 8a3.5 3.5 0 01-3.5 3h0a3.5 3.5 0 01-3.5-3z" /><path d="M12 15v6" /><path d="M8 21h8" /><path d="M7 8h10" /></>,
   inventory: <><rect x="3" y="8" width="8" height="6" rx="1" /><rect x="13" y="8" width="8" height="6" rx="1" /><rect x="8" y="15" width="8" height="6" rx="1" /></>,
   procurement: <><path d="M3 4h2l2.5 12h10L20 8H6" /><circle cx="9" cy="20" r="1.3" /><circle cx="17" cy="20" r="1.3" /></>,
   matreq: <><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4V3h6v1" /><path d="M9 10h6M9 14h4" /></>,
@@ -35,7 +36,9 @@ const P: Record<string, JSX.Element> = {
   pomanage: <><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /><path d="M9 12h6M9 16h6" /></>,
   roommaster: <><path d="M4 20v-7l8-5 8 5v7" /><rect x="9" y="13" width="6" height="7" /><path d="M3 13h18" /></>,
   menumaster: <><path d="M7 3v8a2 2 0 002 2v8M9 3v6M5 3v6" /><path d="M16 3c-1.5 0-2 2-2 5s.5 4 2 4v9" /></>,
+  barmenumaster: <><path d="M7 3v8a2 2 0 002 2v8M9 3v6M5 3v6" /><path d="M16 3c-1.5 0-2 2-2 5s.5 4 2 4v9" /></>,
   tablemaster: <><rect x="4" y="7" width="16" height="3" rx="1" /><path d="M6 10v9M18 10v9M9 10v4h6v-4" /></>,
+  bartablemaster: <><rect x="4" y="7" width="16" height="3" rx="1" /><path d="M6 10v9M18 10v9M9 10v4h6v-4" /></>,
   gstmaster: <><circle cx="12" cy="12" r="9" /><path d="M8.5 8.5l7 7" /><circle cx="9" cy="9" r="1" /><circle cx="15" cy="15" r="1" /></>,
   roles: <><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z" /><path d="M9.5 12l1.8 1.8 3.2-3.4" /></>,
   // Store group (Restaurant Inventory spec §6 screens)

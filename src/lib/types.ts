@@ -6,6 +6,7 @@ export type Role =
   | "General Manager"
   | "Finance"
   | "Restaurant Manager"
+  | "Hotel Manager"
   | "Front Office"
   | "F&B Cashier"
   | "Captain"

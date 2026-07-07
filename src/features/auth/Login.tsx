@@ -11,6 +11,7 @@ const DEMO = [
   { username: "gm", role: "General Manager" },
   { username: "finance", role: "Finance" },
   { username: "restmanager", role: "Restaurant Manager" },
+  { username: "hotelmanager", role: "Hotel Manager" },
   { username: "frontoffice", role: "Front Office" },
   { username: "cashier", role: "F&B Cashier" },
   { username: "captain", role: "Captain" },

@@ -124,12 +124,23 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         {open ? (
-          /* Expanded — collapsible groups */
+          /* Expanded — collapsible groups, with a zone divider whenever the
+             zone changes between consecutive VISIBLE groups (a role missing
+             a zone's lead group still gets the divider ahead of whichever
+             group of that zone it sees first). */
           <nav className="flex-1 overflow-y-auto px-3 pb-4">
-            {groups.map((g) => {
+            {groups.map((g, idx) => {
               const expanded = openGroups[g.title] ?? false;
+              const showZone = g.zone !== groups[idx - 1]?.zone;
               return (
-                <div key={g.title} className="mb-1.5">
+                <div key={g.title}>
+                  {showZone && (
+                    <div className={`px-3 pb-1 text-[10px] uppercase tracking-widest text-white/30 font-semibold ${
+                      idx === 0 ? "pt-1" : "pt-4 mt-1 border-t border-white/10"}`}>
+                      {g.zone}
+                    </div>
+                  )}
+                  <div className="mb-1.5">
                   <button
                     onClick={() => toggleGroup(g.title)}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] uppercase tracking-wider font-semibold text-white/45 hover:bg-white/5"
@@ -160,6 +171,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                       ))}
                     </div>
                   )}
+                  </div>
                 </div>
               );
             })}
@@ -167,20 +179,23 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : (
           /* Collapsed — one icon per main heading (group); hover shows its name */
           <nav className="flex-1 overflow-y-auto py-2 flex flex-col items-center gap-1.5">
-            {groups.map((g) => {
+            {groups.map((g, idx) => {
               const activeHere = g.items.some((i) => i.path === location.pathname);
+              const showZone = idx > 0 && g.zone !== groups[idx - 1]?.zone;
               return (
-                <button
-                  key={g.title}
-                  onMouseEnter={(e) => setHover({ label: g.title, y: e.currentTarget.getBoundingClientRect().top })}
-                  onMouseLeave={() => setHover(null)}
-                  onClick={() => { setOpen(true); setOpenGroups((s) => ({ ...s, [g.title]: true })); }}
-                  className={`grid place-items-center h-10 w-10 rounded-lg transition-colors ${
-                    activeHere ? "bg-pine text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <NavIcon name={g.items[0].key} />
-                </button>
+                <div key={g.title} className="contents">
+                  {showZone && <div className="w-7 border-t border-white/10 my-0.5" />}
+                  <button
+                    onMouseEnter={(e) => setHover({ label: g.title, y: e.currentTarget.getBoundingClientRect().top })}
+                    onMouseLeave={() => setHover(null)}
+                    onClick={() => { setOpen(true); setOpenGroups((s) => ({ ...s, [g.title]: true })); }}
+                    className={`grid place-items-center h-10 w-10 rounded-lg transition-colors ${
+                      activeHere ? "bg-pine text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <NavIcon name={g.items[0].key} />
+                  </button>
+                </div>
               );
             })}
           </nav>

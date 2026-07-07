@@ -27,19 +27,25 @@ const NEXT_LABEL: Record<string, string> = { requested: "Approve", approved: "Is
 const UNIVERSAL_APPROVERS = ["General Manager", "Managing Director", "Super Admin"];
 // Mirrors the backend's DEPARTMENT_APPROVERS, for the "who approves this"
 // hint while composing a new request (before the API has assigned an id).
-// Banquets and Front Office's own supplies have no department-specific
-// approver — Front Office is the only role that would raise them, so it
-// can't also sign off on them; those two fall to a manager instead.
+// Hotel Manager approves Housekeeping/Banquets/Front-Office-supplies — Front
+// Office is the only role that would raise those, so it can't also sign off
+// on them (same rule that keeps Restaurant Manager off Kitchen/Bar).
 const DEPT_APPROVER_LABEL: Record<string, string> = {
   Kitchen: "Restaurant Manager", Bar: "Restaurant Manager",
-  Housekeeping: "Front Office", Maintenance: "Housekeeping",
-  Banquets: "General Manager", "Front Office": "General Manager",
+  Housekeeping: "Hotel Manager", Maintenance: "Housekeeping",
+  Banquets: "Hotel Manager", "Front Office": "Hotel Manager",
 };
 // A role can't raise a request for a department it also approves — that's
 // the exact bug the user caught (Restaurant Manager requesting Kitchen stock
 // and being the only one who could then approve it). Mirrors the backend's
 // role_can_request_department; GM/MD/Super Admin are exempt.
 const UNIVERSAL_ROLE_NAMES = ["Super Admin", "Managing Director", "General Manager"];
+// CEO sees the same full "every department, every status" oversight list as
+// the universal roles (mirrors the backend's INDENT_OVERSIGHT_ROLES) — but
+// CEO is deliberately left OUT of UNIVERSAL_ROLE_NAMES/ISSUER_ROLES, so
+// canAdvance() below never shows CEO an Approve/Issue button. Visibility,
+// not authority.
+const OVERSIGHT_ROLE_NAMES = [...UNIVERSAL_ROLE_NAMES, "CEO"];
 function roleCanRequestDepartment(role: string, department: string): boolean {
   if (UNIVERSAL_ROLE_NAMES.includes(role)) return true;
   return DEPT_APPROVER_LABEL[department] !== role;
@@ -49,9 +55,11 @@ const ISSUER_ROLES = ["Super Admin", "Managing Director", "General Manager",
   "Restaurant Manager", "Store Keeper"];
 // Roles that approve or issue for AT LEAST ONE department — their natural
 // home screen is the queue of work waiting on them, not their own requests.
+// Front Office is NOT here — it only requests (Housekeeping/Banquets/its own
+// supplies), Hotel Manager approves those.
 const APPROVER_CAPABLE_ROLES = new Set([
   "Super Admin", "Managing Director", "General Manager",
-  "Restaurant Manager", "Front Office", "Housekeeping", "Store Keeper",
+  "Restaurant Manager", "Hotel Manager", "Housekeeping", "Store Keeper",
 ]);
 
 type Tab = "queue" | "mine";
@@ -62,7 +70,8 @@ export function MaterialRequests() {
   const { user } = useApp();
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<Tab>(
-    () => (user && APPROVER_CAPABLE_ROLES.has(user.role) ? "queue" : "mine"));
+    () => (user && (APPROVER_CAPABLE_ROLES.has(user.role) || OVERSIGHT_ROLE_NAMES.includes(user.role))
+      ? "queue" : "mine"));
 
   // Can THIS user actually move this indent forward? (server already scopes
   // the queue to items that are actionable, but this still guards the
@@ -121,15 +130,15 @@ export function MaterialRequests() {
       {/* Segregated by design: nobody sees every department's indents dumped
           together. "My requests" tracks what YOU raised. The other tab is
           "Approval queue" for department-scoped roles (only what's waiting
-          on your desk), but "All requests" for Super Admin/MD/GM — they're
-          universal approvers+issuers already, so they get full oversight:
-          every department, every status, including completed history. */}
+          on your desk), but "All requests" for Super Admin/MD/GM (universal
+          approvers+issuers) and CEO (oversight-only, see OVERSIGHT_ROLE_NAMES
+          above) — full property, every department, every status. */}
       {(() => {
-        const isUniversal = !!user && UNIVERSAL_ROLE_NAMES.includes(user.role);
+        const isOversight = !!user && OVERSIGHT_ROLE_NAMES.includes(user.role);
         return (
           <div className="flex gap-6 mb-5 border-b border-hairline">
             {([
-              { key: "queue" as const, label: isUniversal ? "All requests" : "Approval queue" },
+              { key: "queue" as const, label: isOversight ? "All requests" : "Approval queue" },
               { key: "mine" as const, label: "My requests" },
             ]).map((t) => {
               const active = tab === t.key;
@@ -149,7 +158,7 @@ export function MaterialRequests() {
       {isLoading ? <Spinner /> : !data?.length ? (
         <EmptyState
           title={tab === "queue"
-            ? (user && UNIVERSAL_ROLE_NAMES.includes(user.role) ? "No indents raised yet" : "Nothing awaiting your approval")
+            ? (user && OVERSIGHT_ROLE_NAMES.includes(user.role) ? "No indents raised yet" : "Nothing awaiting your approval")
             : "You haven't raised any indents"}
           hint={tab === "queue"
             ? "Requests from departments you approve (or that are ready to issue) will show up here."

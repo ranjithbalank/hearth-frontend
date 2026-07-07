@@ -95,6 +95,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       "General Manager": ["dashboard", "/dashboard"],
       "Finance": ["accounting", "/accounting"],
       "Restaurant Manager": ["pos", "/pos"],
+      "Hotel Manager": ["dashboard", "/dashboard"],
       "Front Office": ["frontdesk", "/frontdesk"],
       "F&B Cashier": ["pos", "/pos"],
       "Captain": ["pos", "/pos"],
