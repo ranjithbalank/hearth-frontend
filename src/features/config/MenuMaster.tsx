@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
 import { amount } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 import type { MenuItem } from "../../lib/types";
@@ -13,11 +14,21 @@ interface Category { id: number; name: string }
 export function MenuMaster() {
   const qc = useQueryClient();
   const toast = useToast();
-  const empty = { name: "", category: "", price: "", gst_rate: "5", diet: "veg" };
+  const { property } = useApp();
+  // Combined mode: no separate Bar Menu Master, so beverages are managed
+  // right here too — station picker appears, and bar categories show up
+  // alongside the restaurant's own.
+  const barCombined = property?.entitlement.bar_mode === "combined";
+  const empty = { name: "", category: "", price: "", gst_rate: "5", diet: "veg", station: "kitchen" };
   const [form, setForm] = useState(empty);
   const [q, setQ] = useState("");
 
-  const { data: cats } = useQuery({ queryKey: ["cats"], queryFn: async () => (await api.get<Category[]>("/pos/categories/")).data });
+  // Separate mode: restaurant categories only — the bar's own (Beer, Wine,
+  // Cocktails…) live in Bar Menu Master, never mixed in here.
+  const { data: cats } = useQuery({
+    queryKey: ["cats", barCombined],
+    queryFn: async () => (await api.get<Category[]>(`/pos/categories/${barCombined ? "" : "?is_bar=0"}`)).data,
+  });
   const { data: items, isLoading } = useQuery({ queryKey: ["menu"], queryFn: async () => (await api.get<MenuItem[]>("/pos/menu-items/")).data });
 
   const create = useMutation({
@@ -25,8 +36,9 @@ export function MenuMaster() {
       (await api.post("/pos/menu-items/", {
         name: form.name, category: Number(form.category), price: form.price,
         gst_rate: form.gst_rate, diet: form.diet,
+        ...(barCombined ? { station: form.station } : {}),
       })).data,
-    onSuccess: () => { setForm({ ...empty, category: form.category }); toast("Menu item added"); qc.invalidateQueries({ queryKey: ["menu"] }); },
+    onSuccess: () => { setForm({ ...empty, category: form.category, station: form.station }); toast("Menu item added"); qc.invalidateQueries({ queryKey: ["menu"] }); },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add item — check the values and try again", "error"),
   });
 
@@ -66,6 +78,10 @@ export function MenuMaster() {
 
   if (isLoading || !items) return <Spinner />;
 
+  // Separate mode: the bar runs its own menu (see Bar Menu Master) — keep it
+  // out of the restaurant's own item list. Combined: show everything.
+  const shown = barCombined ? items : items.filter((m) => m.station !== "bar");
+
   return (
     <div>
       <PageHeader
@@ -75,7 +91,7 @@ export function MenuMaster() {
       />
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add menu item</div>
-        <div className="grid grid-cols-5 gap-2">
+        <div className={`grid gap-2 ${barCombined ? "grid-cols-6" : "grid-cols-5"}`}>
           <input className="input" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             <option value="">Category…</option>
@@ -87,6 +103,12 @@ export function MenuMaster() {
             <option value="12">12% GST</option>
             <option value="18">18% GST</option>
           </select>
+          {barCombined && (
+            <select className="input" value={form.station} onChange={(e) => setForm({ ...form, station: e.target.value })}>
+              <option value="kitchen">Kitchen dish</option>
+              <option value="bar">Beverage (bar)</option>
+            </select>
+          )}
           <select className="input" value={form.diet} onChange={(e) => setForm({ ...form, diet: e.target.value })}>
             <option value="veg">Veg</option>
             <option value="nonveg">Non-veg</option>
@@ -112,7 +134,7 @@ export function MenuMaster() {
             </tr>
           </thead>
           <tbody>
-            {items.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).map((m) => (
+            {shown.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).map((m) => (
               <tr key={m.id} className="border-t border-line">
                 <td className="px-4 py-2">
                   <button onClick={() => pickImage(m)} title="Upload photo"
@@ -120,7 +142,10 @@ export function MenuMaster() {
                     {m.image ? <img src={m.image} alt="" className="h-full w-full object-cover" /> : "📷"}
                   </button>
                 </td>
-                <td className="px-4 py-3 font-medium">{m.name}</td>
+                <td className="px-4 py-3 font-medium">
+                  {m.name}
+                  {barCombined && m.station === "bar" && <Badge tone="amber">bar</Badge>}
+                </td>
                 <td className="px-4 py-3 text-muted">{m.category_name}</td>
                 <td className="px-4 py-3">
                   <Badge tone={m.diet === "veg" ? "pine" : "clay"}>{m.diet}</Badge>

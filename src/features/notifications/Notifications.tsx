@@ -25,6 +25,7 @@ const ROUTES: Record<string, string> = {
   procurement: "/procurement",
   banquets: "/banquets",
   reports: "/reports",
+  recipes: "/recipes?tab=pending",
 };
 
 export function Notifications() {

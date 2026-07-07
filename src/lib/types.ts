@@ -11,7 +11,9 @@ export type Role =
   | "Captain"
   | "Housekeeping"
   | "Chef / Kitchen"
-  | "Store Keeper";
+  | "Store Keeper"
+  | "Bar Captain"
+  | "Bar Cashier";
 
 export interface User {
   id: number;
@@ -32,6 +34,7 @@ export interface Entitlement {
   restaurant: boolean;
   banquets: boolean;
   rms: boolean;
+  bar_mode: "separate" | "combined";
 }
 
 export interface Property {
@@ -149,6 +152,8 @@ export interface MenuItem {
   diet: string;
   available: boolean;
   image: string;
+  station: string;
+  bar_menu: boolean;
   variants?: Variant[];
   addon_groups?: AddOnGroup[];
 }
@@ -176,8 +181,11 @@ export interface OrderLine {
 export interface Order {
   id: number;
   mode: string;
+  department: string;
   table: number | null;
   table_name: string | null;
+  bar_table: number | null;
+  bar_table_name: string | null;
   status: string;
   status_label: string;
   folio: number | null;

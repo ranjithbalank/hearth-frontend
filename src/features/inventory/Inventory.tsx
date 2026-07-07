@@ -79,6 +79,9 @@ export function Inventory({ fixedTab, tabGroup, title }: {
     ?? (tabGroup ? (tabGroup.includes(tabState) ? tabState : tabGroup[0]) : tabState);
   const visibleTabs = tabGroup ? TABS.filter((t) => tabGroup.includes(t.key)) : TABS;
   const [q, setQ] = useState("");
+  // Stock stays one shared system — this just lets you see, at a glance,
+  // which materials are Liquor (bar-exclusive) vs the shared kitchen stock.
+  const [catFilter, setCatFilter] = useState("");
   const [action, setAction] = useState<{ kind: "adjust" | "waste" | "count" | "transfer"; ing: Ingredient } | null>(null);
   const [moveKind, setMoveKind] = useState("");
   const [days, setDays] = useState(30);
@@ -93,17 +96,17 @@ export function Inventory({ fixedTab, tabGroup, title }: {
     refetchInterval: 20000,
   });
   const { data: moves } = useQuery({
-    queryKey: ["inv-moves", tab, moveKind, days],
+    queryKey: ["inv-moves", tab, moveKind, days, catFilter],
     queryFn: async () => {
       const kind = tab === "transfer" ? "transfer"
         : tab === "wastage" ? "wastage" : moveKind;
-      return (await api.get<Movement[]>(`/inventory/movements/?days=${days}${kind ? `&kind=${kind}` : ""}`)).data;
+      return (await api.get<Movement[]>(`/inventory/movements/?days=${days}${kind ? `&kind=${kind}` : ""}${catFilter ? `&category=${encodeURIComponent(catFilter)}` : ""}`)).data;
     },
     enabled: ["movements", "transfer", "wastage"].includes(tab),
   });
   const { data: consumption } = useQuery({
-    queryKey: ["inv-consumption", days],
-    queryFn: async () => (await api.get<{ rows: ConsumptionRow[] }>(`/inventory/consumption_report/?days=${days}`)).data,
+    queryKey: ["inv-consumption", days, catFilter],
+    queryFn: async () => (await api.get<{ rows: ConsumptionRow[] }>(`/inventory/consumption_report/?days=${days}${catFilter ? `&category=${encodeURIComponent(catFilter)}` : ""}`)).data,
     enabled: tab === "dashboard",
   });
   const { data: expiring } = useQuery({
@@ -141,7 +144,8 @@ export function Inventory({ fixedTab, tabGroup, title }: {
     ? (consumption?.rows ?? []).reduce((s, r) => s + Number(r.consumption_cost), 0)
     : null;
   const rows = data.filter((i) =>
-    !q || i.name.toLowerCase().includes(q.toLowerCase()) || i.code.toLowerCase().includes(q.toLowerCase()));
+    (!q || i.name.toLowerCase().includes(q.toLowerCase()) || i.code.toLowerCase().includes(q.toLowerCase()))
+    && (!catFilter || i.category === catFilter));
 
   const registerTable = (title: string, kind: string, extra?: React.ReactNode) => (
     <>
@@ -152,6 +156,10 @@ export function Inventory({ fixedTab, tabGroup, title }: {
             Last {d} days
           </button>
         ))}
+        <select className="input w-40 text-xs" value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
+          <option value="">All categories</option>
+          {categories?.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+        </select>
         {extra}
         <button className="btn-outline text-xs py-1 ml-auto" onClick={() => downloadRegister(kind, days)}>
           Export CSV
@@ -198,6 +206,10 @@ export function Inventory({ fixedTab, tabGroup, title }: {
         subtitle="Raw materials · consumption auto-deducts from recipes on KOT"
         action={tab === "materials" ? (
           <div className="flex items-center gap-2">
+            <select className="input w-40" value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
+              <option value="">All categories</option>
+              {categories?.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select>
             <input className="input w-48" placeholder="Search name or code…" value={q} onChange={(e) => setQ(e.target.value)} />
             <button className="btn-primary text-sm" onClick={() => nav("/store/materials/new")}>+ Raw material</button>
           </div>

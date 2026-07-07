@@ -42,6 +42,10 @@ export function Pos() {
   const ask = usePrompt();
   const toast = useToast();
   const hms = property?.entitlement.hms;
+  // Combined mode: the bar isn't a separate operation, so its categories and
+  // drinks show up right here — still their own category pills (Beer, Wine,
+  // Cocktails…), just not a whole separate desk/login.
+  const barCombined = property?.entitlement.bar_mode === "combined";
   // Role↔tender mapping (mirrors the backend): captains settle digital payments
   // tableside; cash is collected only at the cashier counter.
   const tenders = user?.role === "Captain" ? ["UPI", "Gateway"] : ["Cash", "UPI", "Gateway"];
@@ -80,8 +84,16 @@ export function Pos() {
   }
 
   const { data: tables } = useQuery({ queryKey: ["tables"], queryFn: async () => (await api.get<Table[]>("/pos/tables/")).data });
-  const { data: cats } = useQuery({ queryKey: ["cats"], queryFn: async () => (await api.get<Category[]>("/pos/categories/")).data });
-  const { data: items, isLoading } = useQuery({ queryKey: ["menu"], queryFn: async () => (await api.get<MenuItem[]>("/pos/menu-items/")).data });
+  // Separate mode: the restaurant POS never shows the bar's own
+  // categories/drinks — that's its own operation (Bar POS). Combined mode:
+  // no separate desk, so the bar's categories/drinks show up right here too.
+  // A kitchen dish stays visible either way, even if also on the bar menu.
+  const { data: cats } = useQuery({
+    queryKey: ["cats", barCombined],
+    queryFn: async () => (await api.get<Category[]>(`/pos/categories/${barCombined ? "" : "?is_bar=0"}`)).data,
+  });
+  const { data: allItems, isLoading } = useQuery({ queryKey: ["menu"], queryFn: async () => (await api.get<MenuItem[]>("/pos/menu-items/")).data });
+  const items = barCombined ? allItems : allItems?.filter((m) => m.station !== "bar");
   const { data: order } = useQuery({
     queryKey: ["order", orderId],
     queryFn: async () => (await api.get<Order>(`/pos/orders/${orderId}/`)).data,

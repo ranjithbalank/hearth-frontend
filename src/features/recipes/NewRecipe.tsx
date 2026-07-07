@@ -35,6 +35,9 @@ export function NewRecipe() {
   const qc = useQueryClient();
   const { user } = useApp();
   const canSeeCost = COST_VISIBLE_ROLES.includes(user?.role ?? "");
+  // Mirrors the backend: a Chef-proposed dish needs a manager's sign-off
+  // before it's orderable — everyone else creating a dish here is trusted.
+  const needsApproval = user?.role === "Chef / Kitchen";
   const [dish, setDish] = useState({ name: "", price: "", category: "", gst_rate: "5", diet: "veg" });
   const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }]);
 
@@ -72,12 +75,17 @@ export function NewRecipe() {
       lines: validLines.map((l) => ({ ingredient: l.ingredient, qty: l.qty,
         unit: l.unit, wastage_pct: l.wastage_pct || "0" })),
     })).data,
-    onSuccess: (d: { item: string; plate_cost?: string }) => {
-      toast(d.plate_cost
-        ? `"${d.item}" is on the menu · plate cost ${inr(d.plate_cost)} · stock deducts on every KOT`
-        : `"${d.item}" is on the menu · stock deducts on every KOT`);
+    onSuccess: (d: { item: string; plate_cost?: string; approval_status: string }) => {
+      if (d.approval_status === "pending") {
+        toast(`"${d.item}" saved — pending manager approval before it goes on the menu`);
+      } else {
+        toast(d.plate_cost
+          ? `"${d.item}" is on the menu · plate cost ${inr(d.plate_cost)} · stock deducts on every KOT`
+          : `"${d.item}" is on the menu · stock deducts on every KOT`);
+      }
       qc.invalidateQueries({ queryKey: ["recipes"] });
       qc.invalidateQueries({ queryKey: ["recipe-mapping"] });
+      qc.invalidateQueries({ queryKey: ["recipe-pending"] });
       nav("/recipes");
     },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save the recipe", "error"),
@@ -87,7 +95,9 @@ export function NewRecipe() {
     <div>
       <PageHeader
         title="Create recipe"
-        subtitle="Per-serving raw-material consumption · the dish goes live on the restaurant menu"
+        subtitle={needsApproval
+          ? "Per-serving raw-material consumption · a manager signs off before it goes live"
+          : "Per-serving raw-material consumption · the dish goes live on the restaurant menu"}
         action={<button className="btn-ghost text-sm" onClick={() => nav("/recipes")}>← Recipes</button>}
       />
 
@@ -209,10 +219,18 @@ export function NewRecipe() {
           <button className="btn-primary"
             disabled={!dish.name.trim() || !dish.category.trim() || !(price > 0) || !validLines.length || save.isPending}
             onClick={() => save.mutate()}>
-            {save.isPending ? "Saving…" : "Save — put dish on the menu"}
+            {needsApproval
+              ? (save.isPending ? "Sending…" : "Send for approval")
+              : (save.isPending ? "Saving…" : "Save — put dish on the menu")}
           </button>
         </div>
       </Card>
+
+      {needsApproval && (
+        <div className="text-xs text-muted -mt-2 mb-4">
+          A manager (Restaurant Manager, GM, MD or Super Admin) reviews it before it's orderable — you'll see the outcome on this screen.
+        </div>
+      )}
     </div>
   );
 }

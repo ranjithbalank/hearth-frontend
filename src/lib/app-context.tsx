@@ -74,6 +74,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const allowed = user.allowed_modules;
     const roleOk = allowed === "*" || allowed.includes(module);
     if (!roleOk) return false;
+    // The bar's own screens only make sense when the property runs the bar
+    // as a separate operation — in Combined mode drinks live in the one
+    // restaurant POS instead, so hide Bar POS / Bar Table / Bar Menu Master.
+    if (module === "barpos" && property?.entitlement.bar_mode === "combined") return false;
     const flag = MODULE_ENTITLEMENT[module];
     if (!flag) return true;
     const ent: Entitlement | undefined = property?.entitlement;

@@ -412,6 +412,16 @@ export function Settings() {
     }
   }
 
+  async function setBarMode(mode: "separate" | "combined") {
+    setSaving(`bar_mode:${mode}`);
+    try {
+      await api.patch("/auth/entitlements/", { bar_mode: mode });
+      await refreshProperty();
+    } finally {
+      setSaving(null);
+    }
+  }
+
   return (
     <div>
       <PageHeader title="Settings" subtitle={`${property?.name} · edition: ${property?.edition}`} />
@@ -442,6 +452,29 @@ export function Settings() {
           ))}
         </div>
       </Card>
+
+      {property?.entitlement.restaurant && (
+        <Card className="mb-4">
+          <div className="font-semibold mb-1">Bar operating mode</div>
+          <div className="text-sm text-muted mb-3">
+            Changeable anytime. Separate gives the bar its own tables, menu, and Bar Captain/Bar
+            Cashier logins. Combined folds drinks into the one restaurant POS as a Food/Bar tab —
+            no separate bar desk.
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { k: "separate" as const, label: "Separate operation", desc: "Its own tables, menu, and bar-only logins" },
+              { k: "combined" as const, label: "Combined with restaurant", desc: "One POS, one set of roles, drinks in their own tab" },
+            ].map((m) => (
+              <button key={m.k} onClick={() => setBarMode(m.k)} disabled={saving === `bar_mode:${m.k}`}
+                className={`text-left rounded-card border p-4 ${property?.entitlement.bar_mode === m.k ? "border-pine bg-pine-50" : "border-hairline"}`}>
+                <div className="font-semibold">{m.label}</div>
+                <div className="text-sm text-muted mt-1">{m.desc}</div>
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="mb-4">
         <div className="font-semibold mb-1">Edition entitlements</div>

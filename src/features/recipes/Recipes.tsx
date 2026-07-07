@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
@@ -12,6 +12,8 @@ import { inr } from "../../lib/money";
 // Plate cost & margin are ownership-level P&L info — Chef and Restaurant
 // Manager build/run recipes without needing to see them.
 const COST_VISIBLE_ROLES = ["Super Admin", "Managing Director", "General Manager"];
+// A Chef-proposed new dish needs one of these to sign off before it's orderable.
+const MENU_APPROVER_ROLES = ["Super Admin", "Managing Director", "General Manager", "Restaurant Manager"];
 
 interface Recipe {
   id: number; item: string; price: string; plate_cost?: string; margin_pct?: number;
@@ -23,12 +25,18 @@ interface MappingLine {
 }
 interface MappingRow {
   menu_item: number; name: string; category: string; price: string; available: boolean;
+  approval_status: "pending" | "approved" | "rejected"; reject_reason: string;
   recipe_id: number | null; plate_cost: string | null; lines: MappingLine[];
 }
 interface IngredientOpt { id: number; name: string; unit: string }
 interface ConsumptionRow {
   item: string; plates: number; cost: string | null;
   lines: { name: string; qty: string; unit: string; cost: string | null }[];
+}
+interface PendingDish {
+  menu_item: number; name: string; category: string; price: string; created_by: string;
+  plate_cost: string; margin_pct: number;
+  lines: { name: string; qty: string; unit: string }[];
 }
 
 export function Recipes() {
@@ -38,7 +46,11 @@ export function Recipes() {
   const navigate = useNavigate();
   const { user } = useApp();
   const canSeeCost = COST_VISIBLE_ROLES.includes(user?.role ?? "");
-  const [tab, setTab] = useState<"recipes" | "mapping" | "consumption">("recipes");
+  const canApprove = MENU_APPROVER_ROLES.includes(user?.role ?? "");
+  const [searchParams] = useSearchParams();
+  // Deep-link from the Notification center ("N dish(es) awaiting approval" → /recipes?tab=pending).
+  const initialTab = searchParams.get("tab") === "pending" && canApprove ? "pending" : "recipes";
+  const [tab, setTab] = useState<"recipes" | "mapping" | "consumption" | "pending">(initialTab);
   const [editing, setEditing] = useState<MappingRow | null>(null);
   const [days, setDays] = useState(30);
 
@@ -56,11 +68,30 @@ export function Recipes() {
     queryFn: async () => (await api.get<{ rows: ConsumptionRow[] }>(`/recipes/consumption/?days=${days}`)).data,
     enabled: tab === "consumption",
   });
+  const { data: pending } = useQuery({
+    queryKey: ["recipe-pending"],
+    queryFn: async () => (await api.get<PendingDish[]>("/recipes/pending_dishes/")).data,
+    enabled: canApprove,
+  });
 
   function refresh() {
     qc.invalidateQueries({ queryKey: ["recipes"] });
     qc.invalidateQueries({ queryKey: ["recipe-mapping"] });
+    qc.invalidateQueries({ queryKey: ["recipe-pending"] });
   }
+
+  const approveDish = useMutation({
+    mutationFn: async (menuItemId: number) => (await api.post(`/recipes/${menuItemId}/approve_dish/`)).data,
+    onSuccess: () => { toast("Dish approved — now on the menu"); refresh(); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not approve", "error"),
+  });
+
+  const rejectDish = useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) =>
+      (await api.post(`/recipes/${id}/reject_dish/`, { reason })).data,
+    onSuccess: () => { toast("Dish rejected"); refresh(); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not reject", "error"),
+  });
 
   // Batch prep: consumes the BOM (production movements) and credits "Prep: <item>" stock.
   const produce = useMutation({
@@ -109,6 +140,12 @@ export function Recipes() {
           className={`pill ${tab === "consumption" ? "bg-ink text-white" : "bg-hairline text-body"}`}>
           Raw material consumption
         </button>
+        {canApprove && (
+          <button onClick={() => setTab("pending")}
+            className={`pill ${tab === "pending" ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            Pending approval{pending?.length ? ` (${pending.length})` : ""}
+          </button>
+        )}
       </div>
 
       {tab === "recipes" && (
@@ -170,7 +207,15 @@ export function Recipes() {
             <tbody>
               {mapping?.map((m) => (
                 <tr key={m.menu_item} className="border-t border-line">
-                  <td className="px-4 py-3 font-medium">{m.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      <span>{m.name}</span>
+                      {m.approval_status === "pending" && <Badge tone="amber">Pending approval</Badge>}
+                    </div>
+                    {m.approval_status === "rejected" && (
+                      <div className="mt-1"><Badge tone="clay">Rejected: {m.reject_reason}</Badge></div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-muted text-xs">{m.category}</td>
                   <td className="px-4 py-3 text-right">{inr(m.price)}</td>
                   <td className="px-4 py-3">
@@ -250,6 +295,51 @@ export function Recipes() {
             </table>
           </div>
         </>
+      )}
+
+      {tab === "pending" && canApprove && (
+        <div className="grid grid-cols-2 gap-4">
+          {pending?.map((d) => (
+            <Card key={d.menu_item}>
+              <div className="flex items-center justify-between">
+                <div className="font-semibold">{d.name}</div>
+                <Badge tone={d.margin_pct >= 65 ? "pine" : d.margin_pct >= 50 ? "amber" : "clay"}>
+                  {d.margin_pct}% margin
+                </Badge>
+              </div>
+              <div className="text-xs text-muted mt-1">
+                {d.category} · proposed by {d.created_by}
+              </div>
+              <div className="flex gap-4 mt-2 text-sm">
+                <div><span className="text-muted">Sells </span>{inr(d.price)}</div>
+                <div><span className="text-muted">Cost </span>{inr(d.plate_cost)}</div>
+              </div>
+              <div className="mt-3 border-t border-line pt-2 space-y-1">
+                {d.lines.map((ing) => (
+                  <div key={ing.name} className="flex justify-between text-xs text-body">
+                    <span>{ing.name}</span>
+                    <span className="text-muted">{Number(ing.qty)} {ing.unit}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <button className="btn-primary text-xs flex-1" disabled={approveDish.isPending}
+                  onClick={() => approveDish.mutate(d.menu_item)}>
+                  Approve
+                </button>
+                <button className="btn-ghost text-xs text-clay flex-1" disabled={rejectDish.isPending}
+                  onClick={async () => {
+                    const reason = await ask({ title: `Reject "${d.name}"`, label: "Reason (Chef will see this)",
+                      placeholder: "e.g. too similar to an existing dish" });
+                    if (reason?.trim()) rejectDish.mutate({ id: d.menu_item, reason: reason.trim() });
+                  }}>
+                  Reject
+                </button>
+              </div>
+            </Card>
+          ))}
+          {!pending?.length && <div className="text-sm text-muted">No dishes awaiting approval.</div>}
+        </div>
       )}
 
       {editing && (

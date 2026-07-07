@@ -6,6 +6,9 @@ import { Spinner } from "./design/ui";
 import { useApp } from "./lib/app-context";
 import { Accounting } from "./features/accounting/Accounting";
 import { Banquets } from "./features/banquets/Banquets";
+import { BarMenu } from "./features/barpos/BarMenu";
+import { BarPos } from "./features/barpos/BarPos";
+import { BarTableMaster } from "./features/barpos/BarTableMaster";
 import { Booking } from "./features/booking/Booking";
 import { Channel } from "./features/channel/Channel";
 import { CateringPrices } from "./features/config/CateringPrices";
@@ -105,6 +108,10 @@ export default function App() {
         <Route path="/reconciliation" element={<RequireAccess module="pos"><Reconciliation /></RequireAccess>} />
         <Route path="/kds" element={<RequireAccess module="kds"><Kds /></RequireAccess>} />
         <Route path="/online-orders" element={<RequireAccess module="online"><OnlineOrders /></RequireAccess>} />
+        {/* Bar: its own operation, separate from the restaurant floor. */}
+        <Route path="/barpos" element={<RequireAccess module="barpos"><BarPos /></RequireAccess>} />
+        <Route path="/config/bar-tables" element={<RequireAccess module="barpos"><BarTableMaster /></RequireAccess>} />
+        <Route path="/config/bar-menu" element={<RequireAccess module="barpos"><BarMenu /></RequireAccess>} />
         {/* Store: the Restaurant Inventory spec's §6 screens, each standalone.
             /inventory stays as the all-tabs view for old links. */}
         <Route path="/inventory" element={<RequireAccess module="inventory"><Inventory /></RequireAccess>} />

@@ -19,6 +19,7 @@ export const MODULE_ENTITLEMENT: Record<string, keyof Entitlement | undefined> =
   booking: "hms",
   banquets: "banquets",
   pos: "restaurant",
+  barpos: "restaurant",
   kds: "restaurant",
   online: "restaurant",
   // matreq (material requests) is a shared service — hotel-only properties
@@ -101,6 +102,14 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
+    // Its own operation, separate from the restaurant floor — own tables, own login.
+    title: "Bar",
+    color: "#C77B5D",
+    items: [
+      { key: "barpos", label: "Bar POS", path: "/barpos" },
+    ],
+  },
+  {
     // Store: the Restaurant Inventory spec's §6 tabs as separate screens.
     // Data → its setup → what's built from it → the ledger → daily tools.
     title: "Store",
@@ -150,6 +159,8 @@ export const NAV: NavGroup[] = [
       { key: "roommaster", label: "Room Master", path: "/config/rooms" },
       { key: "menumaster", label: "Menu Master", path: "/config/menu" },
       { key: "tablemaster", label: "Table Master", path: "/config/tables" },
+      { key: "barpos", label: "Bar Table Master", path: "/config/bar-tables" },
+      { key: "barpos", label: "Bar Menu Master", path: "/config/bar-menu" },
       { key: "cateringmaster", label: "Catering Prices", path: "/config/catering" },
       { key: "gstmaster", label: "GST Master", path: "/config/gst" },
       { key: "roles", label: "Role Mapping", path: "/config/roles" },
