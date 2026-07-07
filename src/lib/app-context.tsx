@@ -37,10 +37,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   function setBranch(id: number | null) {
     setActiveBranch(id);
     setActiveBranchState(id);
-    // Every branch-scoped list depends on the header this just changed —
-    // simplest correct thing is to have React Query re-fetch everything
-    // live rather than track which queries happen to be branch-scoped.
-    window.location.reload();
+    // Every branch-scoped list depends on the header this just changed.
+    // The switcher (AppShell) invalidates the React Query cache right after
+    // calling this, so everything re-fetches in place — no full reload.
   }
 
   async function refreshProperty() {

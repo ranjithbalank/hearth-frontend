@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
@@ -26,6 +26,7 @@ interface Alert { severity: string; module: string; title: string; detail: strin
  * never sees this, they just land on their branch. */
 function BranchSwitcher() {
   const { user, activeBranch, setBranch } = useApp();
+  const qc = useQueryClient();
   const allBranches = user?.branches === "*";
   const { data: everyBranch } = useQuery({
     queryKey: ["branches"],
@@ -49,7 +50,11 @@ function BranchSwitcher() {
     <select
       className="input py-1.5 text-xs max-w-[180px]"
       value={activeBranch ?? ""}
-      onChange={(e) => setBranch(e.target.value ? Number(e.target.value) : null)}
+      onChange={(e) => {
+        setBranch(e.target.value ? Number(e.target.value) : null);
+        // Refetch every list under the new X-Branch-Id in place — no reload.
+        qc.invalidateQueries();
+      }}
       title="Switch branch"
     >
       {allBranches && <option value="">All branches</option>}
@@ -128,10 +133,41 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // Accordion default: collapse everything for big menus (MD/GM) so it's tidy;
   // for small menus (≤2 groups, e.g. Housekeeping) collapsing isn't needed — open all.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
-    groups.length <= 2 ? Object.fromEntries(groups.map((g) => [g.title, true])) : {},
-  );
+  // Remembered across sessions so nobody re-opens their usual groups every morning.
+  const NAV_STATE = "hearth_nav_open";
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(NAV_STATE) || "null");
+      if (saved && typeof saved === "object") return saved;
+    } catch { /* corrupted — fall through to defaults */ }
+    return groups.length <= 2 ? Object.fromEntries(groups.map((g) => [g.title, true])) : {};
+  });
+  useEffect(() => {
+    localStorage.setItem(NAV_STATE, JSON.stringify(openGroups));
+  }, [openGroups]);
+  // Wherever you land (deep link, refresh, cross-module jump), the group that
+  // owns the current screen opens itself — no hunting for which section it's in.
+  useEffect(() => {
+    const here = groups.find((g) => g.items.some(
+      (i) => i.path === location.pathname || location.pathname.startsWith(i.path + "/"),
+    ));
+    if (here) setOpenGroups((s) => (s[here.title] ? s : { ...s, [here.title]: true }));
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggleGroup = (t: string) => setOpenGroups((s) => ({ ...s, [t]: !s[t] }));
+
+  // Quick find: type to filter the whole menu; matches show expanded.
+  const [navQuery, setNavQuery] = useState("");
+  const q = navQuery.trim().toLowerCase();
+  const visibleGroups = q
+    ? groups
+        .map((g) => ({
+          ...g,
+          items: g.title.toLowerCase().includes(q)
+            ? g.items
+            : g.items.filter((i) => i.label.toLowerCase().includes(q)),
+        }))
+        .filter((g) => g.items.length > 0)
+    : groups;
 
   return (
     <div className="flex h-full">
@@ -166,9 +202,23 @@ export function AppShell({ children }: { children: ReactNode }) {
              a zone's lead group still gets the divider ahead of whichever
              group of that zone it sees first). */
           <nav className="flex-1 overflow-y-auto px-3 pb-4">
-            {groups.map((g, idx) => {
-              const expanded = openGroups[g.title] ?? false;
-              const showZone = g.zone !== groups[idx - 1]?.zone;
+            {groups.length > 2 && (
+              <div className="px-1 pb-2">
+                <input
+                  value={navQuery}
+                  onChange={(e) => setNavQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Escape" && setNavQuery("")}
+                  placeholder="Find a screen…"
+                  className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-white/25"
+                />
+              </div>
+            )}
+            {q && visibleGroups.length === 0 && (
+              <div className="px-3 py-2 text-sm text-white/40">Nothing matches "{navQuery}"</div>
+            )}
+            {visibleGroups.map((g, idx) => {
+              const expanded = q ? true : (openGroups[g.title] ?? false);
+              const showZone = g.zone !== visibleGroups[idx - 1]?.zone;
               return (
                 <div key={g.title}>
                   {showZone && (
@@ -195,7 +245,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           // "/store" is a prefix of every Store screen — require an
                           // exact match so Dashboard doesn't stay lit on all of them.
                           end={i.path === "/store"}
-                          onClick={() => setMobileOpen(false)}
+                          onClick={() => { setMobileOpen(false); setNavQuery(""); }}
                           className={({ isActive }) =>
                             `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
                               isActive ? "bg-pine text-white" : "text-white/75 hover:bg-white/5"
