@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Badge, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { ALERT_ROUTES } from "../../lib/modules";
 
 interface Alert {
   severity: "critical" | "warning" | "info";
@@ -15,17 +16,6 @@ const TONE: Record<string, "clay" | "amber" | "info"> = {
   critical: "clay",
   warning: "amber",
   info: "info",
-};
-
-// module key -> route
-const ROUTES: Record<string, string> = {
-  inventory: "/inventory",
-  engineering: "/engineering",
-  channel: "/channel",
-  procurement: "/procurement",
-  banquets: "/banquets",
-  reports: "/reports",
-  recipes: "/recipes?tab=pending",
 };
 
 export function Notifications() {
@@ -51,7 +41,7 @@ export function Notifications() {
           {data.alerts.map((a, i) => (
             <button
               key={i}
-              onClick={() => ROUTES[a.module] && nav(ROUTES[a.module])}
+              onClick={() => ALERT_ROUTES[a.module] && nav(ALERT_ROUTES[a.module])}
               className="card p-4 w-full text-left flex items-center gap-4 hover:bg-cream"
             >
               <Badge tone={TONE[a.severity] ?? "info"}>{a.severity}</Badge>
@@ -59,7 +49,7 @@ export function Notifications() {
                 <div className="font-semibold">{a.title}</div>
                 <div className="text-sm text-muted">{a.detail}</div>
               </div>
-              {ROUTES[a.module] && <span className="text-muted text-sm">→</span>}
+              {ALERT_ROUTES[a.module] && <span className="text-muted text-sm">→</span>}
             </button>
           ))}
         </div>

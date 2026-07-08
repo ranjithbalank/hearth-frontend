@@ -34,6 +34,23 @@ export const MODULE_ENTITLEMENT: Record<string, keyof Entitlement | undefined> =
   cateringmaster: "banquets",
 };
 
+/** Where each /notifications alert's `module` key deep-links to — shared by the
+ * Notifications list page and the header bell's toast popups, so both stay in sync. */
+export const ALERT_ROUTES: Record<string, string> = {
+  inventory: "/inventory",
+  engineering: "/engineering",
+  channel: "/channel",
+  procurement: "/procurement",
+  banquets: "/banquets",
+  reports: "/reports",
+  recipes: "/recipes?tab=pending",
+  housekeeping: "/housekeeping",
+  livegrid: "/livegrid",
+  frontdesk: "/frontdesk",
+  barpos: "/barpos",
+  matreq: "/material-requests",
+};
+
 export interface NavItem {
   key: string;
   label: string;
