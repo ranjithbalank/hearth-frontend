@@ -7,7 +7,7 @@ import { useToast } from "../design/Toast";
 import { Logo } from "../design/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/app-context";
-import { NAV } from "../lib/modules";
+import { ALERT_ROUTES, NAV } from "../lib/modules";
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -48,7 +48,9 @@ function NotificationBell() {
     for (const a of data.alerts) {
       const key = keyOf(a);
       if ((a.severity === "warning" || a.severity === "critical") && !seen.current.has(key)) {
-        toast(a.detail ? `${a.title} · ${a.detail}` : a.title, a.severity === "critical" ? "error" : "info");
+        const route = ALERT_ROUTES[a.module];
+        toast(a.detail ? `${a.title} · ${a.detail}` : a.title, a.severity === "critical" ? "error" : "info",
+          route ? () => nav(route) : undefined);
       }
     }
     seen.current = new Set(data.alerts.map(keyOf));
