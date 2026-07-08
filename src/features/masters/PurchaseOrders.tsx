@@ -6,7 +6,7 @@ import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
 
 interface Po {
-  id: number; supplier: string; status: string; total: string;
+  id: number; po_no: string; supplier: string; status: string; total: string;
   lines: { ingredient: string; qty: string; rate: string }[];
 }
 const TABS = ["all", "pending", "approved", "received"];
@@ -40,7 +40,7 @@ export function PurchaseOrders() {
         {data.map((po) => (
           <Card key={po.id}>
             <div className="flex items-center gap-3">
-              <div className="font-semibold">PO #{po.id}</div>
+              <div className="font-semibold">{po.po_no || `PO #${po.id}`}</div>
               <span className="text-sm text-muted">{po.supplier}</span>
               <Badge tone={TONE[po.status] ?? "muted"}>{po.status}</Badge>
               <div className="ml-auto font-medium">{inr(po.total)}</div>

@@ -20,12 +20,12 @@ export const downloadInvoicePdf = (folio: { id: number; invoice_no?: string }) =
   downloadPdf(`/api/folios/${folio.id}/invoice_pdf/`, `${folio.invoice_no || "folio-" + folio.id}.pdf`);
 
 /** Download the POS bill/receipt PDF. */
-export const downloadBillPdf = (orderId: number) =>
-  downloadPdf(`/api/pos/orders/${orderId}/bill_pdf/`, `bill-${orderId}.pdf`);
+export const downloadBillPdf = (order: { id: number; bill_no?: string }) =>
+  downloadPdf(`/api/pos/orders/${order.id}/bill_pdf/`, `${order.bill_no || "bill-" + order.id}.pdf`);
 
 /** Download the Banquet Event Order (BEO) PDF. */
-export const downloadBeoPdf = (eventId: number) =>
-  downloadPdf(`/api/banquets/${eventId}/beo_pdf/`, `BEO-${eventId}.pdf`);
+export const downloadBeoPdf = (event: { id: number; beo_no?: string }) =>
+  downloadPdf(`/api/banquets/${event.id}/beo_pdf/`, `${event.beo_no || "BEO-" + event.id}.pdf`);
 
 const inr = (v: string | number) =>
   "₹" + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Number(v) || 0);

@@ -256,7 +256,7 @@ export function Pos() {
       const id = orderId!;
       if (order?.status !== "billed") {
         await api.post(`/pos/orders/${id}/bill/`);
-        downloadBillPdf(id);
+        downloadBillPdf({ id });
       }
       return (await api.post(`/pos/orders/${id}/settle/`, {
         tender, token: tender === "Gateway" ? "tok_demo_card" : undefined,
@@ -638,7 +638,7 @@ export function Pos() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           {order?.token_no && <Badge tone="pine">Token {order.token_no}</Badge>}
-          {order?.kot_no && <Badge tone="amber">{order.kot_no}</Badge>}
+          {(order?.bill_no || order?.kot_no) && <Badge tone="amber">{order.bill_no || order.kot_no}</Badge>}
           {order && <Badge tone={billed ? "clay" : "pine"}>{order.status_label}</Badge>}
         </div>
       </div>
@@ -843,7 +843,7 @@ export function Pos() {
                       ))}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <button className="btn-ghost text-xs" onClick={() => order && downloadBillPdf(order.id)}>Reprint bill</button>
+                      <button className="btn-ghost text-xs" onClick={() => order && downloadBillPdf(order)}>Reprint bill</button>
                       <button className="btn-ghost text-xs" disabled={reopenOrder.isPending} onClick={() => reopenOrder.mutate()}>
                         Reopen to edit
                       </button>

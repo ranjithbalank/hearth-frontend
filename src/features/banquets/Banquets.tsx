@@ -22,7 +22,7 @@ interface Event {
   package_amount: string; status: string; billed: boolean;
   food_covers: number; food_pref: string; food_veg: number; food_nonveg: number;
   veg_rate: string; nonveg_rate: string; catering_amount: string; bill_subtotal: string;
-  beo_status: string;
+  beo_status: string; beo_no: string;
 }
 
 const TONE: Record<string, "amber" | "info" | "pine"> = {
@@ -133,7 +133,10 @@ export function Banquets() {
         {visible.map((e) => (
           <Card key={e.id} className="flex items-center gap-4">
             <div className="flex-1">
-              <div className="font-semibold">{e.title} {e.event_type && <span className="text-muted font-normal">· {e.event_type}</span>}</div>
+              <div className="font-semibold">
+                {e.title} {e.event_type && <span className="text-muted font-normal">· {e.event_type}</span>}
+                {e.beo_no && <span className="text-xs text-muted font-normal ml-2">{e.beo_no}</span>}
+              </div>
               <div className="text-sm text-muted">
                 {e.space} · {e.event_date}{e.start_time ? ` · ${e.start_time}${e.end_time ? `–${e.end_time}` : ""}` : ""} · {e.covers} covers · {e.host}{e.contact ? ` (${e.contact})` : ""}
               </div>
@@ -148,7 +151,7 @@ export function Banquets() {
             </div>
             <div className="font-medium">{inr(e.package_amount)}</div>
             <Badge tone={TONE[e.status] ?? "muted"}>{e.status}</Badge>
-            <button className="btn-ghost text-xs" onClick={() => downloadBeoPdf(e.id)}>BEO PDF</button>
+            <button className="btn-ghost text-xs" onClick={() => downloadBeoPdf(e)}>BEO PDF</button>
             {!e.billed && (
               <button className="btn-ghost text-xs" onClick={() => setEditing(e)}>Adjust</button>
             )}

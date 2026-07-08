@@ -225,7 +225,7 @@ export function BarPos() {
     <div>
       <PageHeader
         title={screenTitle}
-        subtitle={order.kot_no ? `Ticket ${order.kot_no}` : mode === "takeaway" ? "New takeaway order" : "New tab"}
+        subtitle={order.bill_no ? `Bill ${order.bill_no}` : order.kot_no ? `Ticket ${order.kot_no}` : mode === "takeaway" ? "New takeaway order" : "New tab"}
         action={<button className="btn-ghost text-sm" onClick={reset}>← Bar floor</button>}
       />
       {readyStrip}

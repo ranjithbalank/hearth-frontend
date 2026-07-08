@@ -54,6 +54,11 @@ export interface Property {
   gst_billing_mode: string;
   zomato_commission_pct: string;
   swiggy_commission_pct: string;
+  invoice_prefix: string;
+  bill_prefix: string;
+  po_prefix: string;
+  grn_prefix: string;
+  beo_prefix: string;
 }
 
 export interface Room {
@@ -190,6 +195,7 @@ export interface Order {
   status_label: string;
   folio: number | null;
   kot_no: string;
+  bill_no: string;
   lines: OrderLine[];
   coupon_code: string | null;
   discount_kind: string;
