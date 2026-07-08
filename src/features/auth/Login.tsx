@@ -20,6 +20,7 @@ const DEMO = [
   { username: "store", role: "Store Keeper" },
   { username: "barcaptain", role: "Bar Captain" },
   { username: "barcashier", role: "Bar Cashier" },
+  { username: "hr", role: "HR Manager" },
 ];
 
 export function Login() {

@@ -27,6 +27,11 @@ export const downloadBillPdf = (orderId: number) =>
 export const downloadBeoPdf = (eventId: number) =>
   downloadPdf(`/api/banquets/${eventId}/beo_pdf/`, `BEO-${eventId}.pdf`);
 
+/** Download one employee's payslip PDF from a payroll run. */
+export const downloadPayslipPdf = (payslipId: number, employeeName: string, month: string) =>
+  downloadPdf(`/api/hr/payslip_pdf/?payslip=${payslipId}`,
+    `payslip-${employeeName.replace(/\s+/g, "-")}-${month}.pdf`);
+
 const inr = (v: string | number) =>
   "₹" + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Number(v) || 0);
 

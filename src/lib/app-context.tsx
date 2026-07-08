@@ -116,6 +116,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       "Housekeeping": ["housekeeping", "/housekeeping"],
       "Chef / Kitchen": ["kds", "/kds"],
       "Store Keeper": ["inventory", "/store"],
+      "Bar Captain": ["barpos", "/barpos"],
+      "Bar Cashier": ["barpos", "/barpos"],
+      "HR Manager": ["hr", "/hr"],
     };
     const pref = user ? prefs[user.role] : undefined;
     if (pref && canAccess(pref[0])) return pref[1];

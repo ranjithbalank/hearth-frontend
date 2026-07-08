@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
 import { inr } from "../../lib/money";
 
 interface Po {
@@ -11,9 +13,25 @@ interface Po {
 }
 const TABS = ["all", "pending", "approved", "received"];
 const TONE: Record<string, "amber" | "info" | "pine"> = { pending: "amber", approved: "info", received: "pine" };
+// Mirrors the backend's PO_APPROVER_ROLES / PO_HANDLER_ROLES (accounts/constants.py):
+// Finance can reach this screen (via the "pomanage" module) to approve spend,
+// but never raises or receives a PO itself — Restaurant Manager and Store
+// Keeper physically handle the goods. Hiding the button (not just disabling
+// it) avoids a click that would only ever come back a 403.
+const PO_APPROVER_ROLES = new Set([
+  "Super Admin", "Managing Director", "General Manager", "Finance", "Restaurant Manager",
+]);
+const PO_HANDLER_ROLES = new Set([
+  "Super Admin", "Managing Director", "General Manager", "Restaurant Manager", "Store Keeper",
+]);
 
 export function PurchaseOrders() {
   const qc = useQueryClient();
+  const toast = useToast();
+  const { user } = useApp();
+  const role = user?.role ?? "";
+  const canApprove = PO_APPROVER_ROLES.has(role);
+  const canHandle = PO_HANDLER_ROLES.has(role);
   const [tab, setTab] = useState("all");
   const { data, isLoading } = useQuery({
     queryKey: ["po-master", tab],
@@ -23,6 +41,7 @@ export function PurchaseOrders() {
     mutationFn: async ({ id, action }: { id: number; action: string }) =>
       (await api.post(`/purchase-orders/${id}/${action}/`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["po-master"] }),
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not update the purchase order", "error"),
   });
 
   if (isLoading || !data) return <Spinner />;
@@ -44,8 +63,12 @@ export function PurchaseOrders() {
               <span className="text-sm text-muted">{po.supplier}</span>
               <Badge tone={TONE[po.status] ?? "muted"}>{po.status}</Badge>
               <div className="ml-auto font-medium">{inr(po.total)}</div>
-              {po.status === "pending" && <button className="btn-outline" onClick={() => act.mutate({ id: po.id, action: "approve" })}>Approve</button>}
-              {po.status === "approved" && <button className="btn-primary" onClick={() => act.mutate({ id: po.id, action: "receive" })}>Receive</button>}
+              {po.status === "pending" && canApprove && (
+                <button className="btn-outline" onClick={() => act.mutate({ id: po.id, action: "approve" })}>Approve</button>
+              )}
+              {po.status === "approved" && canHandle && (
+                <button className="btn-primary" onClick={() => act.mutate({ id: po.id, action: "receive" })}>Receive</button>
+              )}
             </div>
           </Card>
         ))}

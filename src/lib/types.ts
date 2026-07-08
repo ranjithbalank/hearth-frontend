@@ -14,7 +14,8 @@ export type Role =
   | "Chef / Kitchen"
   | "Store Keeper"
   | "Bar Captain"
-  | "Bar Cashier";
+  | "Bar Cashier"
+  | "HR Manager";
 
 export interface BranchAccess {
   id: number;

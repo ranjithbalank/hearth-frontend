@@ -85,7 +85,7 @@ function BranchAccessCell({ user, branches }: { user: User; branches: Branch[] }
 const ROLES: Role[] = [
   "Super Admin", "Admin", "Managing Director", "CEO", "General Manager",
   "Finance", "Restaurant Manager", "Hotel Manager", "Front Office", "F&B Cashier", "Captain",
-  "Housekeeping", "Chef / Kitchen", "Store Keeper",
+  "Housekeeping", "Chef / Kitchen", "Store Keeper", "Bar Captain", "Bar Cashier", "HR Manager",
 ];
 
 function UsersPanel() {
