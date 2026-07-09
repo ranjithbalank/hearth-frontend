@@ -6,6 +6,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { toCsv, parseCsv, downloadFile } from "../../lib/csv";
 import { amount } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 import type { MenuItem } from "../../lib/types";
@@ -13,39 +14,6 @@ import type { MenuItem } from "../../lib/types";
 interface Category { id: number; name: string }
 
 const CSV_COLUMNS = ["Name", "Category", "Price", "GST Rate", "Diet", "Station"];
-
-function csvEscape(v: string): string {
-  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-}
-function toCsv(rows: (string | number)[][]): string {
-  return rows.map((r) => r.map((v) => csvEscape(String(v))).join(",")).join("\r\n");
-}
-function parseCsvLine(line: string): string[] {
-  const out: string[] = [];
-  let cur = "", inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (inQuotes) {
-      if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false; }
-      else cur += c;
-    } else if (c === '"') inQuotes = true;
-    else if (c === ",") { out.push(cur); cur = ""; }
-    else cur += c;
-  }
-  out.push(cur);
-  return out;
-}
-function parseCsv(text: string): string[][] {
-  return text.split(/\r\n|\n/).filter((l) => l.trim().length > 0).map(parseCsvLine);
-}
-function downloadFile(filename: string, content: string) {
-  const blob = new Blob(["﻿" + content], { type: "text/csv;charset=utf-8;" }); // BOM so Excel opens ₹/UTF-8 cleanly
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 export function MenuMaster() {
   const qc = useQueryClient();
