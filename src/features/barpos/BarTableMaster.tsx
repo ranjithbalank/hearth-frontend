@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
 import { digits } from "../../lib/inputs";
+import type { Branch } from "../../lib/types";
 
 interface BarTable {
   id: number; name: string; section: string; seats: number; status: string; status_label: string;
@@ -15,7 +17,8 @@ interface BarTable {
 export function BarTableMaster() {
   const qc = useQueryClient();
   const toast = useToast();
-  const empty = { name: "", section: "Bar", seats: "4" };
+  const { user, activeBranch } = useApp();
+  const empty = { name: "", section: "Bar", seats: "4", location: activeBranch ? String(activeBranch) : "" };
   const [form, setForm] = useState(empty);
 
   const { data, isLoading } = useQuery({
@@ -23,9 +26,27 @@ export function BarTableMaster() {
     queryFn: async () => (await api.get<BarTable[]>("/bar/tables/")).data,
   });
 
+  const allBranches = user?.branches === "*";
+  const { data: everyBranch } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => (await api.get<Branch[]>("/auth/branches/")).data,
+    enabled: allBranches,
+  });
+  const branchOptions = allBranches
+    ? everyBranch ?? []
+    : Array.from(
+        new Map(
+          (Array.isArray(user?.branches) ? user.branches : [])
+            .map((a) => [a.branch, { id: a.branch, name: a.branch_name }]),
+        ).values(),
+      );
+
   const create = useMutation({
     mutationFn: async () =>
-      (await api.post("/bar/tables/", { name: form.name, section: form.section, seats: Number(form.seats) || 1 })).data,
+      (await api.post("/bar/tables/", {
+        name: form.name, section: form.section, seats: Number(form.seats) || 1,
+        ...(form.location ? { location: Number(form.location) } : {}),
+      })).data,
     onSuccess: () => { setForm(empty); toast("Bar table added"); qc.invalidateQueries({ queryKey: ["bar-tables-master"] }); },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add bar table", "error"),
   });
@@ -40,10 +61,16 @@ export function BarTableMaster() {
       <PageHeader title="Bar Table Master" subtitle="The bar's own seating — separate from the restaurant floor" />
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add bar table</div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           <input className="input" placeholder="Name (e.g. B7)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className="input" placeholder="Section" value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} />
           <input className="input" inputMode="numeric" placeholder="Seats" value={form.seats} onChange={(e) => setForm({ ...form, seats: digits(e.target.value, 3) })} />
+          {branchOptions.length > 1 && (
+            <select className="input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}>
+              <option value="">Branch…</option>
+              {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
         </div>
         <button className="btn-primary mt-3" disabled={!form.name || create.isPending} onClick={() => create.mutate()}>
           Add bar table

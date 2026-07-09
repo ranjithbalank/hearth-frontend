@@ -51,6 +51,10 @@ export function Pos() {
   const tenders = user?.role === "Captain" ? ["UPI", "Gateway"] : ["Cash", "UPI", "Gateway"];
   // Captains work the tables — takeaway/delivery/room orders are counter flows.
   const isCaptain = user?.role === "Captain";
+  // Who's allowed to hand tables to captains — the F&B Cashier runs the
+  // floor day-to-day; admin roles can always override.
+  const canAssignCaptains = ["F&B Cashier", "Super Admin", "Managing Director", "General Manager"].includes(user?.role ?? "");
+  const [showAssign, setShowAssign] = useState(false);
 
   const [mode, setMode] = useState<Mode>("dinein");
   const [table, setTable] = useState<Table | null>(null);
@@ -411,7 +415,18 @@ export function Pos() {
   if (view === "floor") {
     return (
       <div>
-        <PageHeader title="Restaurant POS" subtitle="Tap a table to open its order" />
+        <PageHeader
+          title="Restaurant POS"
+          subtitle="Tap a table to open its order"
+          action={canAssignCaptains ? (
+            <button
+              className="btn font-semibold bg-amber text-ink hover:bg-amber-600 shadow-pop"
+              onClick={() => setShowAssign(true)}
+            >
+              🧑‍🍳 Assign captains
+            </button>
+          ) : undefined}
+        />
         {banner}
         {readyStrip}
         <div className="flex flex-wrap items-center gap-2 mb-5">
@@ -481,25 +496,41 @@ export function Pos() {
           {tables?.map((t) => {
             const checks = ordersByTable.get(t.id) ?? [];
             const running = t.status === "running";
+            // Hard assignment: once the F&B Cashier hands a table to a
+            // captain, every other captain sees it locked (mirrors the
+            // backend's perform_create check — this is the same rule, not a
+            // separate one, so nobody can tap their way around it). Bypassed
+            // if that captain is on approved leave today — see "Assign
+            // captains" for reassignment, but nobody stays locked out of a
+            // table because its owner is off.
+            const lockedForMe = isCaptain && t.assigned_captain !== null && t.assigned_captain !== user?.id
+              && !t.assigned_captain_on_leave;
             return (
               <div
                 key={t.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => openTable(t)}
-                onKeyDown={(e) => e.key === "Enter" && openTable(t)}
-                className={`rounded-card border p-3 text-center transition-colors cursor-pointer ${
-                  running
-                    ? "bg-clay/90 text-white border-clay"
-                    : t.status === "printed"
-                      ? "bg-amber-100 border-amber-400"
-                      : t.status === "reserved"
-                        ? "bg-pine-50 border-pine"
-                        : "bg-surface hover:bg-cream border-hairline"
+                onClick={() => { if (lockedForMe) { toast(`Assigned to ${t.assigned_captain_name} — not your table`, "error"); return; } openTable(t); }}
+                onKeyDown={(e) => e.key === "Enter" && !lockedForMe && openTable(t)}
+                className={`relative rounded-card border p-3 text-center transition-colors ${
+                  lockedForMe
+                    ? "bg-hairline/60 border-hairline text-muted cursor-not-allowed opacity-70"
+                    : running
+                      ? "bg-clay/90 text-white border-clay cursor-pointer"
+                      : t.status === "printed"
+                        ? "bg-amber-100 border-amber-400 cursor-pointer"
+                        : t.status === "reserved"
+                          ? "bg-pine-50 border-pine cursor-pointer"
+                          : "bg-surface hover:bg-cream border-hairline cursor-pointer"
                 }`}
               >
-                <div className="font-display text-xl">{t.name}</div>
+                <div className="font-display text-xl">{lockedForMe && "🔒 "}{t.name}</div>
                 <div className={`text-xs mt-0.5 ${running ? "opacity-80" : "text-muted"}`}>{t.seats} seats</div>
+                {t.assigned_captain_name && (
+                  <div className={`text-[10px] mt-0.5 truncate ${running ? "opacity-80" : "text-muted"}`}>
+                    👤 {t.assigned_captain_name}{t.assigned_captain_on_leave ? " (on leave — up for grabs)" : ""}
+                  </div>
+                )}
                 {/* Desktop: every party's bill lives on the card — tap it directly.
                     Phone (captain view): keep the card compact, switch bills inside the order screen. */}
                 {checks.length ? (
@@ -508,19 +539,21 @@ export function Pos() {
                       {checks.map((o, ix) => (
                         <button
                           key={o.id}
-                          className={`w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 ${
+                          disabled={lockedForMe}
+                          className={`w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 disabled:cursor-not-allowed ${
                             running ? "bg-white/15 hover:bg-white/25" : "bg-cream hover:bg-hairline"}`}
-                          onClick={(e) => { e.stopPropagation(); openTable(t, o.id); }}
+                          onClick={(e) => { e.stopPropagation(); if (!lockedForMe) openTable(t, o.id); }}
                         >
                           <span>G{ix + 1}{o.status === "billed" ? " 🧾" : ""}</span>
                           <span>{inr(o.totals.total)}</span>
                         </button>
                       ))}
                       <button
-                        className={`w-full rounded-lg px-2 py-1 text-xs text-left ${
+                        disabled={lockedForMe}
+                        className={`w-full rounded-lg px-2 py-1 text-xs text-left disabled:cursor-not-allowed ${
                           running ? "bg-white/10 hover:bg-white/20 opacity-90" : "bg-surface border border-dashed border-hairline hover:bg-cream"}`}
                         title="Another party at this table — separate bill"
-                        onClick={(e) => { e.stopPropagation(); openTable(t, null); }}
+                        onClick={(e) => { e.stopPropagation(); if (!lockedForMe) openTable(t, null); }}
                       >
                         ＋ Guest
                       </button>
@@ -559,6 +592,12 @@ export function Pos() {
               qc.invalidateQueries({ queryKey: ["tables"] });
             }}
             onCancel={() => setShowReserve(false)}
+          />
+        )}
+        {showAssign && (
+          <AssignCaptainsPanel
+            tables={tables ?? []}
+            onClose={() => setShowAssign(false)}
           />
         )}
       </div>
@@ -1339,6 +1378,117 @@ function ReserveModal({ tables, onDone, onCancel }: { tables: Table[]; onDone: (
           <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
           <button className="btn-primary flex-1" disabled={!f.name.trim()} onClick={save}>Save</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** F&B Cashier hands a table to a captain for the shift — the backend
+ *  enforces this is the only door that can set it (assigned_captain is
+ *  read-only on the general table serializer). */
+interface CaptainOpt { id: number; name: string }
+
+/** One dedicated screen for the whole floor instead of a badge on every
+ *  table card — the cashier sets up captains once per shift here, rather
+ *  than hunting for a small control on each of dozens of table tiles. */
+function AssignCaptainsPanel({ tables, onClose }: { tables: Table[]; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [branchFilter, setBranchFilter] = useState<number | "all">("all");
+
+  const locations = Array.from(new Set(tables.map((t) => t.location).filter((l): l is number => l !== null)));
+  const multiBranch = locations.length > 1;
+
+  const { data: branches } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => (await api.get<{ id: number; name: string }[]>("/auth/branches/")).data,
+    enabled: multiBranch,
+  });
+  const branchName = (id: number) => branches?.find((b) => b.id === id)?.name ?? `Branch ${id}`;
+
+  const { data: captainsByLocation } = useQuery({
+    queryKey: ["assign-captains", locations.join(",")],
+    queryFn: async () => {
+      const entries = await Promise.all(locations.map(async (loc) => {
+        const r = await api.get<CaptainOpt[]>(`/pos/tables/captains/?location=${loc}`);
+        return [loc, r.data] as const;
+      }));
+      return Object.fromEntries(entries) as Record<number, CaptainOpt[]>;
+    },
+    enabled: locations.length > 0,
+  });
+
+  async function assign(table: Table, captainId: number | null) {
+    setBusyId(table.id);
+    try {
+      await api.post(`/pos/tables/${table.id}/assign_captain/`, { captain: captainId });
+      qc.invalidateQueries({ queryKey: ["tables"] });
+      toast(captainId ? `${table.name} assigned` : `${table.name} unassigned`);
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Could not assign", "error");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const visibleTables = branchFilter === "all" ? tables : tables.filter((t) => t.location === branchFilter);
+  // Branch-wise first (only matters once more than one branch is in view —
+  // a single-branch F&B Cashier never sees this extra grouping level), then
+  // by floor section within each branch.
+  const sections = new Map<string, Table[]>();
+  for (const t of visibleTables) {
+    const key = multiBranch && t.location ? `${branchName(t.location)} · ${t.section}` : t.section;
+    if (!sections.has(key)) sections.set(key, []);
+    sections.get(key)!.push(t);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[480px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-1">Assign captains</div>
+        <div className="text-xs text-muted mb-3">
+          One captain per table, standing until you change it here. Leave a table "Unassigned" to let any captain take it.
+        </div>
+        {multiBranch && (
+          <select
+            className="input py-1.5 text-sm mb-3"
+            value={branchFilter}
+            onChange={(e) => setBranchFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+          >
+            <option value="all">All branches</option>
+            {locations.map((loc) => <option key={loc} value={loc}>{branchName(loc)}</option>)}
+          </select>
+        )}
+        <div className="space-y-4">
+          {Array.from(sections.entries()).map(([section, list]) => (
+            <div key={section}>
+              <div className="text-[10px] uppercase tracking-wide text-muted mb-1.5">{section}</div>
+              <div className="space-y-1.5">
+                {list.map((t) => {
+                  const opts = t.location ? captainsByLocation?.[t.location] ?? [] : [];
+                  return (
+                    <div key={t.id} className="flex items-center gap-2">
+                      <span className="w-20 shrink-0 font-medium text-sm">{t.name}</span>
+                      <select
+                        className="input py-1.5 text-sm flex-1"
+                        disabled={busyId === t.id}
+                        value={t.assigned_captain ?? ""}
+                        onChange={(e) => assign(t, e.target.value ? Number(e.target.value) : null)}
+                      >
+                        <option value="">Unassigned</option>
+                        {opts.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                      {t.assigned_captain_on_leave && <span className="text-[10px] text-amber-600 shrink-0">on leave</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {!visibleTables.length && <div className="text-sm text-muted text-center py-6">No tables to assign.</div>}
+        </div>
+        <button className="btn-ghost w-full mt-4" onClick={onClose}>Close</button>
       </div>
     </div>
   );

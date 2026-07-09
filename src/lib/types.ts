@@ -195,10 +195,15 @@ export interface MenuItem {
 export interface Table {
   id: number;
   name: string;
+  floor: string;
   section: string;
   seats: number;
   status: string;
   status_label: string;
+  location: number | null;
+  assigned_captain: number | null;
+  assigned_captain_name: string | null;
+  assigned_captain_on_leave: boolean;
 }
 
 export interface OrderLine {
