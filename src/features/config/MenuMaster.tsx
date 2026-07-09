@@ -24,6 +24,7 @@ export function MenuMaster() {
   const empty = { name: "", category: "", price: "", gst_rate: "5", diet: "veg", station: "kitchen" };
   const [form, setForm] = useState(empty);
   const [q, setQ] = useState("");
+  const [unavailableOnly, setUnavailableOnly] = useState(false);
 
   // Separate mode: restaurant categories only — the bar's own (Beer, Wine,
   // Cocktails…) live in Bar Menu Master, never mixed in here.
@@ -105,13 +106,30 @@ export function MenuMaster() {
   // Separate mode: the bar runs its own menu (see Bar Menu Master) — keep it
   // out of the restaurant's own item list. Combined: show everything.
   const shown = barCombined ? items : items.filter((m) => m.station !== "bar");
+  const unavailableCount = shown.filter((m) => !m.available).length;
+  const visible = shown
+    .filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase()))
+    .filter((m) => !unavailableOnly || !m.available);
 
   return (
     <div>
       <PageHeader
         title="Menu Master"
         subtitle="Items, categories, prices &amp; tax"
-        action={<input className="input w-56" placeholder="Search item…" value={q} onChange={(e) => setQ(e.target.value)} />}
+        action={
+          <div className="flex items-center gap-2">
+            {unavailableCount > 0 && (
+              <button
+                className={`pill ${unavailableOnly ? "bg-clay text-white" : "bg-clay-50 text-clay"}`}
+                onClick={() => setUnavailableOnly((v) => !v)}
+                title="Show only 86'd items"
+              >
+                {unavailableCount} unavailable
+              </button>
+            )}
+            <input className="input w-56" placeholder="Search item…" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+        }
       />
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add menu item</div>
@@ -159,7 +177,7 @@ export function MenuMaster() {
             </tr>
           </thead>
           <tbody>
-            {shown.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).map((m) => {
+            {visible.map((m) => {
               const editing = editingId === m.id;
               return (
                 <tr key={m.id} className="border-t border-line">
@@ -240,6 +258,11 @@ export function MenuMaster() {
                 </tr>
               );
             })}
+            {!visible.length && (
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-muted text-sm">
+                {unavailableOnly ? "Nothing 86'd right now." : "No items match your search."}
+              </td></tr>
+            )}
           </tbody>
         </table>
       </Card>
