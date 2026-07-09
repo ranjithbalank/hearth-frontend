@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { toCsv, parseCsv, downloadFile } from "../../lib/csv";
 import { amount, digits } from "../../lib/inputs";
 import type { Branch } from "../../lib/types";
 
@@ -13,6 +14,8 @@ interface Employee {
   branch: number | null; branch_name: string | null;
 }
 interface User { username: string; name: string; role: string }
+
+const CSV_COLUMNS = ["Name", "Department", "Role", "Phone", "Monthly Salary", "Branch"];
 
 export function Employees() {
   const qc = useQueryClient();
@@ -64,6 +67,67 @@ export function Employees() {
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save changes", "error"),
   });
 
+  function downloadTemplate() {
+    downloadFile("employee-template.csv", toCsv([CSV_COLUMNS, ["Ravi Kumar", "Kitchen", "Commis Chef", "9876543210", "18000", ""]]));
+  }
+
+  function exportEmployees() {
+    const rows = (staff ?? []).map((e) => [e.name, e.department, e.role, e.phone, e.monthly_salary, e.branch_name ?? ""]);
+    downloadFile("employees.csv", toCsv([CSV_COLUMNS, ...rows]));
+  }
+
+  const [importing, setImporting] = useState(false);
+  function importEmployees(ev: React.ChangeEvent<HTMLInputElement>) {
+    const file = ev.target.files?.[0];
+    ev.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const rows = parseCsv(String(reader.result));
+      if (rows.length < 2) { toast("That file has no data rows", "error"); return; }
+      const header = rows[0].map((h) => h.trim().toLowerCase());
+      const idx = {
+        name: header.indexOf("name"), department: header.indexOf("department"), role: header.indexOf("role"),
+        phone: header.indexOf("phone"), salary: header.indexOf("monthly salary"), branch: header.indexOf("branch"),
+      };
+      if (idx.name < 0 || idx.department < 0 || idx.role < 0) {
+        toast("The file needs Name, Department and Role columns — download the template to check the format", "error");
+        return;
+      }
+      const branchByName = new Map((branches ?? []).map((b) => [b.name.trim().toLowerCase(), b.id]));
+      setImporting(true);
+      let ok = 0;
+      const failed: string[] = [];
+      for (const row of rows.slice(1)) {
+        const name = row[idx.name]?.trim();
+        const department = row[idx.department]?.trim();
+        const role = row[idx.role]?.trim();
+        if (!name || !department || !role) continue;
+        const branchName = idx.branch >= 0 ? row[idx.branch]?.trim() : "";
+        const branchId = branchName ? branchByName.get(branchName.toLowerCase()) : undefined;
+        try {
+          await api.post("/hr/", {
+            name, department, role,
+            phone: idx.phone >= 0 ? (row[idx.phone]?.trim() ?? "") : "",
+            monthly_salary: idx.salary >= 0 ? (row[idx.salary]?.trim() || 0) : 0,
+            branch: branchId ?? null,
+          });
+          ok++;
+        } catch (err: any) {
+          failed.push(`${name} — ${err?.response?.data?.detail ?? "could not add"}`);
+        }
+      }
+      setImporting(false);
+      qc.invalidateQueries({ queryKey: ["employees-master"] });
+      if (failed.length) console.warn("Employee import — rows that failed:", failed);
+      toast(
+        `${ok} employee(s) imported${failed.length ? `, ${failed.length} skipped (see console)` : ""}`,
+        failed.length ? "error" : "success",
+      );
+    };
+    reader.readAsText(file);
+  }
+
   if (isLoading || !staff) return <Spinner />;
   const userByName = new Map((users ?? []).map((u) => [u.name, u]));
   const showBranch = (branches?.length ?? 0) > 0;
@@ -71,6 +135,15 @@ export function Employees() {
   return (
     <div>
       <PageHeader title="Employees" subtitle="Staff directory & system access" />
+
+      <div className="flex items-center gap-2 mb-4">
+        <button className="btn-outline text-sm" onClick={downloadTemplate}>⬇ Download template</button>
+        <button className="btn-outline text-sm" onClick={exportEmployees}>⬇ Export employees (CSV)</button>
+        <label className={`btn-outline text-sm cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
+          {importing ? "Importing…" : "⬆ Import CSV"}
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={importEmployees} disabled={importing} />
+        </label>
+      </div>
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add employee</div>
