@@ -12,6 +12,41 @@ import type { MenuItem } from "../../lib/types";
 
 interface Category { id: number; name: string }
 
+const CSV_COLUMNS = ["Name", "Category", "Price", "GST Rate", "Diet", "Station"];
+
+function csvEscape(v: string): string {
+  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+}
+function toCsv(rows: (string | number)[][]): string {
+  return rows.map((r) => r.map((v) => csvEscape(String(v))).join(",")).join("\r\n");
+}
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "", inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else inQuotes = false; }
+      else cur += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ",") { out.push(cur); cur = ""; }
+    else cur += c;
+  }
+  out.push(cur);
+  return out;
+}
+function parseCsv(text: string): string[][] {
+  return text.split(/\r\n|\n/).filter((l) => l.trim().length > 0).map(parseCsvLine);
+}
+function downloadFile(filename: string, content: string) {
+  const blob = new Blob(["﻿" + content], { type: "text/csv;charset=utf-8;" }); // BOM so Excel opens ₹/UTF-8 cleanly
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function MenuMaster() {
   const qc = useQueryClient();
   const toast = useToast();
@@ -72,6 +107,69 @@ export function MenuMaster() {
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not delete that item", "error"),
   });
 
+  function downloadTemplate() {
+    const example = ["Veg Manchurian", cats?.[0]?.name ?? "Starters", "180", "5", "veg", "kitchen"];
+    downloadFile("menu-item-template.csv", toCsv([CSV_COLUMNS, example]));
+  }
+
+  function exportMenu() {
+    const rows = shown.map((m) => [m.name, m.category_name, m.price, m.gst_rate, m.diet, m.station]);
+    downloadFile("menu-items.csv", toCsv([CSV_COLUMNS, ...rows]));
+  }
+
+  const [importing, setImporting] = useState(false);
+  function importMenu(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // lets the same file be re-picked after fixing errors
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const rows = parseCsv(String(reader.result));
+      if (rows.length < 2) { toast("That file has no data rows", "error"); return; }
+      const header = rows[0].map((h) => h.trim().toLowerCase());
+      const idx = {
+        name: header.indexOf("name"), category: header.indexOf("category"),
+        price: header.indexOf("price"), gst: header.indexOf("gst rate"),
+        diet: header.indexOf("diet"), station: header.indexOf("station"),
+      };
+      if (idx.name < 0 || idx.category < 0 || idx.price < 0) {
+        toast("The file needs Name, Category and Price columns — download the template to check the format", "error");
+        return;
+      }
+      const catByName = new Map((cats ?? []).map((c) => [c.name.trim().toLowerCase(), c.id]));
+      setImporting(true);
+      let ok = 0;
+      const failed: string[] = [];
+      for (const row of rows.slice(1)) {
+        const name = row[idx.name]?.trim();
+        const catName = row[idx.category]?.trim();
+        const price = row[idx.price]?.trim();
+        if (!name || !catName || !price) continue;
+        const catId = catByName.get(catName.toLowerCase());
+        if (!catId) { failed.push(`${name} — unknown category "${catName}"`); continue; }
+        try {
+          await api.post("/pos/menu-items/", {
+            name, category: catId, price,
+            gst_rate: idx.gst >= 0 ? (row[idx.gst]?.trim() || "5") : "5",
+            diet: idx.diet >= 0 ? (row[idx.diet]?.trim() || "veg") : "veg",
+            ...(barCombined && idx.station >= 0 ? { station: row[idx.station]?.trim() || "kitchen" } : {}),
+          });
+          ok++;
+        } catch (err: any) {
+          failed.push(`${name} — ${err?.response?.data?.detail ?? "could not add"}`);
+        }
+      }
+      setImporting(false);
+      qc.invalidateQueries({ queryKey: ["menu"] });
+      if (failed.length) console.warn("Menu import — rows that failed:", failed);
+      toast(
+        `${ok} item(s) imported${failed.length ? `, ${failed.length} skipped (see console)` : ""}`,
+        failed.length ? "error" : "success",
+      );
+    };
+    reader.readAsText(file);
+  }
+
   const setImage = useMutation({
     mutationFn: async ({ id, image }: { id: number; image: string }) =>
       (await api.patch(`/pos/menu-items/${id}/`, { image })).data,
@@ -131,6 +229,17 @@ export function MenuMaster() {
           </div>
         }
       />
+
+      <div className="flex items-center gap-2 mb-4">
+        <button className="btn-outline text-sm" onClick={downloadTemplate}>⬇ Download template</button>
+        <button className="btn-outline text-sm" onClick={exportMenu}>⬇ Export menu (CSV)</button>
+        <label className={`btn-outline text-sm cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
+          {importing ? "Importing…" : "⬆ Import CSV"}
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={importMenu} disabled={importing} />
+        </label>
+        <span className="text-xs text-muted">Fill the template's Category column with an existing category name — new items land there.</span>
+      </div>
+
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add menu item</div>
         <div className={`grid gap-2 ${barCombined ? "grid-cols-6" : "grid-cols-5"}`}>
