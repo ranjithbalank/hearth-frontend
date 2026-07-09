@@ -47,6 +47,22 @@ export function MenuMaster() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["menu"] }),
   });
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ category: "", price: "", gst_rate: "5", diet: "veg" });
+  function startEdit(m: MenuItem) {
+    setEditingId(m.id);
+    setEditForm({ category: String(m.category), price: String(m.price), gst_rate: String(m.gst_rate), diet: m.diet });
+  }
+  const saveEdit = useMutation({
+    mutationFn: async (id: number) =>
+      (await api.patch(`/pos/menu-items/${id}/`, {
+        category: Number(editForm.category), price: editForm.price,
+        gst_rate: editForm.gst_rate, diet: editForm.diet,
+      })).data,
+    onSuccess: () => { setEditingId(null); toast("Menu item updated"); qc.invalidateQueries({ queryKey: ["menu"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save changes", "error"),
+  });
+
   const setImage = useMutation({
     mutationFn: async ({ id, image }: { id: number; image: string }) =>
       (await api.patch(`/pos/menu-items/${id}/`, { image })).data,
@@ -131,37 +147,76 @@ export function MenuMaster() {
               <th className="text-right px-4 py-3">Price</th>
               <th className="text-right px-4 py-3">GST</th>
               <th className="text-right px-4 py-3">Available</th>
+              <th className="text-right px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
-            {shown.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).map((m) => (
-              <tr key={m.id} className="border-t border-line">
-                <td className="px-4 py-2">
-                  <button onClick={() => pickImage(m)} title="Upload photo"
-                    className="h-10 w-10 rounded-lg border border-hairline overflow-hidden bg-cream flex items-center justify-center text-muted hover:border-pine">
-                    {m.image ? <img src={m.image} alt="" className="h-full w-full object-cover" /> : "📷"}
-                  </button>
-                </td>
-                <td className="px-4 py-3 font-medium">
-                  {m.name}
-                  {barCombined && m.station === "bar" && <Badge tone="amber">bar</Badge>}
-                </td>
-                <td className="px-4 py-3 text-muted">{m.category_name}</td>
-                <td className="px-4 py-3">
-                  <Badge tone={m.diet === "veg" ? "pine" : "clay"}>{m.diet}</Badge>
-                </td>
-                <td className="px-4 py-3 text-right">{inr(m.price)}</td>
-                <td className="px-4 py-3 text-right">{Number(m.gst_rate)}%</td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    className={`pill ${m.available ? "bg-pine text-white" : "bg-hairline text-muted"}`}
-                    onClick={() => toggle.mutate(m)}
-                  >
-                    {m.available ? "In stock" : "86'd"}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {shown.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).map((m) => {
+              const editing = editingId === m.id;
+              return (
+                <tr key={m.id} className="border-t border-line">
+                  <td className="px-4 py-2">
+                    <button onClick={() => pickImage(m)} title="Upload photo"
+                      className="h-10 w-10 rounded-lg border border-hairline overflow-hidden bg-cream flex items-center justify-center text-muted hover:border-pine">
+                      {m.image ? <img src={m.image} alt="" className="h-full w-full object-cover" /> : "📷"}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 font-medium">
+                    {m.name}
+                    {barCombined && m.station === "bar" && <Badge tone="amber">bar</Badge>}
+                  </td>
+                  <td className="px-4 py-3 text-muted">
+                    {editing ? (
+                      <select className="input py-1 text-xs" value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}>
+                        {cats?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    ) : m.category_name}
+                  </td>
+                  <td className="px-4 py-3">
+                    {editing ? (
+                      <select className="input py-1 text-xs" value={editForm.diet} onChange={(e) => setEditForm({ ...editForm, diet: e.target.value })}>
+                        <option value="veg">Veg</option>
+                        <option value="nonveg">Non-veg</option>
+                        <option value="egg">Egg</option>
+                      </select>
+                    ) : <Badge tone={m.diet === "veg" ? "pine" : "clay"}>{m.diet}</Badge>}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {editing ? (
+                      <input className="input py-1 text-xs text-right w-24" inputMode="decimal"
+                        value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: amount(e.target.value) })} />
+                    ) : inr(m.price)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {editing ? (
+                      <select className="input py-1 text-xs" value={editForm.gst_rate} onChange={(e) => setEditForm({ ...editForm, gst_rate: e.target.value })}>
+                        <option value="5">5%</option>
+                        <option value="12">12%</option>
+                        <option value="18">18%</option>
+                      </select>
+                    ) : `${Number(m.gst_rate)}%`}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      className={`pill ${m.available ? "bg-pine text-white" : "bg-hairline text-muted"}`}
+                      onClick={() => toggle.mutate(m)}
+                    >
+                      {m.available ? "In stock" : "86'd"}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {editing ? (
+                      <>
+                        <button className="btn-ghost text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => setEditingId(null)}>Cancel</button>
+                        <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(m.id)}>Save</button>
+                      </>
+                    ) : (
+                      <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(m)}>Edit</button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </Card>
