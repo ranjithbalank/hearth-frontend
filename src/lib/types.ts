@@ -32,6 +32,8 @@ export interface User {
   id: number;
   username: string;
   name: string;
+  first_name: string;
+  last_name: string;
   role: Role;
   email: string;
   allowed_modules: string[] | "*";

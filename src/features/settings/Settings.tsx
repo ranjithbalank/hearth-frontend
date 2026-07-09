@@ -114,6 +114,30 @@ function UsersPanel() {
   });
   const set = (k: string, v: string) => setF({ ...f, [k]: v });
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [ef, setEf] = useState({
+    first_name: "", last_name: "", role: "F&B Cashier" as Role, passcode: "",
+    discount_cap_type: "none", discount_cap_value: "0",
+  });
+  function startEdit(u: User) {
+    setEditingId(u.id);
+    setEf({
+      first_name: u.first_name, last_name: u.last_name, role: u.role,
+      passcode: "", // write-only field — never sent back by the API, so it can't be pre-filled
+      discount_cap_type: u.discount_cap_type ?? "none", discount_cap_value: u.discount_cap_value ?? "0",
+    });
+  }
+  const saveEdit = useMutation({
+    mutationFn: async (id: number) =>
+      (await api.patch(`/auth/users/${id}/`, {
+        first_name: ef.first_name, last_name: ef.last_name, role: ef.role,
+        discount_cap_type: ef.discount_cap_type, discount_cap_value: ef.discount_cap_value,
+        ...(ef.passcode ? { passcode: ef.passcode } : {}),
+      })).data,
+    onSuccess: () => { setEditingId(null); toast("User updated"); qc.invalidateQueries({ queryKey: ["users"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save changes", "error"),
+  });
+
   return (
     <Card>
       <div className="font-semibold mb-3">Users &amp; roles</div>
@@ -144,31 +168,81 @@ function UsersPanel() {
             <th className="text-left py-2">Role</th><th className="text-left py-2">Branches</th>
             <th className="text-left py-2">Cap</th>
             <th className="text-right py-2">Status</th>
+            <th className="text-right py-2">&nbsp;</th>
           </tr>
         </thead>
         <tbody>
-          {users?.map((u) => (
-            <tr key={u.id} className="border-t border-line">
-              <td className="py-2 font-medium">{u.name}</td>
-              <td className="py-2 font-mono text-xs">{u.username}</td>
-              <td className="py-2">{u.role}</td>
-              <td className="py-2">
-                {branches && <BranchAccessCell user={u} branches={branches} />}
-              </td>
-              <td className="py-2 text-muted">
-                {u.discount_cap_type === "percent" ? `${Number(u.discount_cap_value)}%`
-                  : u.discount_cap_type === "fixed" ? `₹${Number(u.discount_cap_value)}` : "—"}
-              </td>
-              <td className="py-2 text-right">
-                <button
-                  className={`pill ${u.is_active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
-                  onClick={() => toggle.mutate(u)}
-                >
-                  {u.is_active ? "Active" : "Inactive"}
-                </button>
-              </td>
-            </tr>
-          ))}
+          {users?.map((u) => {
+            const editing = editingId === u.id;
+            // Never let this screen demote the top-level admin roles — same
+            // boundary BranchAccessCell already draws for branch access.
+            const roleLocked = PROTECTED_ROLES.includes(u.role);
+            return (
+              <tr key={u.id} className="border-t border-line align-top">
+                <td className="py-2 font-medium">
+                  {editing ? (
+                    <div className="flex gap-1">
+                      <input className="input py-1 text-xs w-20" value={ef.first_name} onChange={(e) => setEf({ ...ef, first_name: e.target.value })} />
+                      <input className="input py-1 text-xs w-20" value={ef.last_name} onChange={(e) => setEf({ ...ef, last_name: e.target.value })} />
+                    </div>
+                  ) : u.name}
+                </td>
+                <td className="py-2 font-mono text-xs">{u.username}</td>
+                <td className="py-2">
+                  {editing ? (
+                    roleLocked ? (
+                      <span className="text-xs text-muted">{u.role} (protected)</span>
+                    ) : (
+                      <select className="input py-1 text-xs" value={ef.role} onChange={(e) => setEf({ ...ef, role: e.target.value as Role })}>
+                        {ROLES.filter((r) => !PROTECTED_ROLES.includes(r)).map((r) => <option key={r}>{r}</option>)}
+                      </select>
+                    )
+                  ) : u.role}
+                </td>
+                <td className="py-2">
+                  {branches && <BranchAccessCell user={u} branches={branches} />}
+                </td>
+                <td className="py-2 text-muted">
+                  {editing ? (
+                    <div className="flex gap-1">
+                      <select className="input py-1 text-xs" value={ef.discount_cap_type} onChange={(e) => setEf({ ...ef, discount_cap_type: e.target.value })}>
+                        <option value="none">No cap</option>
+                        <option value="percent">%</option>
+                        <option value="fixed">Fixed</option>
+                      </select>
+                      <input className="input py-1 text-xs w-16" inputMode="decimal" disabled={ef.discount_cap_type === "none"}
+                        value={ef.discount_cap_value} onChange={(e) => setEf({ ...ef, discount_cap_value: amount(e.target.value) })} />
+                    </div>
+                  ) : (
+                    u.discount_cap_type === "percent" ? `${Number(u.discount_cap_value)}%`
+                      : u.discount_cap_type === "fixed" ? `₹${Number(u.discount_cap_value)}` : "—"
+                  )}
+                </td>
+                <td className="py-2 text-right">
+                  <button
+                    className={`pill ${u.is_active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
+                    onClick={() => toggle.mutate(u)}
+                  >
+                    {u.is_active ? "Active" : "Inactive"}
+                  </button>
+                </td>
+                <td className="py-2 text-right whitespace-nowrap">
+                  {editing ? (
+                    <div className="flex flex-col items-end gap-1">
+                      <input className="input py-1 text-xs w-24" inputMode="numeric" placeholder="New passcode"
+                        value={ef.passcode} onChange={(e) => setEf({ ...ef, passcode: digits(e.target.value, 6) })} />
+                      <div className="flex gap-1">
+                        <button className="btn-ghost text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => setEditingId(null)}>Cancel</button>
+                        <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(u.id)}>Save</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(u)}>Edit</button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </Card>
