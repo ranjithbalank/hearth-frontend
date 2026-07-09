@@ -34,7 +34,7 @@ export function TableMaster() {
   // bug that made tables disappear from branch-scoped views before).
   const defaultLocation = activeBranch ? String(activeBranch)
     : branchOptions.length === 1 ? String(branchOptions[0].id) : "";
-  const emptyForm = { name: "", floor: "", section: "AC", seats: "4", location: defaultLocation };
+  const emptyForm = { name: "", floor: "Ground", section: "AC", seats: "4", location: defaultLocation };
   const [form, setForm] = useState(emptyForm);
   const needsBranchPick = branchOptions.length > 1;
   const [branchFilter, setBranchFilter] = useState<number | "all">(activeBranch ?? "all");
@@ -99,7 +99,7 @@ export function TableMaster() {
             </div>
           )}
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1">Floor</label>
+            <label className="block text-xs font-semibold text-muted mb-1">Floor (required)</label>
             <input className="input w-full" placeholder="e.g. Ground, 1st, Lawn" value={form.floor} onChange={(e) => setForm({ ...form, floor: e.target.value })} />
           </div>
           <div>
@@ -127,7 +127,7 @@ export function TableMaster() {
         )}
         <button
           className="btn-primary mt-3"
-          disabled={!form.name || !form.location || create.isPending}
+          disabled={!form.name || !form.location || !form.floor.trim() || create.isPending}
           onClick={() => create.mutate()}
         >
           Add table
