@@ -37,6 +37,22 @@ export function RoomMaster() {
     onError: (e: any) => toast(e?.response?.data?.code?.[0] ?? e?.response?.data?.detail ?? "Could not add room type — the code may already exist", "error"),
   });
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState(empty);
+  function startEdit(rt: RoomType) {
+    setEditingId(rt.id);
+    setEditForm({ code: rt.code, name: rt.name, base_rate: rt.base_rate, max_occupancy: String(rt.max_occupancy), gst_slab: rt.gst_slab });
+  }
+  const saveEdit = useMutation({
+    mutationFn: async (id: number) =>
+      (await api.patch(`/room-types/${id}/`, {
+        code: editForm.code, name: editForm.name, base_rate: editForm.base_rate,
+        max_occupancy: Number(editForm.max_occupancy), gst_slab: editForm.gst_slab,
+      })).data,
+    onSuccess: () => { setEditingId(null); toast("Room type updated"); qc.invalidateQueries({ queryKey: ["room-types"] }); },
+    onError: (e: any) => toast(e?.response?.data?.code?.[0] ?? e?.response?.data?.detail ?? "Could not save — the code may already exist", "error"),
+  });
+
   if (isLoading || !data) return <Spinner />;
 
   return (
@@ -69,18 +85,58 @@ export function RoomMaster() {
               <th className="text-right px-4 py-3">Base rate</th>
               <th className="text-right px-4 py-3">Occupancy</th>
               <th className="text-right px-4 py-3">GST</th>
+              <th className="text-right px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
-            {data.map((rt) => (
-              <tr key={rt.id} className="border-t border-line">
-                <td className="px-4 py-3 font-mono text-xs">{rt.code}</td>
-                <td className="px-4 py-3 font-medium">{rt.name}</td>
-                <td className="px-4 py-3 text-right">{inr(rt.base_rate)}</td>
-                <td className="px-4 py-3 text-right">{rt.max_occupancy}</td>
-                <td className="px-4 py-3 text-right">{Number(rt.gst_slab)}%</td>
-              </tr>
-            ))}
+            {data.map((rt) => {
+              const editing = editingId === rt.id;
+              return (
+                <tr key={rt.id} className="border-t border-line">
+                  <td className="px-4 py-3 font-mono text-xs">
+                    {editing ? (
+                      <input className="input py-1 text-xs font-mono w-20" value={editForm.code}
+                        onChange={(e) => setEditForm({ ...editForm, code: e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 8) })} />
+                    ) : rt.code}
+                  </td>
+                  <td className="px-4 py-3 font-medium">
+                    {editing ? (
+                      <input className="input py-1 text-xs w-full" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+                    ) : rt.name}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {editing ? (
+                      <input className="input py-1 text-xs text-right w-24" inputMode="decimal"
+                        value={editForm.base_rate} onChange={(e) => setEditForm({ ...editForm, base_rate: amount(e.target.value) })} />
+                    ) : inr(rt.base_rate)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {editing ? (
+                      <input className="input py-1 text-xs text-right w-16" inputMode="numeric"
+                        value={editForm.max_occupancy} onChange={(e) => setEditForm({ ...editForm, max_occupancy: digits(e.target.value, 2) })} />
+                    ) : rt.max_occupancy}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {editing ? (
+                      <select className="input py-1 text-xs" value={editForm.gst_slab} onChange={(e) => setEditForm({ ...editForm, gst_slab: e.target.value })}>
+                        <option value="12">12%</option>
+                        <option value="18">18%</option>
+                      </select>
+                    ) : `${Number(rt.gst_slab)}%`}
+                  </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {editing ? (
+                      <>
+                        <button className="btn-ghost text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => setEditingId(null)}>Cancel</button>
+                        <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(rt.id)}>Save</button>
+                      </>
+                    ) : (
+                      <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(rt)}>Edit</button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </Card>
