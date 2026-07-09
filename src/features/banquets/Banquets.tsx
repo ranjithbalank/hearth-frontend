@@ -6,6 +6,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { fmtDate } from "../../lib/date";
 import { amount, digits } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 import { downloadBeoPdf } from "../print/documents";
@@ -135,7 +136,7 @@ export function Banquets() {
             <div className="flex-1">
               <div className="font-semibold">{e.title} {e.event_type && <span className="text-muted font-normal">· {e.event_type}</span>}</div>
               <div className="text-sm text-muted">
-                {e.space} · {e.event_date}{e.start_time ? ` · ${e.start_time}${e.end_time ? `–${e.end_time}` : ""}` : ""} · {e.covers} covers · {e.host}{e.contact ? ` (${e.contact})` : ""}
+                {e.space} · {fmtDate(e.event_date)}{e.start_time ? ` · ${e.start_time}${e.end_time ? `–${e.end_time}` : ""}` : ""} · {e.covers} covers · {e.host}{e.contact ? ` (${e.contact})` : ""}
               </div>
               {e.food_covers > 0 && (
                 <div className="text-xs text-pine mt-1">

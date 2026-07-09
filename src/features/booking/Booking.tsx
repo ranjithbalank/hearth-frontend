@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
+import { fmtDate } from "../../lib/date";
 import { inr } from "../../lib/money";
 
 interface RoomCard { room_type: string; name: string; rate: string; available: number; max_occupancy: number }
@@ -25,7 +26,7 @@ export function Booking() {
     mutationFn: async (r: RoomCard) =>
       (await api.post("/booking/", { room_type: r.room_type, guest_name: "Web Guest", nights: 2 })).data,
     onSuccess: (d) => {
-      setMsg(`Direct booking confirmed for ${d.guest_name} · ${d.room_type} · arriving ${d.checkin_date}`);
+      setMsg(`Direct booking confirmed for ${d.guest_name} · ${d.room_type} · arriving ${fmtDate(d.checkin_date)}`);
       qc.invalidateQueries({ queryKey: ["booking-rooms"] });
       qc.invalidateQueries({ queryKey: ["booking-stats"] });
     },

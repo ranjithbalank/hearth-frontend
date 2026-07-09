@@ -5,6 +5,7 @@ import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
+import { fmtDate } from "../../lib/date";
 import { amount, digits, gstin as gstinFilter } from "../../lib/inputs";
 import { useApp } from "../../lib/app-context";
 import type { Branch, BranchAccess, Entitlement, Role, User } from "../../lib/types";
@@ -56,7 +57,7 @@ function BranchAccessCell({ user, branches }: { user: User; branches: Branch[] }
     <div className="flex flex-wrap items-center gap-1.5">
       {access?.map((a) => (
         <span key={a.id} className="pill bg-hairline text-body flex items-center gap-1">
-          {a.branch_code} · {a.role}{a.end_date ? ` (until ${a.end_date})` : ""}
+          {a.branch_code} · {a.role}{a.end_date ? ` (until ${fmtDate(a.end_date)})` : ""}
           <button className="text-muted hover:text-clay ml-0.5" title="Remove" onClick={() => revoke.mutate(a.id)}>×</button>
         </span>
       ))}

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { fmtDate } from "../../lib/date";
 import { inr } from "../../lib/money";
 
 /** Build a demo Booking.com payload with a unique ref and near-future dates. */
@@ -54,7 +55,7 @@ export function Channel() {
     mutationFn: async () => (await api.post("/channel/ingest/", demoBooking())).data,
     onSuccess: (d) => {
       const r = d.reservation;
-      toast(`Booking imported · ${r.guest_name} · ${r.room_type_code} ${r.checkin_date}→${r.checkout_date} (prepaid ${inr(r.deposit)})`);
+      toast(`Booking imported · ${r.guest_name} · ${r.room_type_code} ${fmtDate(r.checkin_date)}→${fmtDate(r.checkout_date)} (prepaid ${inr(r.deposit)})`);
       qc.invalidateQueries({ queryKey: ["pushes"] });
       qc.invalidateQueries({ queryKey: ["reservations"] });
       qc.invalidateQueries({ queryKey: ["arrivals"] });

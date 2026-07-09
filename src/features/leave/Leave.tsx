@@ -5,6 +5,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { fmtDate } from "../../lib/date";
 
 interface LeaveTypeRow {
   id: number; name: string; annual_quota: number; is_paid: boolean;
@@ -216,7 +217,7 @@ function RequestList({ rows, me, showDecide = false }: {
               <Badge tone={TONE[r.status] ?? "muted"}>{STATUS_LABEL[r.status] ?? r.status}</Badge>
               <span className="text-sm">
                 {r.leave_type_name} · {r.start_date === r.end_date
-                  ? r.start_date : `${r.start_date} → ${r.end_date}`} · {r.days}d
+                  ? fmtDate(r.start_date) : `${fmtDate(r.start_date)} → ${fmtDate(r.end_date)}`} · {r.days}d
               </span>
               {inPipeline && (
                 <span className="text-xs text-muted">

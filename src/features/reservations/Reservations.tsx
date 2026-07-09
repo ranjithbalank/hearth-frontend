@@ -5,6 +5,7 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { fmtDate } from "../../lib/date";
 import { inr } from "../../lib/money";
 import type { Reservation } from "../../lib/types";
 
@@ -23,6 +24,7 @@ export function Reservations() {
   const ask = usePrompt();
   const toast = useToast();
   const [q, setQ] = useState("");
+  const [changeRoomFor, setChangeRoomFor] = useState<Reservation | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["reservations"],
@@ -62,6 +64,17 @@ export function Reservations() {
         action={<input className="input w-56" placeholder="Search guest, room or status…" value={q} onChange={(e) => setQ(e.target.value)} />}
       />
 
+      {changeRoomFor && (
+        <ChangeRoomModal
+          reservation={changeRoomFor}
+          onClose={() => setChangeRoomFor(null)}
+          onPick={(roomId) => {
+            act.mutate({ id: changeRoomFor.id, action: "room_move", body: { room: roomId } });
+            setChangeRoomFor(null);
+          }}
+        />
+      )}
+
       {avail && (
         <div className="grid grid-cols-3 gap-3 mb-4">
           {avail.map((a) => (
@@ -95,8 +108,8 @@ export function Reservations() {
               <tr key={r.id} className="border-t border-line">
                 <td className="px-4 py-3 font-medium">{r.guest_name}</td>
                 <td className="px-4 py-3">{r.room_type_code}</td>
-                <td className="px-4 py-3">{r.checkin_date}</td>
-                <td className="px-4 py-3">{r.checkout_date} <span className="text-muted text-xs">· {r.nights}n</span></td>
+                <td className="px-4 py-3">{fmtDate(r.checkin_date)}</td>
+                <td className="px-4 py-3">{fmtDate(r.checkout_date)} <span className="text-muted text-xs">· {r.nights}n</span></td>
                 <td className="px-4 py-3">{r.room_number ?? "—"}</td>
                 <td className="px-4 py-3 text-right">{inr(r.rate)}</td>
                 <td className="px-4 py-3"><Badge tone={STATUS_TONE[r.status] ?? "muted"}>{r.status_label}</Badge></td>
@@ -131,16 +144,9 @@ export function Reservations() {
                     <button
                       className="btn-ghost text-xs py-1"
                       disabled={act.isPending}
-                      onClick={async () => {
-                        const opts = (await api.get(`/reservations/${r.id}/room_options/`)).data as { id: number; number: string }[];
-                        if (!opts.length) { toast("No alternative rooms available", "error"); return; }
-                        const num = await ask({ title: "Move room", label: "New room number", placeholder: opts.map((o) => o.number).join(", ") });
-                        const dest = opts.find((o) => o.number === num);
-                        if (dest) act.mutate({ id: r.id, action: "room_move", body: { room: dest.id } });
-                        else if (num) toast("Room not available", "error");
-                      }}
+                      onClick={() => setChangeRoomFor(r)}
                     >
-                      Move room
+                      Change room
                     </button>
                   )}
                   {r.status !== "booked" && r.status !== "in_house" && <span className="text-muted text-xs">—</span>}
@@ -154,6 +160,48 @@ export function Reservations() {
             )}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+/** Guest asks to switch rooms mid-stay — pick from the actual available
+ *  rooms of the same type rather than typing a room number from memory. */
+function ChangeRoomModal({
+  reservation,
+  onClose,
+  onPick,
+}: {
+  reservation: Reservation;
+  onClose: () => void;
+  onPick: (roomId: number) => void;
+}) {
+  const { data: opts, isLoading } = useQuery({
+    queryKey: ["room-options", reservation.id],
+    queryFn: async () => (await api.get<{ id: number; number: string }[]>(`/reservations/${reservation.id}/room_options/`)).data,
+  });
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-1">Change room</div>
+        <div className="text-xs text-muted mb-3">
+          {reservation.guest_name} is currently in room {reservation.room_number ?? "—"}. Pick a new room to move them to.
+        </div>
+        {isLoading ? (
+          <Spinner />
+        ) : !opts?.length ? (
+          <div className="text-sm text-muted text-center py-6">No alternative rooms available right now.</div>
+        ) : (
+          <div className="grid grid-cols-4 gap-2">
+            {opts.map((o) => (
+              <button key={o.id} className="card p-3 text-center hover:bg-cream" onClick={() => onPick(o.id)}>
+                <div className="font-display text-lg">{o.number}</div>
+              </button>
+            ))}
+          </div>
+        )}
+        <button className="btn-ghost w-full mt-3" onClick={onClose}>Cancel</button>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { fmtDate } from "../../lib/date";
 import { inr } from "../../lib/money";
 import type { Reservation, Room } from "../../lib/types";
 import { WalkInForm } from "./WalkInForm";
@@ -102,7 +103,7 @@ export function CheckIn() {
             <div className="font-semibold mb-3">Guest information</div>
             <Field label="Name" value={resv.guest_name} />
             <Field label="Room type" value={resv.room_type_code} />
-            <Field label="Stay" value={`${resv.checkin_date} → ${resv.checkout_date} (${resv.nights}n)`} />
+            <Field label="Stay" value={`${fmtDate(resv.checkin_date)} → ${fmtDate(resv.checkout_date)} (${resv.nights}n)`} />
             <Field label="Source" value={resv.source_label} />
           </div>
         )}

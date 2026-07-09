@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { fmtDate } from "../../lib/date";
 import { inr } from "../../lib/money";
 
 interface Customer {
@@ -53,7 +54,7 @@ function GuestModal({ id, onClose }: { id: number; onClose: () => void }) {
             <div className="text-xs uppercase tracking-wide text-muted mb-2">Stay history ({data.reservations.length})</div>
             {data.reservations.length ? data.reservations.map((r) => (
               <div key={r.id} className="flex justify-between items-center py-1.5 border-t border-line text-sm">
-                <span>{r.checkin_date} → {r.checkout_date}</span>
+                <span>{fmtDate(r.checkin_date)} → {fmtDate(r.checkout_date)}</span>
                 <Badge tone={statusTone[r.status] ?? "muted"}>{r.status.replace("_", " ")}</Badge>
               </div>
             )) : <div className="text-sm text-muted py-2">No stays on record.</div>}

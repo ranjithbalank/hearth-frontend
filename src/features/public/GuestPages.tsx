@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 
 import { Logo, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { fmtDate } from "../../lib/date";
 
 /** Guest-facing pages (no login): feedback form + order status tracker.
  *  Reached via the QR/link printed on the bill. */
@@ -150,7 +151,7 @@ export function PreCheckinPage() {
         {step === "form" && summary && (
           <>
             <div className="text-xs text-muted text-center mb-4">
-              {summary.guest_name} · {summary.room_type} · {summary.checkin_date} → {summary.checkout_date}
+              {summary.guest_name} · {summary.room_type} · {fmtDate(summary.checkin_date)} → {fmtDate(summary.checkout_date)}
             </div>
             <div className="grid gap-2">
               <input className="input" placeholder="Mobile" inputMode="tel" value={d.mobile}
