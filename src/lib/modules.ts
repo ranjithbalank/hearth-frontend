@@ -188,6 +188,7 @@ export const NAV: NavGroup[] = [
     zone: ZONE_BACK_OFFICE,
     items: [
       { key: "hr", label: "HR & Staff", path: "/hr" },
+      { key: "leave", label: "Leave", path: "/leave" },
       { key: "employees", label: "Employees", path: "/masters/employees" },
     ],
   },
