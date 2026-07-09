@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { toCsv, parseCsv, downloadFile } from "../../lib/csv";
 import { amount, digits } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 
@@ -11,6 +12,8 @@ interface RoomType {
   id: number; code: string; name: string; base_rate: string;
   max_occupancy: number; gst_slab: string;
 }
+
+const CSV_COLUMNS = ["Code", "Name", "Base Rate", "Max Occupancy", "GST Slab"];
 
 export function RoomMaster() {
   const qc = useQueryClient();
@@ -53,11 +56,78 @@ export function RoomMaster() {
     onError: (e: any) => toast(e?.response?.data?.code?.[0] ?? e?.response?.data?.detail ?? "Could not save — the code may already exist", "error"),
   });
 
+  function downloadTemplate() {
+    downloadFile("room-type-template.csv", toCsv([CSV_COLUMNS, ["DLX", "Deluxe", "4500", "2", "12"]]));
+  }
+
+  function exportRoomTypes() {
+    const rows = (data ?? []).map((rt) => [rt.code, rt.name, rt.base_rate, rt.max_occupancy, rt.gst_slab]);
+    downloadFile("room-types.csv", toCsv([CSV_COLUMNS, ...rows]));
+  }
+
+  const [importing, setImporting] = useState(false);
+  function importRoomTypes(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const rows = parseCsv(String(reader.result));
+      if (rows.length < 2) { toast("That file has no data rows", "error"); return; }
+      const header = rows[0].map((h) => h.trim().toLowerCase());
+      const idx = {
+        code: header.indexOf("code"), name: header.indexOf("name"),
+        rate: header.indexOf("base rate"), occ: header.indexOf("max occupancy"), gst: header.indexOf("gst slab"),
+      };
+      if (idx.code < 0 || idx.name < 0 || idx.rate < 0) {
+        toast("The file needs Code, Name and Base Rate columns — download the template to check the format", "error");
+        return;
+      }
+      setImporting(true);
+      let ok = 0;
+      const failed: string[] = [];
+      for (const row of rows.slice(1)) {
+        const code = row[idx.code]?.trim();
+        const name = row[idx.name]?.trim();
+        const rate = row[idx.rate]?.trim();
+        if (!code || !name || !rate) continue;
+        try {
+          await api.post("/room-types/", {
+            code: code.toUpperCase(), name, base_rate: rate,
+            max_occupancy: Number(idx.occ >= 0 ? row[idx.occ]?.trim() || "2" : "2"),
+            gst_slab: idx.gst >= 0 ? (row[idx.gst]?.trim() || "12") : "12",
+          });
+          ok++;
+        } catch (err: any) {
+          failed.push(`${code} — ${err?.response?.data?.code?.[0] ?? err?.response?.data?.detail ?? "could not add"}`);
+        }
+      }
+      setImporting(false);
+      qc.invalidateQueries({ queryKey: ["room-types"] });
+      if (failed.length) console.warn("Room type import — rows that failed:", failed);
+      toast(
+        `${ok} room type(s) imported${failed.length ? `, ${failed.length} skipped (see console)` : ""}`,
+        failed.length ? "error" : "success",
+      );
+    };
+    reader.readAsText(file);
+  }
+
   if (isLoading || !data) return <Spinner />;
 
   return (
     <div>
       <PageHeader title="Room Master" subtitle="Room types, tariffs &amp; GST slabs" />
+
+      <div className="flex items-center gap-2 mb-4">
+        <button className="btn-outline text-sm" onClick={downloadTemplate}>⬇ Download template</button>
+        <button className="btn-outline text-sm" onClick={exportRoomTypes}>⬇ Export room types (CSV)</button>
+        <label className={`btn-outline text-sm cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
+          {importing ? "Importing…" : "⬆ Import CSV"}
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={importRoomTypes} disabled={importing} />
+        </label>
+      </div>
+
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add room type</div>
         <div className="grid grid-cols-5 gap-2">
