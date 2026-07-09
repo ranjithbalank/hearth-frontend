@@ -66,11 +66,18 @@ export function TableMaster() {
   const visible = branchFilter === "all" ? data : data.filter((t) => t.location === branchFilter);
   // Branch-wise grouping only kicks in once there's actually more than one
   // branch to tell apart — a single-branch login (or a filtered view) just
-  // sees plain floor sections, same as before.
+  // sees plain floor/section groups, same as before. Floor sits between
+  // branch and section: a table's floor (Ground/1st/Lawn) groups it before
+  // AC/Non-AC does, same order the Add-table form asks the questions in.
   const showBranchGroups = needsBranchPick && branchFilter === "all";
   const groups: Record<string, Table[]> = {};
   visible.forEach((t) => {
-    const key = showBranchGroups ? `${t.location ? branchName(t.location) : "No branch"} · ${t.section}` : t.section;
+    const parts = [
+      showBranchGroups ? (t.location ? branchName(t.location) : "No branch") : null,
+      t.floor || null,
+      t.section,
+    ].filter(Boolean);
+    const key = parts.join(" · ");
     (groups[key] ??= []).push(t);
   });
 
@@ -152,7 +159,7 @@ export function TableMaster() {
               {list.map((t) => (
                 <div key={t.id} className="card p-3 text-center">
                   <div className="font-display text-lg">{t.name}</div>
-                  <div className="text-xs text-muted">{t.seats} seats{t.floor ? ` · ${t.floor}` : ""}</div>
+                  <div className="text-xs text-muted">{t.seats} seats</div>
                   {needsBranchPick && t.location && (
                     <div className="text-[10px] text-muted mt-1 truncate">{branchName(t.location)}</div>
                   )}
