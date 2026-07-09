@@ -5,11 +5,14 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { toCsv, parseCsv, downloadFile } from "../../lib/csv";
 import { amount } from "../../lib/inputs";
 import { inr } from "../../lib/money";
 import type { MenuItem } from "../../lib/types";
 
 interface Category { id: number; name: string }
+
+const CSV_COLUMNS = ["Name", "Category", "Price", "GST Rate"];
 
 /** The bar's own dedicated menu — separate from the restaurant's Menu Master.
  *  Beverages live here by default; a kitchen dish only appears in Bar POS
@@ -75,6 +78,66 @@ export function BarMenu() {
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not delete that item", "error"),
   });
 
+  function downloadTemplate() {
+    downloadFile("beverage-template.csv", toCsv([CSV_COLUMNS, ["Gin & Tonic", cats?.[0]?.name ?? "Cocktails", "450", "18"]]));
+  }
+
+  function exportBarMenu() {
+    const rows = barItems.map((m) => [m.name, m.category_name, m.price, m.gst_rate]);
+    downloadFile("bar-menu.csv", toCsv([CSV_COLUMNS, ...rows]));
+  }
+
+  const [importing, setImporting] = useState(false);
+  function importBeverages(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const rows = parseCsv(String(reader.result));
+      if (rows.length < 2) { toast("That file has no data rows", "error"); return; }
+      const header = rows[0].map((h) => h.trim().toLowerCase());
+      const idx = {
+        name: header.indexOf("name"), category: header.indexOf("category"),
+        price: header.indexOf("price"), gst: header.indexOf("gst rate"),
+      };
+      if (idx.name < 0 || idx.category < 0 || idx.price < 0) {
+        toast("The file needs Name, Category and Price columns — download the template to check the format", "error");
+        return;
+      }
+      const catByName = new Map((cats ?? []).map((c) => [c.name.trim().toLowerCase(), c.id]));
+      setImporting(true);
+      let ok = 0;
+      const failed: string[] = [];
+      for (const row of rows.slice(1)) {
+        const name = row[idx.name]?.trim();
+        const catName = row[idx.category]?.trim();
+        const price = row[idx.price]?.trim();
+        if (!name || !catName || !price) continue;
+        const catId = catByName.get(catName.toLowerCase());
+        if (!catId) { failed.push(`${name} — unknown bar category "${catName}"`); continue; }
+        try {
+          await api.post("/pos/menu-items/", {
+            name, category: catId, price,
+            gst_rate: idx.gst >= 0 ? (row[idx.gst]?.trim() || "18") : "18",
+            diet: "veg", station: "bar",
+          });
+          ok++;
+        } catch (err: any) {
+          failed.push(`${name} — ${err?.response?.data?.detail ?? "could not add"}`);
+        }
+      }
+      setImporting(false);
+      qc.invalidateQueries({ queryKey: ["menu"] });
+      if (failed.length) console.warn("Beverage import — rows that failed:", failed);
+      toast(
+        `${ok} beverage(s) imported${failed.length ? `, ${failed.length} skipped (see console)` : ""}`,
+        failed.length ? "error" : "success",
+      );
+    };
+    reader.readAsText(file);
+  }
+
   if (isLoading || !items) return <Spinner />;
 
   return (
@@ -88,6 +151,15 @@ export function BarMenu() {
           </button>
         }
       />
+
+      <div className="flex items-center gap-2 mb-4">
+        <button className="btn-outline text-sm" onClick={downloadTemplate}>⬇ Download template</button>
+        <button className="btn-outline text-sm" onClick={exportBarMenu}>⬇ Export bar menu (CSV)</button>
+        <label className={`btn-outline text-sm cursor-pointer ${importing ? "opacity-50 pointer-events-none" : ""}`}>
+          {importing ? "Importing…" : "⬆ Import CSV"}
+          <input type="file" accept=".csv,text/csv" className="hidden" onChange={importBeverages} disabled={importing} />
+        </label>
+      </div>
 
       <Card className="mb-4">
         <div className="font-semibold mb-1">Bar categories</div>
