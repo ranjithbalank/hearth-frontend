@@ -51,6 +51,24 @@ export function BranchMaster() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["branches"] }),
   });
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [ef, setEf] = useState(empty);
+  function startEdit(b: Branch) {
+    setEditingId(b.id);
+    setEf({ name: b.name, code: b.code, city: b.city ?? "", state: b.state ?? "", gstin: b.gstin ?? "", edition: b.edition, invoice_prefix: b.invoice_prefix ?? "" });
+  }
+  const saveEdit = useMutation({
+    mutationFn: async (id: number) =>
+      (await api.patch(`/auth/branches/${id}/`, {
+        name: ef.name, code: ef.code.toUpperCase(), city: ef.city, state: ef.state, gstin: ef.gstin,
+        edition: ef.edition, invoice_prefix: ef.invoice_prefix,
+        hms: ef.edition !== "restaurant", restaurant: ef.edition !== "hotel",
+        banquets: ef.edition !== "restaurant", rms: ef.edition !== "restaurant",
+      })).data,
+    onSuccess: () => { setEditingId(null); toast("Branch updated"); qc.invalidateQueries({ queryKey: ["branches"] }); },
+    onError: (e: any) => toast(e?.response?.data?.code?.[0] ?? e?.response?.data?.detail ?? "Could not save — the code may already exist", "error"),
+  });
+
   return (
     <div>
       <PageHeader title="Branch Master" subtitle="The group's locations — each with its own address, GSTIN and edition" />
@@ -87,33 +105,80 @@ export function BranchMaster() {
               <th className="text-left px-4 py-3">Name</th>
               <th className="text-left px-4 py-3">City / State</th>
               <th className="text-left px-4 py-3">GSTIN</th>
+              <th className="text-left px-4 py-3">Invoice prefix</th>
               <th className="text-left px-4 py-3">Edition</th>
               <th className="text-right px-4 py-3">Status</th>
+              <th className="text-right px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
-            {branches?.map((b) => (
-              <tr key={b.id} className="border-t border-line">
-                <td className="px-4 py-3 font-mono text-xs">{b.code}</td>
-                <td className="px-4 py-3 font-medium">{b.name}</td>
-                <td className="px-4 py-3 text-muted">{[b.city, b.state].filter(Boolean).join(", ") || "—"}</td>
-                <td className="px-4 py-3 font-mono text-xs text-muted">{b.gstin || "—"}</td>
-                <td className="px-4 py-3 text-muted capitalize">{b.edition}</td>
-                <td className="px-4 py-3 text-right">
-                  <select
-                    className={`pill border-0 ${STATUS_TONE[b.status]}`}
-                    value={b.status}
-                    onChange={(e) => setStatus.mutate({ id: b.id, status: e.target.value as Branch["status"] })}
-                  >
-                    <option value="onboarding">Onboarding</option>
-                    <option value="active">Active</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </td>
-              </tr>
-            ))}
+            {branches?.map((b) => {
+              const editing = editingId === b.id;
+              return (
+                <tr key={b.id} className="border-t border-line">
+                  <td className="px-4 py-3 font-mono text-xs">
+                    {editing ? (
+                      <input className="input py-1 text-xs font-mono w-20" value={ef.code}
+                        onChange={(e) => setEf({ ...ef, code: e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 10) })} />
+                    ) : b.code}
+                  </td>
+                  <td className="px-4 py-3 font-medium">
+                    {editing ? <input className="input py-1 text-xs w-full" value={ef.name} onChange={(e) => setEf({ ...ef, name: e.target.value })} /> : b.name}
+                  </td>
+                  <td className="px-4 py-3 text-muted">
+                    {editing ? (
+                      <div className="flex gap-1">
+                        <input className="input py-1 text-xs w-20" placeholder="City" value={ef.city} onChange={(e) => setEf({ ...ef, city: e.target.value })} />
+                        <input className="input py-1 text-xs w-20" placeholder="State" value={ef.state} onChange={(e) => setEf({ ...ef, state: e.target.value })} />
+                      </div>
+                    ) : ([b.city, b.state].filter(Boolean).join(", ") || "—")}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted">
+                    {editing ? (
+                      <input className="input py-1 text-xs font-mono w-32" value={ef.gstin} onChange={(e) => setEf({ ...ef, gstin: gstinFilter(e.target.value) })} />
+                    ) : (b.gstin || "—")}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-muted">
+                    {editing ? (
+                      <input className="input py-1 text-xs font-mono w-20" value={ef.invoice_prefix}
+                        onChange={(e) => setEf({ ...ef, invoice_prefix: e.target.value.toUpperCase().slice(0, 10) })} />
+                    ) : (b.invoice_prefix || "—")}
+                  </td>
+                  <td className="px-4 py-3 text-muted capitalize">
+                    {editing ? (
+                      <select className="input py-1 text-xs" value={ef.edition} onChange={(e) => setEf({ ...ef, edition: e.target.value as Branch["edition"] })}>
+                        <option value="both">Hotel + Restaurant</option>
+                        <option value="hotel">Hotel only</option>
+                        <option value="restaurant">Restaurant only</option>
+                      </select>
+                    ) : b.edition}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <select
+                      className={`pill border-0 ${STATUS_TONE[b.status]}`}
+                      value={b.status}
+                      onChange={(e) => setStatus.mutate({ id: b.id, status: e.target.value as Branch["status"] })}
+                    >
+                      <option value="onboarding">Onboarding</option>
+                      <option value="active">Active</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {editing ? (
+                      <>
+                        <button className="btn-ghost text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => setEditingId(null)}>Cancel</button>
+                        <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(b.id)}>Save</button>
+                      </>
+                    ) : (
+                      <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(b)}>Edit</button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {branches?.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">No branches yet — add the first one above.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-muted">No branches yet — add the first one above.</td></tr>
             )}
           </tbody>
         </table>
