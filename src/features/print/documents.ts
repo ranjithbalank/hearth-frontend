@@ -35,6 +35,16 @@ export const downloadPayslipPdf = (payslipId: number, employeeName: string, mont
 const inr = (v: string | number) =>
   "₹" + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Number(v) || 0);
 
+/** Escape free text (guest names, order notes, descriptions) before it's
+ *  concatenated into an HTML string for document.write() — these print
+ *  windows are same-origin, so unescaped HTML/script in any upstream field
+ *  would execute with access to window.opener (security review 2026-07,
+ *  finding F3). Purely defensive: normal text renders identically. */
+const esc = (v: string | number | null | undefined) =>
+  String(v ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]!));
+
 function openAndPrint(html: string, width = 800) {
   const w = window.open("", "_blank", `width=${width},height=1000`);
   if (!w) return;
@@ -64,22 +74,22 @@ const BASE_CSS = `
 
 export function printInvoice(folio: Folio, propertyName: string, gstin: string) {
   const rows = folio.lines.map((l) => `
-    <tr><td>${l.description}</td>
+    <tr><td>${esc(l.description)}</td>
         <td class="r">${inr(l.taxable)}</td>
         <td class="r">${inr(l.cgst)}</td>
         <td class="r">${inr(l.sgst)}</td>
         <td class="r">${inr(l.total)}</td></tr>`).join("");
   const cgst = folio.lines.reduce((s, l) => s + Number(l.cgst), 0);
   const sgst = folio.lines.reduce((s, l) => s + Number(l.sgst), 0);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${folio.invoice_no || folio.id}</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${esc(folio.invoice_no || folio.id)}</title>
   <style>${BASE_CSS}</style></head><body>
     <div class="head">
-      <div><div class="brand">${propertyName}</div><div class="muted">${gstin ? "GSTIN: " + gstin : ""}</div></div>
+      <div><div class="brand">${esc(propertyName)}</div><div class="muted">${gstin ? "GSTIN: " + esc(gstin) : ""}</div></div>
       <div class="doc"><h1>TAX INVOICE</h1>
-        <div class="muted">No. ${folio.invoice_no || "—"}<br>${new Date().toLocaleDateString("en-IN")}</div></div>
+        <div class="muted">No. ${esc(folio.invoice_no) || "—"}<br>${new Date().toLocaleDateString("en-IN")}</div></div>
     </div>
     <div style="margin-top:14px; font-size:13px;">
-      <b>Bill to:</b> ${folio.guest_name}${folio.room_number ? ` &nbsp;·&nbsp; Room ${folio.room_number}` : ""}
+      <b>Bill to:</b> ${esc(folio.guest_name)}${folio.room_number ? ` &nbsp;·&nbsp; Room ${esc(folio.room_number)}` : ""}
     </div>
     <table>
       <thead><tr><th>Description</th><th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th><th class="r">Amount</th></tr></thead>
@@ -93,7 +103,7 @@ export function printInvoice(folio: Folio, propertyName: string, gstin: string) 
       <div><span>Paid</span><span>${inr(folio.paid_total)}</span></div>
       <div><span>Balance</span><span>${inr(folio.balance)}</span></div>
     </div>
-    <div class="foot">${propertyName} · GST-compliant tax invoice · computer-generated, no signature required</div>
+    <div class="foot">${esc(propertyName)} · GST-compliant tax invoice · computer-generated, no signature required</div>
   </body></html>`;
   openAndPrint(html);
 }
@@ -103,8 +113,8 @@ export function printKot(order: Order, propertyName: string) {
   const latest = order.lines.filter((l) => l.kot_fired && l.kot_no === order.kot_no);
   const fired = latest.length ? latest : order.lines.filter((l) => l.kot_fired);
   const lines = (fired.length ? fired : order.lines).map((l) =>
-    `<tr><td class="r" style="width:34px">${l.qty}</td><td>${l.name}${l.note ? ` <i>(${l.note})</i>` : ""}</td></tr>`).join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${order.kot_no || "KOT"}</title>
+    `<tr><td class="r" style="width:34px">${l.qty}</td><td>${esc(l.name)}${l.note ? ` <i>(${esc(l.note)})</i>` : ""}</td></tr>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(order.kot_no) || "KOT"}</title>
   <style>${BASE_CSS}
     body { width: 300px; }
     .kt { font-family: 'JetBrains Mono', monospace; }
@@ -113,12 +123,12 @@ export function printKot(order: Order, propertyName: string) {
   </style></head><body>
     <div style="text-align:center; border-bottom:2px dashed #16221F; padding-bottom:8px;">
       <h1>KITCHEN ORDER · KOT</h1>
-      ${order.token_no ? `<div class="kt" style="font-size:26px; font-weight:bold; margin:4px 0;">TOKEN ${order.token_no}</div>` : ""}
-      <div class="muted kt">${order.kot_no || "#" + order.id} · ${order.table_name ? "Table " + order.table_name : (order.mode || "")}</div>
+      ${order.token_no ? `<div class="kt" style="font-size:26px; font-weight:bold; margin:4px 0;">TOKEN ${esc(order.token_no)}</div>` : ""}
+      <div class="muted kt">${esc(order.kot_no) || "#" + order.id} · ${order.table_name ? "Table " + esc(order.table_name) : esc(order.mode || "")}</div>
       <div class="muted kt">${new Date().toLocaleString("en-IN")}</div>
     </div>
     <table class="kt"><tbody>${lines}</tbody></table>
-    <div class="foot kt">${propertyName} · expedite</div>
+    <div class="foot kt">${esc(propertyName)} · expedite</div>
   </body></html>`;
   openAndPrint(html, 360);
 }
@@ -131,11 +141,11 @@ export interface ZReport {
 
 export function printZReport(z: ZReport, propertyName: string) {
   const rows = z.tenders.map((t) =>
-    `<tr><td>${t.tender}</td><td class="r">${t.count}</td><td class="r">${inr(t.tip)}</td><td class="r">${inr(t.amount)}</td></tr>`).join("");
+    `<tr><td>${esc(t.tender)}</td><td class="r">${t.count}</td><td class="r">${inr(t.tip)}</td><td class="r">${inr(t.amount)}</td></tr>`).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Day-end Z</title>
   <style>${BASE_CSS} body{width:420px;}</style></head><body>
     <div class="head" style="border-bottom-width:2px;">
-      <div><div class="brand">${propertyName}</div><div class="muted">Day-end (Z) settlement</div></div>
+      <div><div class="brand">${esc(propertyName)}</div><div class="muted">Day-end (Z) settlement</div></div>
       <div class="doc"><h1 style="font-size:14px;">Z-REPORT</h1><div class="muted">${new Date().toLocaleDateString("en-IN")}</div></div>
     </div>
     <table>
@@ -146,7 +156,7 @@ export function printZReport(z: ZReport, propertyName: string) {
       <div><span>Total tips</span><span>${inr(z.tips)}</span></div>
       <div class="grand"><span>Total collected</span><span>${inr(z.total)}</span></div>
     </div>
-    <div class="foot">${propertyName} · cashier reconciliation · count cash against this figure</div>
+    <div class="foot">${esc(propertyName)} · cashier reconciliation · count cash against this figure</div>
   </body></html>`;
   openAndPrint(html, 480);
 }

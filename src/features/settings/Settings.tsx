@@ -286,9 +286,26 @@ function LetterheadPanel() {
     }
   }
 
+  // The only markup this editor ever inserts is <b>/<i> via wrap() above —
+  // escape everything, then re-open exactly those four literal tag
+  // sequences. Anything else typed directly (e.g. <img onerror=...>) stays
+  // inert text instead of executing (security review 2026-07, finding F2).
+  // Normal header/footer text and real bold/italic formatting render
+  // exactly as before.
+  const ALLOWED_TAGS: Record<string, string> = {
+    "&lt;b&gt;": "<b>", "&lt;/b&gt;": "</b>",
+    "&lt;i&gt;": "<i>", "&lt;/i&gt;": "</i>",
+  };
+  const sanitize = (raw: string) => {
+    const escaped = raw.replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]!));
+    return escaped.replace(/&lt;\/?[bi]&gt;/g, (tag) => ALLOWED_TAGS[tag] ?? tag);
+  };
+
   const previewLines = (text: string) =>
     text.split("\n").filter((l) => l.trim()).map((l, i) => (
-      <div key={i} dangerouslySetInnerHTML={{ __html: l }} />
+      <div key={i} dangerouslySetInnerHTML={{ __html: sanitize(l) }} />
     ));
 
   return (
