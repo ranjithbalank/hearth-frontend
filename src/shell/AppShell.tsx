@@ -7,7 +7,9 @@ import { useToast } from "../design/Toast";
 import { Logo } from "../design/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/app-context";
+import { fmtDate } from "../lib/date";
 import { NAV } from "../lib/modules";
+import { NOTIFICATION_ROUTES } from "../lib/notifications";
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -90,7 +92,12 @@ function NotificationBell() {
     for (const a of data.alerts) {
       const key = keyOf(a);
       if ((a.severity === "warning" || a.severity === "critical") && !seen.current.has(key)) {
-        toast(a.detail ? `${a.title} · ${a.detail}` : a.title, a.severity === "critical" ? "error" : "info");
+        const route = NOTIFICATION_ROUTES[a.module];
+        toast(
+          a.detail ? `${a.title} · ${a.detail}` : a.title,
+          a.severity === "critical" ? "error" : "info",
+          route ? () => nav(route) : undefined,
+        );
       }
     }
     seen.current = new Set(data.alerts.map(keyOf));
@@ -316,7 +323,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <div className="text-sm text-muted truncate">
             {property?.name}
-            {property?.business_date && <span className="ml-2 text-xs hidden sm:inline">· business date {property.business_date}</span>}
+            {property?.business_date && <span className="ml-2 text-xs hidden sm:inline">· business date {fmtDate(property.business_date)}</span>}
           </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="pill bg-pine-50 text-pine capitalize hidden sm:inline-flex">{property?.edition} edition</span>
