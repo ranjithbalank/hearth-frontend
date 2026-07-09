@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -16,6 +17,7 @@ interface Category { id: number; name: string }
 export function BarMenu() {
   const qc = useQueryClient();
   const toast = useToast();
+  const ask = usePrompt();
   const empty = { name: "", category: "", price: "", gst_rate: "18" };
   const [form, setForm] = useState(empty);
   const [showAddKitchen, setShowAddKitchen] = useState(false);
@@ -50,6 +52,27 @@ export function BarMenu() {
       (await api.patch(`/pos/menu-items/${id}/`, { bar_menu })).data,
     onSuccess: (_d, { bar_menu }) => { toast(bar_menu ? "Added to bar menu" : "Removed from bar menu"); qc.invalidateQueries({ queryKey: ["menu"] }); },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not update", "error"),
+  });
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ category: "", price: "", gst_rate: "18" });
+  function startEdit(m: MenuItem) {
+    setEditingId(m.id);
+    setEditForm({ category: String(m.category), price: String(m.price), gst_rate: String(m.gst_rate) });
+  }
+  const saveEdit = useMutation({
+    mutationFn: async (id: number) =>
+      (await api.patch(`/pos/menu-items/${id}/`, {
+        category: Number(editForm.category), price: editForm.price, gst_rate: editForm.gst_rate,
+      })).data,
+    onSuccess: () => { setEditingId(null); toast("Item updated"); qc.invalidateQueries({ queryKey: ["menu"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save changes", "error"),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: number) => api.delete(`/pos/menu-items/${id}/`),
+    onSuccess: () => { toast("Beverage deleted"); qc.invalidateQueries({ queryKey: ["menu"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not delete that item", "error"),
   });
 
   if (isLoading || !items) return <Spinner />;
@@ -134,24 +157,73 @@ export function BarMenu() {
               <th className="text-left px-4 py-3">Source</th>
               <th className="text-right px-4 py-3">Price</th>
               <th className="text-right px-4 py-3">GST</th>
+              <th className="text-right px-4 py-3">&nbsp;</th>
             </tr>
           </thead>
           <tbody>
-            {barItems.map((m) => (
-              <tr key={m.id} className="border-t border-line">
-                <td className="px-4 py-3 font-medium">{m.name}</td>
-                <td className="px-4 py-3 text-muted">{m.category_name}</td>
-                <td className="px-4 py-3">
-                  <Badge tone={m.station === "bar" ? "amber" : "pine"}>
-                    {m.station === "bar" ? "Beverage" : "Kitchen dish"}
-                  </Badge>
-                </td>
-                <td className="px-4 py-3 text-right">{inr(m.price)}</td>
-                <td className="px-4 py-3 text-right">{Number(m.gst_rate)}%</td>
-              </tr>
-            ))}
+            {barItems.map((m) => {
+              const editing = editingId === m.id;
+              return (
+                <tr key={m.id} className="border-t border-line">
+                  <td className="px-4 py-3 font-medium">{m.name}</td>
+                  <td className="px-4 py-3 text-muted">
+                    {editing && m.station === "bar" ? (
+                      <select className="input py-1 text-xs" value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}>
+                        {cats?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    ) : m.category_name}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={m.station === "bar" ? "amber" : "pine"}>
+                      {m.station === "bar" ? "Beverage" : "Kitchen dish"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {editing ? (
+                      <input className="input py-1 text-xs text-right w-24" inputMode="decimal"
+                        value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: amount(e.target.value) })} />
+                    ) : inr(m.price)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {editing ? (
+                      <select className="input py-1 text-xs" value={editForm.gst_rate} onChange={(e) => setEditForm({ ...editForm, gst_rate: e.target.value })}>
+                        <option value="5">5%</option>
+                        <option value="18">18%</option>
+                      </select>
+                    ) : `${Number(m.gst_rate)}%`}
+                  </td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
+                    {editing ? (
+                      <>
+                        <button className="btn-ghost text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => setEditingId(null)}>Cancel</button>
+                        <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(m.id)}>Save</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(m)}>Edit</button>
+                        {m.station === "bar" && (
+                          <button
+                            className="btn-ghost text-xs py-1 px-2 text-clay"
+                            disabled={remove.isPending}
+                            onClick={async () => {
+                              const ok = await ask({
+                                title: "Delete beverage", confirm: true, danger: true, confirmLabel: "Delete",
+                                message: `Delete "${m.name}"? This can't be undone. If it's ever been ordered, deleting will be blocked.`,
+                              });
+                              if (ok) remove.mutate(m.id);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {!barItems.length && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-muted text-sm">No items on the bar menu yet.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">No items on the bar menu yet.</td></tr>
             )}
           </tbody>
         </table>
