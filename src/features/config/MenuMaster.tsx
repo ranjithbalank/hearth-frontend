@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -14,6 +15,7 @@ interface Category { id: number; name: string }
 export function MenuMaster() {
   const qc = useQueryClient();
   const toast = useToast();
+  const ask = usePrompt();
   const { property } = useApp();
   // Combined mode: no separate Bar Menu Master, so beverages are managed
   // right here too — station picker appears, and bar categories show up
@@ -61,6 +63,12 @@ export function MenuMaster() {
       })).data,
     onSuccess: () => { setEditingId(null); toast("Menu item updated"); qc.invalidateQueries({ queryKey: ["menu"] }); },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save changes", "error"),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: number) => api.delete(`/pos/menu-items/${id}/`),
+    onSuccess: () => { toast("Item deleted"); qc.invalidateQueries({ queryKey: ["menu"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not delete that item", "error"),
   });
 
   const setImage = useMutation({
@@ -211,7 +219,22 @@ export function MenuMaster() {
                         <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(m.id)}>Save</button>
                       </>
                     ) : (
-                      <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(m)}>Edit</button>
+                      <>
+                        <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(m)}>Edit</button>
+                        <button
+                          className="btn-ghost text-xs py-1 px-2 text-clay"
+                          disabled={remove.isPending}
+                          onClick={async () => {
+                            const ok = await ask({
+                              title: "Delete menu item", confirm: true, danger: true, confirmLabel: "Delete",
+                              message: `Delete "${m.name}"? This can't be undone. If it's ever been ordered, deleting will be blocked — mark it 86'd instead.`,
+                            });
+                            if (ok) remove.mutate(m.id);
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
