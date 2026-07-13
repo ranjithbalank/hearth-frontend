@@ -24,6 +24,20 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
+export function GuestNotFound() {
+  return (
+    <Shell>
+      <div className="card p-8 text-center">
+        <div className="font-display text-3xl text-ink mb-1">404</div>
+        <div className="font-display text-lg">Page not found</div>
+        <div className="text-sm text-muted mt-1">
+          This link may have expired. Please scan the QR code again or ask our staff for help.
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
 export function FeedbackPage() {
   const t = useParam("t");
   const [rating, setRating] = useState(0);

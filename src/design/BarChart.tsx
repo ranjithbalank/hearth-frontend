@@ -7,18 +7,18 @@ export function BarChart({ bars }: { bars: { name: string; value: number }[] }) 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
       {/* baseline */}
-      <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="#EDE7DC" strokeWidth="1" />
+      <line x1={pad} y1={H - pad} x2={W - pad} y2={H - pad} stroke="#E2E8F0" strokeWidth="1" />
       {bars.map((b, i) => {
         const h = ((H - pad * 2) * b.value) / max;
         const x = pad + i * bw + bw * 0.18;
         const y = H - pad - h;
         return (
           <g key={b.name}>
-            <rect x={x} y={y} width={bw * 0.64} height={h} rx="4" fill="#1C6B57" />
-            <text x={x + bw * 0.32} y={y - 5} textAnchor="middle" fontSize="11" fill="#3D4A4E">
+            <rect x={x} y={y} width={bw * 0.64} height={h} rx="4" fill="#2563EB" />
+            <text x={x + bw * 0.32} y={y - 5} textAnchor="middle" fontSize="11" fill="#334155">
               {Math.round(b.value).toLocaleString("en-IN")}
             </text>
-            <text x={x + bw * 0.32} y={H - pad + 14} textAnchor="middle" fontSize="10.5" fill="#8A8478">
+            <text x={x + bw * 0.32} y={H - pad + 14} textAnchor="middle" fontSize="10.5" fill="#64748B">
               {b.name}
             </text>
           </g>

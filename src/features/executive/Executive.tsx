@@ -3,6 +3,8 @@ import { useState } from "react";
 
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
+import { fmtDate, greeting } from "../../lib/date";
 import { inr, num } from "../../lib/money";
 
 type View = "all" | "hotel" | "restaurant";
@@ -22,15 +24,22 @@ const TABS: { key: View; label: string }[] = [
 ];
 
 export function Executive() {
+  const { user } = useApp();
   const [view, setView] = useState<View>("all");
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, dataUpdatedAt } = useQuery({
     queryKey: ["executive", view],
     queryFn: async () => (await api.get<ExecData>(`/reports/executive/?view=${view}`)).data,
   });
+  const asOf = dataUpdatedAt
+    ? ` · as of ${new Date(dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+    : "";
 
   return (
     <div>
-      <PageHeader title="Executive Overview" subtitle="Group performance at a glance" />
+      <PageHeader
+        title="Executive Overview"
+        subtitle={`${greeting(user?.name?.split(" ")[0])} · ${fmtDate(new Date().toISOString())}${asOf}`}
+      />
 
       <div className="flex gap-2 mb-4">
         {TABS.map((t) => (

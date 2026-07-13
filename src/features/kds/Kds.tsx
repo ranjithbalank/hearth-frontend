@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 
 import { useToast } from "../../design/Toast";
 import { Badge, EmptyState, PageHeader, Spinner } from "../../design/ui";
@@ -15,7 +16,21 @@ interface Ticket {
   kot_no: string;
   kitchen_status: string;
   table: string;
+  created_at: string; // KOT fire time (for BEO tickets it's the event date — no timer)
   items: { name: string; qty: number; station: string }[];
+}
+
+/** Minutes since the KOT fired; null for BEO tickets and bad dates. */
+function elapsedMins(t: Ticket): number | null {
+  if (t.type !== "order") return null;
+  const fired = new Date(t.created_at).getTime();
+  if (isNaN(fired)) return null;
+  return Math.max(0, (Date.now() - fired) / 60000);
+}
+
+function fmtElapsed(mins: number): string {
+  if (mins >= 60) return `${Math.floor(mins / 60)}h ${Math.floor(mins % 60)}m`;
+  return `${Math.floor(mins)}:${String(Math.floor((mins % 1) * 60)).padStart(2, "0")}`;
 }
 
 interface Performance {
@@ -40,6 +55,13 @@ export function Kds() {
     queryFn: async () => (await api.get<Performance>("/kds/performance/")).data,
     refetchInterval: 60000,
   });
+
+  // Keep the elapsed timers moving even if the 5s poll stalls (offline etc.).
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, []);
 
   const bump = useMutation({
     mutationFn: async (t: Ticket) =>
@@ -68,18 +90,37 @@ export function Kds() {
         <EmptyState title="No active tickets" hint="Fired KOTs appear here." />
       ) : (
         <div className="grid grid-cols-4 gap-3">
-          {data.map((t) => (
+          {data.map((t) => {
+            const mins = elapsedMins(t);
+            const urgency =
+              mins !== null && t.kitchen_status === "cooking"
+                ? mins > 20 ? "late" : mins > 10 ? "warn" : "ok"
+                : "ok";
+            return (
             <div
               key={`${t.type}-${t.id}`}
               className={`rounded-card border p-4 ${
                 t.type === "beo"
                   ? "border-clay/50 bg-clay/5"
                   : t.kitchen_status === "ready" ? "border-pine bg-pine-50" : "border-amber/40 bg-amber-50"
-              }`}
+              } ${urgency === "late" ? "border-l-4 border-l-clay" : urgency === "warn" ? "border-l-4 border-l-amber" : ""}`}
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="font-display text-lg">{t.kot_no}</span>
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1.5">
+                  {urgency === "late" && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-clay opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-clay" />
+                    </span>
+                  )}
+                  {mins !== null && t.kitchen_status === "cooking" && (
+                    <span className={`text-xs tabular-nums font-semibold ${
+                      urgency === "late" ? "text-clay" : urgency === "warn" ? "text-amber-600" : "text-muted"
+                    }`}>
+                      {fmtElapsed(mins)}
+                    </span>
+                  )}
                   {t.type === "beo" && <Badge tone="clay">BEO</Badge>}
                   <Badge tone={t.kitchen_status === "ready" ? "pine" : "amber"}>{t.kitchen_status}</Badge>
                 </span>
@@ -103,7 +144,8 @@ export function Kds() {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

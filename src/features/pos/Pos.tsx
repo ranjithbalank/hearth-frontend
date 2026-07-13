@@ -741,8 +741,12 @@ export function Pos() {
                 onClick={() => onItemClick(i)}
                 className="card p-3 text-left hover:bg-cream disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
               >
-                {i.image && (
+                {i.image ? (
                   <img src={i.image} alt="" className="h-16 w-full object-cover rounded-lg mb-2" />
+                ) : (
+                  <div className="h-16 w-full rounded-lg mb-2 bg-gradient-to-br from-pine-50 to-hairline grid place-items-center">
+                    <span className="font-display text-xl text-pine/40">{i.name[0]}</span>
+                  </div>
                 )}
                 <div className="flex items-center gap-1.5">
                   <span className={`h-2.5 w-2.5 rounded-sm border ${i.diet === "veg" ? "border-pine" : "border-clay"}`}>
@@ -753,7 +757,7 @@ export function Pos() {
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-sm text-muted">{inr(i.price)}</span>
                   {!i.available
-                    ? <span className="text-[10px] font-semibold uppercase tracking-wide text-clay">86</span>
+                    ? <span className="pill bg-clay-50 text-clay text-[10px]">86'd</span>
                     : i.short_code && <span className="text-[10px] uppercase tracking-wide text-muted">{i.short_code}</span>}
                 </div>
               </button>
@@ -789,12 +793,21 @@ export function Pos() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button className="h-6 w-6 rounded bg-hairline disabled:opacity-40" disabled={billed}
+                  <div className="flex items-center gap-0.5">
+                    <button className="h-8 w-8 rounded-lg bg-hairline text-base disabled:opacity-40" disabled={billed}
+                      aria-label={`Decrease ${l.name}`}
                       onClick={() => setQty.mutate({ line: l.id, qty: l.qty - 1 })}>−</button>
-                    <span className="w-6 text-center">{l.qty}</span>
-                    <button className="h-6 w-6 rounded bg-hairline disabled:opacity-40" disabled={billed}
+                    <span className="w-7 text-center tabular-nums">{l.qty}</span>
+                    <button className="h-8 w-8 rounded-lg bg-hairline text-base disabled:opacity-40" disabled={billed}
+                      aria-label={`Increase ${l.name}`}
                       onClick={() => setQty.mutate({ line: l.id, qty: l.qty + 1 })}>+</button>
+                    <button className="h-8 w-8 rounded-lg grid place-items-center text-muted hover:text-clay hover:bg-clay-50 disabled:opacity-40" disabled={billed}
+                      aria-label={`Remove ${l.name}`}
+                      onClick={() => setQty.mutate({ line: l.id, qty: 0 })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a1 1 0 01-1 1H7a1 1 0 01-1-1L5 6M10 11v6M14 11v6" />
+                      </svg>
+                    </button>
                   </div>
                   <div className="w-16 text-right">{inr(Number(l.unit_price) * l.qty)}</div>
                 </div>

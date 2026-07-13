@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { useToast } from "../../design/Toast";
-import { Card, PageHeader } from "../../design/ui";
+import { Card, Field, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/date";
 import { amount, digits, gstin as gstinFilter } from "../../lib/inputs";
@@ -141,21 +141,37 @@ function UsersPanel() {
   return (
     <Card>
       <div className="font-semibold mb-3">Users &amp; roles</div>
-      <div className="grid grid-cols-4 gap-2 mb-2">
-        <input className="input" placeholder="Username" value={f.username} onChange={(e) => set("username", e.target.value)} />
-        <input className="input" placeholder="First name" value={f.first_name} onChange={(e) => set("first_name", e.target.value)} />
-        <input className="input" placeholder="Last name" value={f.last_name} onChange={(e) => set("last_name", e.target.value)} />
-        <select className="input" value={f.role} onChange={(e) => set("role", e.target.value)}>
-          {ROLES.map((r) => <option key={r}>{r}</option>)}
-        </select>
-        <input className="input" placeholder="Password" type="password" value={f.password} onChange={(e) => set("password", e.target.value)} />
-        <input className="input" inputMode="numeric" placeholder="POS passcode" value={f.passcode} onChange={(e) => set("passcode", digits(e.target.value, 6))} />
-        <select className="input" value={f.discount_cap_type} onChange={(e) => set("discount_cap_type", e.target.value)}>
-          <option value="none">No discount cap</option>
-          <option value="percent">% cap</option>
-          <option value="fixed">Fixed cap</option>
-        </select>
-        <input className="input" inputMode="decimal" placeholder="Cap value" value={f.discount_cap_value} onChange={(e) => set("discount_cap_value", amount(e.target.value))} disabled={f.discount_cap_type === "none"} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <Field label="Username" required>
+          <input className="input" value={f.username} onChange={(e) => set("username", e.target.value)} />
+        </Field>
+        <Field label="First name">
+          <input className="input" value={f.first_name} onChange={(e) => set("first_name", e.target.value)} />
+        </Field>
+        <Field label="Last name">
+          <input className="input" value={f.last_name} onChange={(e) => set("last_name", e.target.value)} />
+        </Field>
+        <Field label="Role">
+          <select className="input" value={f.role} onChange={(e) => set("role", e.target.value)}>
+            {ROLES.map((r) => <option key={r}>{r}</option>)}
+          </select>
+        </Field>
+        <Field label="Password" required>
+          <input className="input" type="password" value={f.password} onChange={(e) => set("password", e.target.value)} />
+        </Field>
+        <Field label="POS passcode" hint="Used for manager overrides">
+          <input className="input" inputMode="numeric" value={f.passcode} onChange={(e) => set("passcode", digits(e.target.value, 6))} />
+        </Field>
+        <Field label="Discount cap">
+          <select className="input" value={f.discount_cap_type} onChange={(e) => set("discount_cap_type", e.target.value)}>
+            <option value="none">No discount cap</option>
+            <option value="percent">% cap</option>
+            <option value="fixed">Fixed cap</option>
+          </select>
+        </Field>
+        <Field label="Cap value">
+          <input className="input" inputMode="decimal" value={f.discount_cap_value} onChange={(e) => set("discount_cap_value", amount(e.target.value))} disabled={f.discount_cap_type === "none"} />
+        </Field>
       </div>
       <button className="btn-primary mb-4" disabled={!f.username || !f.password || create.isPending} onClick={() => create.mutate()}>
         Add user

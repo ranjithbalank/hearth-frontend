@@ -6,6 +6,7 @@ import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { NavIcon } from "../../design/NavIcon";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { fmtDate, greeting } from "../../lib/date";
 import { inr, num } from "../../lib/money";
 
 interface DashboardData {
@@ -37,7 +38,7 @@ export function Dashboard() {
   const { user } = useApp();
   const canApprove = MENU_APPROVER_ROLES.includes(user?.role ?? "");
   const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, dataUpdatedAt } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => (await api.get<DashboardData>("/reports/dashboard/")).data,
   });
@@ -53,13 +54,17 @@ export function Dashboard() {
   }
 
   if (isLoading || !data) return <Spinner />;
-  const { title, subtitle } = TITLES[data.view];
+  const { title } = TITLES[data.view];
+  const firstName = user?.name?.split(" ")[0];
+  const asOf = dataUpdatedAt
+    ? new Date(dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : null;
 
   return (
     <div>
       <PageHeader
         title={title}
-        subtitle={subtitle}
+        subtitle={`${greeting(firstName)} · ${fmtDate(new Date().toISOString())}${asOf ? ` · as of ${asOf}` : ""}`}
         action={
           <div className="flex gap-1 rounded-pill bg-hairline p-1">
             {(["analytical", "data"] as const).map((m) => (
