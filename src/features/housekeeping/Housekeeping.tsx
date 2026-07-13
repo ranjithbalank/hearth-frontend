@@ -1,11 +1,62 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
-import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
-import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
+import { Badge, Card, Field, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { inr } from "../../lib/money";
 import type { Room } from "../../lib/types";
+
+/** Small two-field form modal — replaces the old chained window-prompt flow
+ *  (Prompt.tsx is single-input by design). */
+function FormModal({
+  title,
+  fields,
+  submitLabel = "Save",
+  onSubmit,
+  onCancel,
+}: {
+  title: string;
+  fields: { key: string; label: string; placeholder?: string; defaultValue?: string; inputMode?: "text" | "decimal"; required?: boolean }[];
+  submitLabel?: string;
+  onSubmit: (values: Record<string, string>) => void;
+  onCancel: () => void;
+}) {
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fields.map((f) => [f.key, f.defaultValue ?? ""])),
+  );
+  const valid = fields.every((f) => !f.required || values[f.key].trim());
+  const submit = () => valid && onSubmit(values);
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-[70]" onClick={onCancel}>
+      <div className="card p-5 w-[340px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-lg mb-3">{title}</div>
+        <div className="space-y-3">
+          {fields.map((f, idx) => (
+            <Field key={f.key} label={f.label} required={f.required}>
+              <input
+                className="input"
+                autoFocus={idx === 0}
+                placeholder={f.placeholder}
+                inputMode={f.inputMode}
+                value={values[f.key]}
+                onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submit();
+                  if (e.key === "Escape") onCancel();
+                }}
+              />
+            </Field>
+          ))}
+        </div>
+        <div className="flex gap-2 mt-4">
+          <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary flex-1" disabled={!valid} onClick={submit}>{submitLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const STATUS_TONE: Record<string, "pine" | "clay" | "amber" | "info" | "muted"> = {
   vacant_clean: "pine",
@@ -28,7 +79,7 @@ const CAN_ADVANCE = new Set(Object.keys(NEXT_LABEL));
 export function Housekeeping() {
   const qc = useQueryClient();
   const toast = useToast();
-  const ask = usePrompt();
+  const [minibarRoom, setMinibarRoom] = useState<Room | null>(null);
   const { data: rooms, isLoading } = useQuery({
     queryKey: ["hk-rooms"],
     queryFn: async () => (await api.get<Room[]>("/housekeeping/")).data,
@@ -127,15 +178,7 @@ export function Housekeeping() {
               <button
                 className="btn-ghost w-full mt-3 text-xs py-1.5"
                 disabled={minibar.isPending && minibar.variables?.room.id === r.id}
-                onClick={async () => {
-                  const item = await ask({ title: "Post minibar", label: "Item consumed", placeholder: "e.g. Soft drink" });
-                  if (!item) return;
-                  const raw = await ask({ title: "Minibar amount", label: "Amount (₹)", defaultValue: "150" });
-                  if (raw === null) return;
-                  const amount = Number(raw);
-                  if (!amount || amount <= 0) { toast("Enter a valid amount", "error"); return; }
-                  minibar.mutate({ room: r, item, amount });
-                }}
+                onClick={() => setMinibarRoom(r)}
               >
                 Post minibar
               </button>
@@ -147,6 +190,24 @@ export function Housekeeping() {
       <div className="mt-8">
         <LostFound />
       </div>
+
+      {minibarRoom && (
+        <FormModal
+          title={`Post minibar — room ${minibarRoom.number}`}
+          submitLabel="Post"
+          fields={[
+            { key: "item", label: "Item consumed", placeholder: "e.g. Soft drink", required: true },
+            { key: "amount", label: "Amount (₹)", defaultValue: "150", inputMode: "decimal", required: true },
+          ]}
+          onCancel={() => setMinibarRoom(null)}
+          onSubmit={(v) => {
+            const amount = Number(v.amount);
+            if (!amount || amount <= 0) { toast("Enter a valid amount", "error"); return; }
+            minibar.mutate({ room: minibarRoom, item: v.item.trim(), amount });
+            setMinibarRoom(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -155,8 +216,8 @@ interface LostItem { id: number; description: string; location: string; status: 
 
 function LostFound() {
   const qc = useQueryClient();
-  const ask = usePrompt();
   const toast = useToast();
+  const [logging, setLogging] = useState(false);
   const { data } = useQuery({
     queryKey: ["lost-found"],
     queryFn: async () => (await api.get<LostItem[]>("/housekeeping/lost_found/")).data,
@@ -176,17 +237,24 @@ function LostFound() {
     <Card>
       <div className="flex items-center justify-between mb-3">
         <div className="font-semibold">Lost &amp; Found</div>
-        <button
-          className="btn-outline text-xs py-1"
-          onClick={async () => {
-            const description = await ask({ title: "Log found item", label: "Description", placeholder: "e.g. Black umbrella" });
-            if (!description) return;
-            const location = (await ask({ title: "Location", label: "Where was it found?", placeholder: "e.g. Lobby" })) || "";
-            add.mutate({ description, location });
-          }}
-        >
+        <button className="btn-outline text-xs py-1" onClick={() => setLogging(true)}>
           + Log item
         </button>
+        {logging && (
+          <FormModal
+            title="Log found item"
+            submitLabel="Log item"
+            fields={[
+              { key: "description", label: "Description", placeholder: "e.g. Black umbrella", required: true },
+              { key: "location", label: "Where was it found?", placeholder: "e.g. Lobby" },
+            ]}
+            onCancel={() => setLogging(false)}
+            onSubmit={(v) => {
+              add.mutate({ description: v.description.trim(), location: v.location.trim() });
+              setLogging(false);
+            }}
+          />
+        )}
       </div>
       {!data?.length ? (
         <div className="text-sm text-muted py-2">No items logged.</div>

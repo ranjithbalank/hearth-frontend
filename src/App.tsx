@@ -49,7 +49,7 @@ import { Login } from "./features/auth/Login";
 import { Pos } from "./features/pos/Pos";
 import { TokenBoard } from "./features/pos/TokenBoard";
 import { Reconciliation } from "./features/pos/Reconciliation";
-import { FeedbackPage, OrderStatusPage, PreCheckinPage, QrOrderPage } from "./features/public/GuestPages";
+import { FeedbackPage, GuestNotFound, OrderStatusPage, PreCheckinPage, QrOrderPage } from "./features/public/GuestPages";
 import { Reports } from "./features/reports/Reports";
 import { Reservations } from "./features/reservations/Reservations";
 import { Settings } from "./features/settings/Settings";
@@ -70,6 +70,7 @@ export default function App() {
         <Route path="/order-status" element={<OrderStatusPage />} />
         <Route path="/pre-checkin" element={<PreCheckinPage />} />
         <Route path="/qr" element={<QrOrderPage />} />
+        <Route path="*" element={<GuestNotFound />} />
       </Routes>
     );
   }

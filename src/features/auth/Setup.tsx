@@ -37,8 +37,9 @@ export function Setup() {
   }
 
   return (
-    <div className="min-h-full flex items-center justify-center bg-ink p-6">
-      <div className="w-full max-w-2xl">
+    <div className="min-h-full flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-ink to-[#1E3A8A] p-6">
+      <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-pine/20 blur-3xl pointer-events-none" />
+      <div className="w-full max-w-2xl relative">
         <div className="flex items-center gap-3 mb-8 text-white">
           <Logo size={44} />
           <div>

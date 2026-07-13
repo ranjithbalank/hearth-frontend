@@ -7,3 +7,10 @@ export function fmtDate(value?: string | null): string {
   if (isNaN(d.getTime())) return value;
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
+
+/** Time-of-day greeting for dashboard headers. */
+export function greeting(name?: string): string {
+  const h = new Date().getHours();
+  const g = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  return name ? `${g}, ${name}` : g;
+}

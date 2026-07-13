@@ -57,19 +57,19 @@ function openAndPrint(html: string, width = 800) {
 const BASE_CSS = `
   @page { size: A4; margin: 16mm; }
   * { box-sizing: border-box; }
-  body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #16221F; }
-  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #1C6B57; padding-bottom:10px; }
-  .brand { font-family: Georgia, serif; font-size:24px; color:#1C6B57; font-weight:600; }
-  .muted { color:#8A8478; font-size:12px; }
+  body { font-family: Inter, system-ui, sans-serif; color: #0F1E33; }
+  .head { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #2563EB; padding-bottom:10px; }
+  .brand { font-family: Inter, system-ui, sans-serif; font-size:24px; color:#2563EB; font-weight:600; }
+  .muted { color:#64748B; font-size:12px; }
   .doc h1 { font-size:17px; margin:0; letter-spacing:1px; text-align:right; }
   table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:16px; }
-  th { text-align:left; background:#F6F2EC; color:#8A8478; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; padding:7px 8px; }
-  td { padding:7px 8px; border-bottom:1px solid #EDE7DC; }
+  th { text-align:left; background:#F5F7FA; color:#64748B; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; padding:7px 8px; }
+  td { padding:7px 8px; border-bottom:1px solid #E2E8F0; }
   td.r, th.r { text-align:right; }
   .tot { margin-top:12px; margin-left:auto; width:45%; font-size:13px; }
   .tot div { display:flex; justify-content:space-between; padding:3px 0; }
-  .tot .grand { border-top:2px solid #1C6B57; margin-top:6px; padding-top:8px; font-weight:700; font-size:15px; }
-  .foot { margin-top:24px; font-size:10.5px; color:#B6AF9F; text-align:center; }
+  .tot .grand { border-top:2px solid #2563EB; margin-top:6px; padding-top:8px; font-weight:700; font-size:15px; }
+  .foot { margin-top:24px; font-size:10.5px; color:#94A3B8; text-align:center; }
 `;
 
 export function printInvoice(folio: Folio, propertyName: string, gstin: string) {
@@ -119,9 +119,9 @@ export function printKot(order: Order, propertyName: string) {
     body { width: 300px; }
     .kt { font-family: 'JetBrains Mono', monospace; }
     h1 { font-size:16px; margin:0; }
-    td { font-size:14px; padding:6px 6px; border-bottom:1px dashed #DDD5C7; }
+    td { font-size:14px; padding:6px 6px; border-bottom:1px dashed #CBD5E1; }
   </style></head><body>
-    <div style="text-align:center; border-bottom:2px dashed #16221F; padding-bottom:8px;">
+    <div style="text-align:center; border-bottom:2px dashed #0F1E33; padding-bottom:8px;">
       <h1>KITCHEN ORDER · KOT</h1>
       ${order.token_no ? `<div class="kt" style="font-size:26px; font-weight:bold; margin:4px 0;">TOKEN ${esc(order.token_no)}</div>` : ""}
       <div class="muted kt">${esc(order.kot_no) || "#" + order.id} · ${order.table_name ? "Table " + esc(order.table_name) : esc(order.mode || "")}</div>

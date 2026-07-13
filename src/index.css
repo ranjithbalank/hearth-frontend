@@ -11,18 +11,30 @@
   body {
     @apply bg-cream text-ink font-sans antialiased;
   }
+  button:focus-visible,
+  a:focus-visible,
+  select:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  input:focus-visible {
+    outline: none; /* .input carries its own focus ring */
+  }
 }
 
 @layer components {
   .card {
-    @apply bg-surface border border-hairline rounded-card shadow-card;
+    @apply bg-surface border border-hairline rounded-card shadow-card transition-shadow;
   }
   .pill {
     @apply inline-flex items-center rounded-pill text-xs font-bold px-2.5 py-1;
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold
-      text-sm px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+      text-sm px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+      active:translate-y-px;
   }
   .btn-primary {
     @apply btn bg-pine text-white hover:bg-pine-700;
@@ -34,11 +46,11 @@
     @apply btn border border-hairline bg-surface text-ink hover:bg-cream;
   }
   .stat-num {
-    @apply font-display font-semibold text-ink;
+    @apply font-display font-semibold text-ink tracking-tight;
   }
   .input {
     @apply w-full rounded-xl border border-hairline bg-surface px-3 py-2 text-sm
-      outline-none focus:border-pine;
+      outline-none focus:border-pine focus:ring-2 focus:ring-pine/15;
   }
 }
 
@@ -47,13 +59,39 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e9eef5 25%, #f5f7fa 50%, #e9eef5 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Browser print of in-app screens: drop the chrome, keep the content */
+@media print {
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    overflow: visible !important;
+  }
+  body {
+    background: #fff;
+  }
+}
+
 /* Thin scrollbars to match the prototype */
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #ddd5c7;
+  background: #cbd5e1;
   border-radius: 99px;
 }
 *::-webkit-scrollbar-track {
