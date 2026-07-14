@@ -18,7 +18,7 @@ export function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) 
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#16221F";
+    ctx.strokeStyle = "#0F1E33";  // theme ink (deep navy)
   }, []);
 
   const pos = (e: React.PointerEvent) => {
