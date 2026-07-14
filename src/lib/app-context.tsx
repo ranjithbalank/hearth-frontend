@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { api, clearTokens, setTokens } from "./api";
+import { api, clearTokens, getActiveBranch, setActiveBranch, setTokens } from "./api";
 import { setActiveCurrency } from "./money";
 import { MODULE_ENTITLEMENT, NAV } from "./modules";
 import type { Entitlement, Property, User } from "./types";
@@ -22,6 +22,9 @@ interface AppState {
   setup: (edition: string, name?: string) => Promise<void>;
   canAccess: (module: string) => boolean;
   landing: () => string;
+  /** The branch the switcher has active (null = "all branches" / no filter). */
+  activeBranch: number | null;
+  setBranch: (id: number | null) => void;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -30,6 +33,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeBranch, setActiveBranchState] = useState<number | null>(getActiveBranch());
+
+  function setBranch(id: number | null) {
+    setActiveBranch(id);
+    setActiveBranchState(id);
+    // Every branch-scoped list depends on the header this just changed.
+    // The switcher (AppShell) invalidates the React Query cache right after
+    // calling this, so everything re-fetches in place — no full reload.
+  }
 
   async function refreshProperty() {
     const { data } = await api.get<Property>("/auth/property/");
@@ -63,6 +75,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   function logout() {
     clearTokens();
+    setActiveBranch(null);
+    setActiveBranchState(null);
     setUser(null);
   }
 
@@ -97,12 +111,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       "General Manager": ["dashboard", "/dashboard"],
       "Finance": ["accounting", "/accounting"],
       "Restaurant Manager": ["pos", "/pos"],
+      "Hotel Manager": ["dashboard", "/dashboard"],
       "Front Office": ["frontdesk", "/frontdesk"],
       "F&B Cashier": ["pos", "/pos"],
       "Captain": ["pos", "/pos"],
       "Housekeeping": ["housekeeping", "/housekeeping"],
       "Chef / Kitchen": ["kds", "/kds"],
       "Store Keeper": ["inventory", "/store"],
+      "Bar Captain": ["barpos", "/barpos"],
+      "Bar Cashier": ["barpos", "/barpos"],
+      "HR Manager": ["hr", "/hr"],
     };
     const pref = user ? prefs[user.role] : undefined;
     if (pref && canAccess(pref[0])) return pref[1];
@@ -112,8 +130,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<AppState>(
-    () => ({ user, property, loading, login, logout, refreshProperty, setup, canAccess, landing }),
-    [user, property, loading],
+    () => ({ user, property, loading, login, logout, refreshProperty, setup, canAccess, landing,
+              activeBranch, setBranch }),
+    [user, property, loading, activeBranch],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

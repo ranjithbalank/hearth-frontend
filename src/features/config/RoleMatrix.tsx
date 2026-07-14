@@ -50,7 +50,7 @@ export function RoleMatrix() {
   })).filter((g) => g.modules.length);
   const covered = new Set(grouped.flatMap((g) => g.modules));
   const leftover = data.matrix.map((m) => m.module).filter((k) => !covered.has(k));
-  if (leftover.length) grouped.push({ title: "Other", color: "#8A8478", modules: leftover });
+  if (leftover.length) grouped.push({ title: "Other", color: "#64748B", modules: leftover });
 
   function Cell({ module, roleIndex }: { module: string; roleIndex: number }) {
     const role = d.roles[roleIndex];

@@ -3,19 +3,93 @@ import { useState } from "react";
 
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { useToast } from "../../design/Toast";
-import { Card, PageHeader } from "../../design/ui";
+import { Card, Field, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
+import { fmtDate } from "../../lib/date";
 import { amount, digits, gstin as gstinFilter } from "../../lib/inputs";
 import { currencySymbol } from "../../lib/money";
+import { useApp } from "../../lib/app-context";
 import { AuditLogPanel } from "./AuditLog";
 import { CurrencyPanel, DepartmentsPanel, DesignationsPanel, PaymentMethodsPanel } from "./Masters";
-import { useApp } from "../../lib/app-context";
-import type { Entitlement, Role, User } from "../../lib/types";
+import type { Branch, BranchAccess, Entitlement, Role, User } from "../../lib/types";
+
+const PROTECTED_ROLES: Role[] = ["Super Admin", "Managing Director", "General Manager"];
+
+/** Which branch(es) a user operates in, and as what role there — the
+ * "where" layer on top of the role dropdown above, which only decides
+ * "what". Super Admin/MD/GM need no rows: they're all-branch implicitly. */
+function BranchAccessCell({ user, branches }: { user: User; branches: Branch[] }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [adding, setAdding] = useState(false);
+  const [branchId, setBranchId] = useState<number | "">("");
+  const [role, setRole] = useState<Role>(user.role);
+  const [endDate, setEndDate] = useState("");
+
+  const { data: access } = useQuery({
+    queryKey: ["branch-access", user.id],
+    queryFn: async () => (await api.get<BranchAccess[]>(`/auth/branch-access/?user=${user.id}`)).data,
+    enabled: user.branches !== "*",
+  });
+
+  const grant = useMutation({
+    mutationFn: async () => (await api.post("/auth/branch-access/", {
+      user: user.id, branch: branchId, role, end_date: endDate || null,
+    })).data,
+    onSuccess: () => {
+      setAdding(false); setBranchId(""); setEndDate("");
+      qc.invalidateQueries({ queryKey: ["branch-access", user.id] });
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add — already assigned to this branch in this role?", "error"),
+  });
+
+  const revoke = useMutation({
+    mutationFn: async (id: number) => api.delete(`/auth/branch-access/${id}/`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["branch-access", user.id] });
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
+  });
+
+  if (user.branches === "*" || PROTECTED_ROLES.includes(user.role)) {
+    return <span className="pill bg-pine-50 text-pine">All branches</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {access?.map((a) => (
+        <span key={a.id} className="pill bg-hairline text-body flex items-center gap-1">
+          {a.branch_code} · {a.role}{a.end_date ? ` (until ${fmtDate(a.end_date)})` : ""}
+          <button className="text-muted hover:text-clay ml-0.5" title="Remove" onClick={() => revoke.mutate(a.id)}>×</button>
+        </span>
+      ))}
+      {adding ? (
+        <span className="flex items-center gap-1">
+          <select className="input py-1 text-xs" value={branchId} onChange={(e) => setBranchId(Number(e.target.value) || "")}>
+            <option value="">Branch…</option>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.code}</option>)}
+          </select>
+          <select className="input py-1 text-xs" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+            {ROLES.filter((r) => !PROTECTED_ROLES.includes(r)).map((r) => <option key={r}>{r}</option>)}
+          </select>
+          <input type="date" className="input py-1 text-xs w-32" placeholder="Until (optional)"
+            value={endDate} onChange={(e) => setEndDate(e.target.value)} title="Temporary — leave blank for standing" />
+          <button className="btn-primary text-xs px-2 py-1" disabled={!branchId || grant.isPending}
+            onClick={() => grant.mutate()}>Add</button>
+          <button className="btn-ghost text-xs px-2 py-1" onClick={() => setAdding(false)}>Cancel</button>
+        </span>
+      ) : (
+        <button className="pill bg-cream text-muted hover:text-pine" onClick={() => setAdding(true)}>+ Add branch</button>
+      )}
+    </div>
+  );
+}
 
 const ROLES: Role[] = [
   "Super Admin", "Admin", "Managing Director", "CEO", "General Manager",
-  "Finance", "Restaurant Manager", "Front Office", "F&B Cashier", "Captain",
-  "Housekeeping", "Chef / Kitchen", "Store Keeper",
+  "Finance", "Restaurant Manager", "Hotel Manager", "Front Office", "F&B Cashier", "Captain",
+  "Housekeeping", "Chef / Kitchen", "Store Keeper", "Bar Captain", "Bar Cashier", "HR Manager",
 ];
 
 function UsersPanel() {
@@ -28,6 +102,10 @@ function UsersPanel() {
     queryKey: ["users"],
     queryFn: async () => (await api.get<User[]>("/auth/users/")).data,
   });
+  const { data: branches } = useQuery({
+    queryKey: ["branches"],
+    queryFn: async () => (await api.get<Branch[]>("/auth/branches/")).data,
+  });
   const create = useMutation({
     mutationFn: async () => (await api.post("/auth/users/", f)).data,
     onSuccess: () => { setF(empty); toast("User created"); qc.invalidateQueries({ queryKey: ["users"] }); },
@@ -39,25 +117,64 @@ function UsersPanel() {
   });
   const set = (k: string, v: string) => setF({ ...f, [k]: v });
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [ef, setEf] = useState({
+    first_name: "", last_name: "", role: "F&B Cashier" as Role, passcode: "",
+    discount_cap_type: "none", discount_cap_value: "0",
+  });
+  function startEdit(u: User) {
+    setEditingId(u.id);
+    setEf({
+      first_name: u.first_name, last_name: u.last_name, role: u.role,
+      passcode: "", // write-only field — never sent back by the API, so it can't be pre-filled
+      discount_cap_type: u.discount_cap_type ?? "none", discount_cap_value: u.discount_cap_value ?? "0",
+    });
+  }
+  const saveEdit = useMutation({
+    mutationFn: async (id: number) =>
+      (await api.patch(`/auth/users/${id}/`, {
+        first_name: ef.first_name, last_name: ef.last_name, role: ef.role,
+        discount_cap_type: ef.discount_cap_type, discount_cap_value: ef.discount_cap_value,
+        ...(ef.passcode ? { passcode: ef.passcode } : {}),
+      })).data,
+    onSuccess: () => { setEditingId(null); toast("User updated"); qc.invalidateQueries({ queryKey: ["users"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save changes", "error"),
+  });
+
   return (
     <Card>
-      <div className="font-semibold mb-1">Users &amp; roles</div>
-      <div className="text-sm text-muted mb-3">Add staff accounts and set their role and discount cap.</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-2 items-start">
-        <input className="input" placeholder="Username" value={f.username} onChange={(e) => set("username", e.target.value)} />
-        <input className="input" placeholder="First name" value={f.first_name} onChange={(e) => set("first_name", e.target.value)} />
-        <input className="input" placeholder="Last name" value={f.last_name} onChange={(e) => set("last_name", e.target.value)} />
-        <select className="input" value={f.role} onChange={(e) => set("role", e.target.value)}>
-          {ROLES.map((r) => <option key={r}>{r}</option>)}
-        </select>
-        <input className="input" placeholder="Password" type="password" value={f.password} onChange={(e) => set("password", e.target.value)} />
-        <input className="input" inputMode="numeric" placeholder="POS passcode" value={f.passcode} onChange={(e) => set("passcode", digits(e.target.value, 6))} />
-        <select className="input" value={f.discount_cap_type} onChange={(e) => set("discount_cap_type", e.target.value)}>
-          <option value="none">No discount cap</option>
-          <option value="percent">% cap</option>
-          <option value="fixed">Fixed cap</option>
-        </select>
-        <input className="input" inputMode="decimal" placeholder="Cap value" value={f.discount_cap_value} onChange={(e) => set("discount_cap_value", amount(e.target.value))} disabled={f.discount_cap_type === "none"} />
+      <div className="font-semibold mb-3">Users &amp; roles</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <Field label="Username" required>
+          <input className="input" value={f.username} onChange={(e) => set("username", e.target.value)} />
+        </Field>
+        <Field label="First name">
+          <input className="input" value={f.first_name} onChange={(e) => set("first_name", e.target.value)} />
+        </Field>
+        <Field label="Last name">
+          <input className="input" value={f.last_name} onChange={(e) => set("last_name", e.target.value)} />
+        </Field>
+        <Field label="Role">
+          <select className="input" value={f.role} onChange={(e) => set("role", e.target.value)}>
+            {ROLES.map((r) => <option key={r}>{r}</option>)}
+          </select>
+        </Field>
+        <Field label="Password" required>
+          <input className="input" type="password" value={f.password} onChange={(e) => set("password", e.target.value)} />
+        </Field>
+        <Field label="POS passcode" hint="Used for manager overrides">
+          <input className="input" inputMode="numeric" value={f.passcode} onChange={(e) => set("passcode", digits(e.target.value, 6))} />
+        </Field>
+        <Field label="Discount cap">
+          <select className="input" value={f.discount_cap_type} onChange={(e) => set("discount_cap_type", e.target.value)}>
+            <option value="none">No discount cap</option>
+            <option value="percent">% cap</option>
+            <option value="fixed">Fixed cap</option>
+          </select>
+        </Field>
+        <Field label="Cap value">
+          <input className="input" inputMode="decimal" value={f.discount_cap_value} onChange={(e) => set("discount_cap_value", amount(e.target.value))} disabled={f.discount_cap_type === "none"} />
+        </Field>
       </div>
       <button className="btn-primary mb-4" disabled={!f.username || !f.password || create.isPending} onClick={() => create.mutate()}>
         Add user
@@ -67,30 +184,84 @@ function UsersPanel() {
         <thead className="text-muted text-xs uppercase">
           <tr>
             <th className="text-left py-2">Name</th><th className="text-left py-2">Username</th>
-            <th className="text-left py-2">Role</th><th className="text-left py-2">Cap</th>
+            <th className="text-left py-2">Role</th><th className="text-left py-2">Branches</th>
+            <th className="text-left py-2">Cap</th>
             <th className="text-right py-2">Status</th>
+            <th className="text-right py-2">&nbsp;</th>
           </tr>
         </thead>
         <tbody>
-          {users?.map((u) => (
-            <tr key={u.id} className="border-t border-line">
-              <td className="py-2 font-medium">{u.name}</td>
-              <td className="py-2 font-mono text-xs">{u.username}</td>
-              <td className="py-2">{u.role}</td>
-              <td className="py-2 text-muted">
-                {u.discount_cap_type === "percent" ? `${Number(u.discount_cap_value)}%`
-                  : u.discount_cap_type === "fixed" ? `${currencySymbol()}${Number(u.discount_cap_value)}` : "—"}
-              </td>
-              <td className="py-2 text-right">
-                <button
-                  className={`pill ${u.is_active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
-                  onClick={() => toggle.mutate(u)}
-                >
-                  {u.is_active ? "Active" : "Inactive"}
-                </button>
-              </td>
-            </tr>
-          ))}
+          {users?.map((u) => {
+            const editing = editingId === u.id;
+            // Never let this screen demote the top-level admin roles — same
+            // boundary BranchAccessCell already draws for branch access.
+            const roleLocked = PROTECTED_ROLES.includes(u.role);
+            return (
+              <tr key={u.id} className="border-t border-line align-top">
+                <td className="py-2 font-medium">
+                  {editing ? (
+                    <div className="flex gap-1">
+                      <input className="input py-1 text-xs w-20" value={ef.first_name} onChange={(e) => setEf({ ...ef, first_name: e.target.value })} />
+                      <input className="input py-1 text-xs w-20" value={ef.last_name} onChange={(e) => setEf({ ...ef, last_name: e.target.value })} />
+                    </div>
+                  ) : u.name}
+                </td>
+                <td className="py-2 font-mono text-xs">{u.username}</td>
+                <td className="py-2">
+                  {editing ? (
+                    roleLocked ? (
+                      <span className="text-xs text-muted">{u.role} (protected)</span>
+                    ) : (
+                      <select className="input py-1 text-xs" value={ef.role} onChange={(e) => setEf({ ...ef, role: e.target.value as Role })}>
+                        {ROLES.filter((r) => !PROTECTED_ROLES.includes(r)).map((r) => <option key={r}>{r}</option>)}
+                      </select>
+                    )
+                  ) : u.role}
+                </td>
+                <td className="py-2">
+                  {branches && <BranchAccessCell user={u} branches={branches} />}
+                </td>
+                <td className="py-2 text-muted">
+                  {editing ? (
+                    <div className="flex gap-1">
+                      <select className="input py-1 text-xs" value={ef.discount_cap_type} onChange={(e) => setEf({ ...ef, discount_cap_type: e.target.value })}>
+                        <option value="none">No cap</option>
+                        <option value="percent">%</option>
+                        <option value="fixed">Fixed</option>
+                      </select>
+                      <input className="input py-1 text-xs w-16" inputMode="decimal" disabled={ef.discount_cap_type === "none"}
+                        value={ef.discount_cap_value} onChange={(e) => setEf({ ...ef, discount_cap_value: amount(e.target.value) })} />
+                    </div>
+                  ) : (
+                    u.discount_cap_type === "percent" ? `${Number(u.discount_cap_value)}%`
+                      : u.discount_cap_type === "fixed" ? `${currencySymbol()}${Number(u.discount_cap_value)}` : "—"
+                  )}
+                </td>
+                <td className="py-2 text-right">
+                  <button
+                    className={`pill ${u.is_active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
+                    onClick={() => toggle.mutate(u)}
+                  >
+                    {u.is_active ? "Active" : "Inactive"}
+                  </button>
+                </td>
+                <td className="py-2 text-right whitespace-nowrap">
+                  {editing ? (
+                    <div className="flex flex-col items-end gap-1">
+                      <input className="input py-1 text-xs w-24" inputMode="numeric" placeholder="New passcode"
+                        value={ef.passcode} onChange={(e) => setEf({ ...ef, passcode: digits(e.target.value, 6) })} />
+                      <div className="flex gap-1">
+                        <button className="btn-ghost text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => setEditingId(null)}>Cancel</button>
+                        <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(u.id)}>Save</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(u)}>Edit</button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </Card>
@@ -132,7 +303,7 @@ function PropertyPanel() {
   }
 
   return (
-    <Card>
+    <Card className="mb-4">
       <div className="font-semibold mb-1">Property details &amp; branding</div>
       <div className="text-sm text-muted mb-3">Your hotel's name, logo, GSTIN and address — the name/logo appear in the app and print on invoices.</div>
 
@@ -150,7 +321,7 @@ function PropertyPanel() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-semibold text-muted mb-1">Business name</label>
           <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
@@ -209,13 +380,30 @@ function LetterheadPanel() {
     }
   }
 
+  // The only markup this editor ever inserts is <b>/<i> via wrap() above —
+  // escape everything, then re-open exactly those four literal tag
+  // sequences. Anything else typed directly (e.g. <img onerror=...>) stays
+  // inert text instead of executing (security review 2026-07, finding F2).
+  // Normal header/footer text and real bold/italic formatting render
+  // exactly as before.
+  const ALLOWED_TAGS: Record<string, string> = {
+    "&lt;b&gt;": "<b>", "&lt;/b&gt;": "</b>",
+    "&lt;i&gt;": "<i>", "&lt;/i&gt;": "</i>",
+  };
+  const sanitize = (raw: string) => {
+    const escaped = raw.replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]!));
+    return escaped.replace(/&lt;\/?[bi]&gt;/g, (tag) => ALLOWED_TAGS[tag] ?? tag);
+  };
+
   const previewLines = (text: string) =>
     text.split("\n").filter((l) => l.trim()).map((l, i) => (
-      <div key={i} dangerouslySetInnerHTML={{ __html: l }} />
+      <div key={i} dangerouslySetInnerHTML={{ __html: sanitize(l) }} />
     ));
 
   return (
-    <Card>
+    <Card className="mb-4">
       <div className="font-semibold mb-1">Letterhead &amp; documents</div>
       <div className="text-sm text-muted mb-4">
         Extra lines printed on invoices and bills — tagline, CIN/FSSAI, terms, bank details.
@@ -312,7 +500,7 @@ function MfaPanel() {
   }
 
   return (
-    <Card>
+    <Card className="mb-4">
       <div className="font-semibold mb-1">Two-factor authentication (TOTP)</div>
       <div className="text-sm text-muted mb-3">
         {enabled ? "MFA is active on your account." : "Protect privileged access with an authenticator app."}
@@ -366,12 +554,12 @@ function CommissionPanel() {
   }
 
   return (
-    <Card>
+    <Card className="mb-4">
       <div className="font-semibold mb-1">Aggregator commission</div>
       <div className="text-sm text-muted mb-4">
         Used by the Zomato/Swiggy report to show net realization after the platform's cut.
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+      <div className="grid grid-cols-2 gap-4 max-w-md">
         <div>
           <label className="text-xs text-muted">Zomato commission %</label>
           <input className="input w-full" inputMode="decimal" value={zomato}
@@ -390,6 +578,7 @@ function CommissionPanel() {
     </Card>
   );
 }
+
 
 function DocumentNumberingPanel() {
   const { property, refreshProperty } = useApp();

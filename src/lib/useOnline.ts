@@ -32,3 +32,20 @@ export function useOnline() {
 
   return { online, queued, setQueued, sync };
 }
+
+/** Connectivity only — no queue syncing. For indicators outside the POS
+ *  (the POS's useOnline owns the sync so the two never race). */
+export function useOnlineStatus() {
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+  return online;
+}

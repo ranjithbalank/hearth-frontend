@@ -1,0 +1,11 @@
+{
+  "name": "Hearth — Hotel & Restaurant OS",
+  "short_name": "Hearth",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F7FA",
+  "theme_color": "#0F1E33",
+  "icons": [
+    { "src": "/hearth.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

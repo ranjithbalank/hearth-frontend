@@ -1,36 +1,42 @@
 import type { Config } from "tailwindcss";
 
-/** Hearth design tokens — mirrors the approved prototype exactly. */
+/** Hearth design tokens — professional blue & white theme.
+ *  NOTE: token names are legacy (from the original warm palette); values were
+ *  swapped in the blue/white redesign so feature code needed no edits:
+ *    pine  = primary blue      clay = danger red      amber = warning
+ *    ink   = deep navy (text + sidebar bg)            cream = app background
+ */
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        pine: { DEFAULT: "#1C6B57", 700: "#155244", 50: "#E6F0EB" },
-        clay: { DEFAULT: "#DB7B4B", 50: "#FBEDE3" },
-        amber: { DEFAULT: "#E0A23D", 600: "#C99A2E", 50: "#FCF3E0" },
-        ink: "#16221F",
-        cream: "#F6F2EC",
+        pine: { DEFAULT: "#2563EB", 700: "#1D4ED8", 50: "#EFF6FF" },
+        clay: { DEFAULT: "#DC2626", 50: "#FEF2F2" },
+        amber: { DEFAULT: "#D97706", 600: "#B45309", 50: "#FFFBEB" },
+        success: { DEFAULT: "#16A34A", 50: "#ECFDF5" },
+        ink: "#0F1E33",
+        cream: "#F5F7FA",
         surface: "#FFFFFF",
-        hairline: "#EDE7DC",
-        muted: "#8A8478",
-        body: "#3D4A4E",
-        info: { DEFAULT: "#3B7AC4", 50: "#EAF1F8" },
-        line: "#F4EFE6",
+        hairline: "#E2E8F0",
+        muted: "#64748B",
+        body: "#334155",
+        info: { DEFAULT: "#0284C7", 50: "#E0F2FE" },
+        line: "#EEF2F7",
       },
       fontFamily: {
-        display: ["Newsreader", "Georgia", "serif"],
-        sans: ["'Plus Jakarta Sans'", "system-ui", "sans-serif"],
+        display: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
         mono: ["'JetBrains Mono'", "monospace"],
       },
       borderRadius: {
-        card: "14px",
-        lg: "16px",
+        card: "12px",
+        lg: "10px",
         pill: "999px",
       },
       boxShadow: {
-        card: "0 1px 4px rgba(0,0,0,0.06)",
-        pop: "0 8px 30px rgba(22,34,31,0.16)",
+        card: "0 1px 2px rgba(15,30,51,0.06)",
+        pop: "0 12px 32px rgba(15,30,51,0.16)",
       },
     },
   },

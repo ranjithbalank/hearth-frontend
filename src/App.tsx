@@ -11,6 +11,7 @@ import { BarPos } from "./features/barpos/BarPos";
 import { BarTableMaster } from "./features/barpos/BarTableMaster";
 import { Booking } from "./features/booking/Booking";
 import { Channel } from "./features/channel/Channel";
+import { BranchMaster } from "./features/config/BranchMaster";
 import { CateringPrices } from "./features/config/CateringPrices";
 import { GstMaster } from "./features/config/GstMaster";
 import { MenuMaster } from "./features/config/MenuMaster";
@@ -31,6 +32,7 @@ import { Hr } from "./features/hr/Hr";
 import { Inventory } from "./features/inventory/Inventory";
 import { NewRawMaterial } from "./features/inventory/NewRawMaterial";
 import { Kds } from "./features/kds/Kds";
+import { Leave } from "./features/leave/Leave";
 import { MaterialRequests } from "./features/matreq/MaterialRequests";
 import { Notifications } from "./features/notifications/Notifications";
 import { OnlineOrders } from "./features/online/OnlineOrders";
@@ -47,7 +49,7 @@ import { Login } from "./features/auth/Login";
 import { Pos } from "./features/pos/Pos";
 import { TokenBoard } from "./features/pos/TokenBoard";
 import { Reconciliation } from "./features/pos/Reconciliation";
-import { FeedbackPage, OrderStatusPage, PreCheckinPage, QrOrderPage } from "./features/public/GuestPages";
+import { FeedbackPage, GuestNotFound, OrderStatusPage, PreCheckinPage, QrOrderPage } from "./features/public/GuestPages";
 import { Reports } from "./features/reports/Reports";
 import { Reservations } from "./features/reservations/Reservations";
 import { Settings } from "./features/settings/Settings";
@@ -68,6 +70,7 @@ export default function App() {
         <Route path="/order-status" element={<OrderStatusPage />} />
         <Route path="/pre-checkin" element={<PreCheckinPage />} />
         <Route path="/qr" element={<QrOrderPage />} />
+        <Route path="*" element={<GuestNotFound />} />
       </Routes>
     );
   }
@@ -138,6 +141,7 @@ export default function App() {
         <Route path="/recipes/new" element={<RequireAccess module="recipes"><NewRecipe /></RequireAccess>} />
         <Route path="/banquets" element={<RequireAccess module="banquets"><Banquets /></RequireAccess>} />
         <Route path="/hr" element={<RequireAccess module="hr"><Hr /></RequireAccess>} />
+        <Route path="/leave" element={<RequireAccess module="leave"><Leave /></RequireAccess>} />
         <Route path="/accounting" element={<RequireAccess module="accounting"><Accounting /></RequireAccess>} />
         <Route path="/tax" element={<RequireAccess module="tax"><TaxGst /></RequireAccess>} />
         <Route path="/engineering" element={<RequireAccess module="engineering"><Engineering /></RequireAccess>} />
@@ -148,6 +152,7 @@ export default function App() {
         <Route path="/config/tables" element={<RequireAccess module="tablemaster"><TableMaster /></RequireAccess>} />
         <Route path="/config/catering" element={<RequireAccess module="cateringmaster"><CateringPrices /></RequireAccess>} />
         <Route path="/config/roles" element={<RequireAccess module="roles"><RoleMatrix /></RequireAccess>} />
+        <Route path="/config/branches" element={<RequireAccess module="branchmaster"><BranchMaster /></RequireAccess>} />
         <Route path="*" element={<Navigate to={landing()} replace />} />
       </Routes>
     </AppShell>

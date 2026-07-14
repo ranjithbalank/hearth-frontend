@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { fmtDate } from "../../lib/date";
 import { money } from "../../lib/money";
 import { printZReport, type ZReport } from "../print/documents";
 
@@ -31,7 +32,7 @@ export function Accounting() {
   const runAudit = useMutation({
     mutationFn: async () => (await api.post<NightAudit>("/night-audit/")).data,
     onSuccess: (r) => {
-      setMsg(`Night audit ${r.business_date}: ${r.rooms_posted} rooms posted, ${money(r.room_revenue)} revenue`);
+      setMsg(`Night audit ${fmtDate(r.business_date)}: ${r.rooms_posted} rooms posted, ${money(r.room_revenue)} revenue`);
       qc.invalidateQueries({ queryKey: ["night-audit"] });
     },
   });
@@ -70,7 +71,7 @@ export function Accounting() {
           <div className="font-semibold mb-3">Night audit runs</div>
           {audits?.map((a) => (
             <div key={a.id} className="flex justify-between py-2 border-t border-line text-sm">
-              <span>{a.business_date}</span>
+              <span>{fmtDate(a.business_date)}</span>
               <span className="text-muted">{a.rooms_posted} rooms · {money(a.room_revenue)}</span>
             </div>
           ))}

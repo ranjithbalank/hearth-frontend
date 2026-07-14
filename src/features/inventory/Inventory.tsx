@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
 import { useToast } from "../../design/Toast";
+import { fmtDate } from "../../lib/date";
 import { money } from "../../lib/money";
 
 interface Ingredient {
@@ -451,7 +452,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                   <tr key={i.id} className="border-t border-line">
                     <td className="px-4 py-3 font-medium">{i.name}</td>
                     <td className="px-4 py-3">
-                      <Badge tone={expired ? "clay" : "amber"}>{i.expiry_date}{expired ? " · expired" : ""}</Badge>
+                      <Badge tone={expired ? "clay" : "amber"}>{fmtDate(i.expiry_date)}{expired ? " · expired" : ""}</Badge>
                     </td>
                     <td className="px-4 py-3 text-right">{Number(i.current_stock)} {i.unit}</td>
                     <td className="px-4 py-3 text-muted text-xs">{i.storage_location || "—"}</td>

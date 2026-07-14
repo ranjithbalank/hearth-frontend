@@ -5,6 +5,7 @@ import { useLocation } from "react-router-dom";
 import { Logo, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { currencySymbol } from "../../lib/money";
+import { fmtDate } from "../../lib/date";
 
 /** Guest-facing pages (no login): feedback form + order status tracker.
  *  Reached via the QR/link printed on the bill. */
@@ -21,6 +22,20 @@ function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     </div>
+  );
+}
+
+export function GuestNotFound() {
+  return (
+    <Shell>
+      <div className="card p-8 text-center">
+        <div className="font-display text-3xl text-ink mb-1">404</div>
+        <div className="font-display text-lg">Page not found</div>
+        <div className="text-sm text-muted mt-1">
+          This link may have expired. Please scan the QR code again or ask our staff for help.
+        </div>
+      </div>
+    </Shell>
   );
 }
 
@@ -151,7 +166,7 @@ export function PreCheckinPage() {
         {step === "form" && summary && (
           <>
             <div className="text-xs text-muted text-center mb-4">
-              {summary.guest_name} · {summary.room_type} · {summary.checkin_date} → {summary.checkout_date}
+              {summary.guest_name} · {summary.room_type} · {fmtDate(summary.checkin_date)} → {fmtDate(summary.checkout_date)}
             </div>
             <div className="grid gap-2">
               <input className="input" placeholder="Mobile" inputMode="tel" value={d.mobile}

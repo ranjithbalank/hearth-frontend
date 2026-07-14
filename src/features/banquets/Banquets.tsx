@@ -6,6 +6,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { fmtDate } from "../../lib/date";
 import { amount, digits } from "../../lib/inputs";
 import { currencySymbol, money } from "../../lib/money";
 import { downloadBeoPdf } from "../print/documents";
@@ -138,7 +139,7 @@ export function Banquets() {
                 {e.beo_no && <span className="text-xs text-muted font-normal ml-2">{e.beo_no}</span>}
               </div>
               <div className="text-sm text-muted">
-                {e.space} · {e.event_date}{e.start_time ? ` · ${e.start_time}${e.end_time ? `–${e.end_time}` : ""}` : ""} · {e.covers} covers · {e.host}{e.contact ? ` (${e.contact})` : ""}
+                {e.space} · {fmtDate(e.event_date)}{e.start_time ? ` · ${e.start_time}${e.end_time ? `–${e.end_time}` : ""}` : ""} · {e.covers} covers · {e.host}{e.contact ? ` (${e.contact})` : ""}
               </div>
               {e.food_covers > 0 && (
                 <div className="text-xs text-pine mt-1">
@@ -151,7 +152,7 @@ export function Banquets() {
             </div>
             <div className="font-medium">{money(e.package_amount)}</div>
             <Badge tone={TONE[e.status] ?? "muted"}>{e.status}</Badge>
-            <button className="btn-ghost text-xs" onClick={() => downloadBeoPdf(e)}>BEO PDF</button>
+            <button className="btn-ghost text-xs" onClick={() => downloadBeoPdf(e.id)}>BEO PDF</button>
             {!e.billed && (
               <button className="btn-ghost text-xs" onClick={() => setEditing(e)}>Adjust</button>
             )}

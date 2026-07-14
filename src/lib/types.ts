@@ -6,6 +6,7 @@ export type Role =
   | "General Manager"
   | "Finance"
   | "Restaurant Manager"
+  | "Hotel Manager"
   | "Front Office"
   | "F&B Cashier"
   | "Captain"
@@ -13,12 +14,26 @@ export type Role =
   | "Chef / Kitchen"
   | "Store Keeper"
   | "Bar Captain"
-  | "Bar Cashier";
+  | "Bar Cashier"
+  | "HR Manager";
+
+export interface BranchAccess {
+  id: number;
+  user: number;
+  branch: number;
+  branch_name: string;
+  branch_code: string;
+  role: Role;
+  start_date: string | null;
+  end_date: string | null;
+}
 
 export interface User {
   id: number;
   username: string;
   name: string;
+  first_name: string;
+  last_name: string;
   role: Role;
   email: string;
   allowed_modules: string[] | "*";
@@ -27,6 +42,27 @@ export interface User {
   discount_cap_type?: string;
   discount_cap_value?: string;
   is_active?: boolean;
+  /** "*" for Super Admin/MD/GM (implicit all-branch access); otherwise this login's branch+role assignments. */
+  branches?: BranchAccess[] | "*";
+}
+
+export interface Branch {
+  id: number;
+  name: string;
+  code: string;
+  address: string;
+  city: string;
+  state: string;
+  gstin: string;
+  edition: "" | "hotel" | "restaurant" | "both";
+  hms: boolean;
+  restaurant: boolean;
+  banquets: boolean;
+  rms: boolean;
+  invoice_prefix: string;
+  status: "onboarding" | "active" | "closed";
+  logo: string;
+  created_at: string;
 }
 
 export interface Entitlement {
@@ -169,10 +205,15 @@ export interface MenuItem {
 export interface Table {
   id: number;
   name: string;
+  floor: string;
   section: string;
   seats: number;
   status: string;
   status_label: string;
+  location: number | null;
+  assigned_captain: number | null;
+  assigned_captain_name: string | null;
+  assigned_captain_on_leave: boolean;
 }
 
 export interface OrderLine {

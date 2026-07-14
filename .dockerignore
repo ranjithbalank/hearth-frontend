@@ -1,3 +1,10 @@
 node_modules/
 dist/
 .vite/
+# Vite reads .env/.env.local for VITE_* build-time vars — none exist in this
+# repo today, but the build stage's COPY . . would bake one in if it ever
+# does (security review 2026-07, finding I7). Matches the backend's pattern.
+.env
+.env.*
+!.env.example
+.git/
