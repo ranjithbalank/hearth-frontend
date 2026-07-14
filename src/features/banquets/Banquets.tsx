@@ -7,7 +7,7 @@ import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { amount, digits } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { currencySymbol, money } from "../../lib/money";
 import { downloadBeoPdf } from "../print/documents";
 
 function Line({ label, value }: { label: string; value: string }) {
@@ -64,8 +64,8 @@ export function Banquets() {
   const bill = useMutation({
     mutationFn: async (e: Event) => (await api.post(`/banquets/${e.id}/bill/`)).data,
     onSuccess: (d) => {
-      const cat = Number(d.catering) > 0 ? ` (incl. catering ${inr(d.catering)})` : "";
-      setMsg(`Event billed · subtotal ${inr(d.subtotal)}${cat} · GST ${inr(d.tax.tax)} · total ${inr(d.tax.total)} · balance ${inr(d.balance)}`);
+      const cat = Number(d.catering) > 0 ? ` (incl. catering ${money(d.catering)})` : "";
+      setMsg(`Event billed · subtotal ${money(d.subtotal)}${cat} · GST ${money(d.tax.tax)} · total ${money(d.tax.total)} · balance ${money(d.balance)}`);
       qc.invalidateQueries({ queryKey: ["banquets"] });
     },
   });
@@ -145,11 +145,11 @@ export function Banquets() {
                   🍽 Catering: ~{e.food_covers} plates · {e.food_pref === "both"
                     ? `veg ${e.food_veg} + non-veg ${e.food_nonveg}`
                     : e.food_pref === "nonveg" ? "non-veg" : "veg"}
-                  {Number(e.catering_amount) > 0 && ` · ${inr(e.catering_amount)}`}
+                  {Number(e.catering_amount) > 0 && ` · ${money(e.catering_amount)}`}
                 </div>
               )}
             </div>
-            <div className="font-medium">{inr(e.package_amount)}</div>
+            <div className="font-medium">{money(e.package_amount)}</div>
             <Badge tone={TONE[e.status] ?? "muted"}>{e.status}</Badge>
             <button className="btn-ghost text-xs" onClick={() => downloadBeoPdf(e)}>BEO PDF</button>
             {!e.billed && (
@@ -302,11 +302,11 @@ function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
 
         <div className="grid grid-cols-2 gap-3 mt-3">
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1">Package amount (₹)</label>
+            <label className="block text-xs font-semibold text-muted mb-1">Package amount ({currencySymbol()})</label>
             <input className="input" inputMode="decimal" value={f.package_amount} onChange={(e) => set("package_amount", amount(e.target.value))} />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1">Advance / deposit (₹)</label>
+            <label className="block text-xs font-semibold text-muted mb-1">Advance / deposit ({currencySymbol()})</label>
             <input className="input" inputMode="decimal" value={f.deposit} onChange={(e) => set("deposit", amount(e.target.value))} />
           </div>
         </div>
@@ -327,7 +327,7 @@ function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
                   <input className="input" inputMode="numeric" placeholder="e.g. 80" value={f.food_veg} onChange={(e) => set("food_veg", digits(e.target.value, 5))} />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-muted mb-1">Veg rate (₹/plate)</label>
+                  <label className="block text-xs font-semibold text-muted mb-1">Veg rate ({currencySymbol()}/plate)</label>
                   <input className="input" inputMode="decimal" placeholder="e.g. 850" value={f.veg_rate} onChange={(e) => set("veg_rate", amount(e.target.value))} />
                 </div>
               </div>
@@ -339,12 +339,12 @@ function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
                   <input className="input" inputMode="numeric" placeholder="e.g. 40" value={f.food_nonveg} onChange={(e) => set("food_nonveg", digits(e.target.value, 5))} />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-muted mb-1">Non-veg rate (₹/plate)</label>
+                  <label className="block text-xs font-semibold text-muted mb-1">Non-veg rate ({currencySymbol()}/plate)</label>
                   <input className="input" inputMode="decimal" placeholder="e.g. 1050" value={f.nonveg_rate} onChange={(e) => set("nonveg_rate", amount(e.target.value))} />
                 </div>
               </div>
             )}
-            {catering > 0 && <div className="text-xs text-muted mt-1">Catering charge: {inr(catering)}</div>}
+            {catering > 0 && <div className="text-xs text-muted mt-1">Catering charge: {money(catering)}</div>}
           </div>
         )}
 
@@ -352,18 +352,18 @@ function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
         {(subtotal > 0) && (
           <div className="mt-4 rounded-card border border-hairline p-3 text-sm">
             <div className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">Estimated bill</div>
-            <Line label="Hall / package" value={inr(Number(f.package_amount || 0))} />
-            {catering > 0 && <Line label="Catering" value={inr(catering)} />}
-            <Line label="Subtotal" value={inr(subtotal)} />
-            <Line label="GST 18%" value={inr(gst)} />
+            <Line label="Hall / package" value={money(Number(f.package_amount || 0))} />
+            {catering > 0 && <Line label="Catering" value={money(catering)} />}
+            <Line label="Subtotal" value={money(subtotal)} />
+            <Line label="GST 18%" value={money(gst)} />
             <div className="flex justify-between font-semibold border-t border-hairline mt-1 pt-1">
-              <span>Total</span><span>{inr(total)}</span>
+              <span>Total</span><span>{money(total)}</span>
             </div>
             {Number(f.deposit || 0) > 0 && (
               <>
-                <Line label="Less advance/deposit" value={`−${inr(Number(f.deposit || 0))}`} />
+                <Line label="Less advance/deposit" value={`−${money(Number(f.deposit || 0))}`} />
                 <div className="flex justify-between font-semibold text-pine">
-                  <span>Balance due</span><span>{inr(balance)}</span>
+                  <span>Balance due</span><span>{money(balance)}</span>
                 </div>
               </>
             )}

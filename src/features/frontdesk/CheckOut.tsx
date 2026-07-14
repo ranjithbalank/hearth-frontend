@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { useToast } from "../../design/Toast";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import type { Folio } from "../../lib/types";
 import { downloadInvoicePdf } from "../print/documents";
 
@@ -65,7 +65,7 @@ export function CheckOut() {
               <button key={f.id} onClick={() => setSelId(f.id)}
                 className={`w-full text-left card p-4 ${selId === f.id ? "ring-2 ring-pine" : ""}`}>
                 <div className="font-medium">Room {f.room_number ?? "—"}</div>
-                <div className="text-sm text-muted">{f.guest_name} · {inr(f.balance)}</div>
+                <div className="text-sm text-muted">{f.guest_name} · {money(f.balance)}</div>
               </button>
             ))}
           </div>
@@ -84,13 +84,13 @@ export function CheckOut() {
                   {sel.lines.map((l) => (
                     <tr key={l.id} className="border-t border-line">
                       <td className="py-2">{l.description}</td>
-                      <td className="py-2 text-right font-medium">{inr(l.total)}</td>
+                      <td className="py-2 text-right font-medium">{money(l.total)}</td>
                     </tr>
                   ))}
                   {sel.pending_charges?.map((c) => (
                     <tr key={c.description} className="border-t border-line text-muted">
                       <td className="py-2">{c.description}</td>
-                      <td className="py-2 text-right font-medium">{inr(c.total)}</td>
+                      <td className="py-2 text-right font-medium">{money(c.total)}</td>
                     </tr>
                   ))}
                   {!sel.lines.length && !sel.pending_charges?.length && (
@@ -99,7 +99,7 @@ export function CheckOut() {
                 </tbody>
               </table>
               <div className="flex justify-between font-semibold text-lg border-t border-hairline pt-3">
-                <span>Balance due</span><span>{inr(sel.projected_balance ?? sel.balance)}</span>
+                <span>Balance due</span><span>{money(sel.projected_balance ?? sel.balance)}</span>
               </div>
               <div className="mt-3">
                 <button

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PhoneInput, joinPhone } from "../../design/PhoneInput";
 import { api } from "../../lib/api";
 import { digits } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import type { Reservation } from "../../lib/types";
 
 export interface RoomTypeOpt { code: string; name: string; base_rate: string; available: number }
@@ -49,7 +49,7 @@ export function WalkInForm({ onCancel, onCreated }: { onCancel: () => void; onCr
               <option value="">Select…</option>
               {types?.map((t) => (
                 <option key={t.code} value={t.code} disabled={t.available === 0}>
-                  {t.name} — {inr(t.base_rate)} ({t.available} free)
+                  {t.name} — {money(t.base_rate)} ({t.available} free)
                 </option>
               ))}
             </select>
@@ -60,7 +60,7 @@ export function WalkInForm({ onCancel, onCreated }: { onCancel: () => void; onCr
               onChange={(e) => setForm({ ...form, nights: digits(e.target.value, 3) })} />
           </div>
         </div>
-        {picked && <div className="text-sm text-muted mt-3">Estimated room: {inr(Number(picked.base_rate) * Number(form.nights || 1))} + GST</div>}
+        {picked && <div className="text-sm text-muted mt-3">Estimated room: {money(Number(picked.base_rate) * Number(form.nights || 1))} + GST</div>}
         <div className="flex gap-2 mt-5">
           <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
           <button className="btn-primary flex-1" disabled={!form.guest_name || !form.room_type || create.isPending}

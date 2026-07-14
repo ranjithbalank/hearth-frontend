@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { currencySymbol, money } from "../../lib/money";
 
 interface Uom { id: number; code: string; name: string }
 interface CategoryRow { id: number; name: string }
@@ -225,7 +225,7 @@ export function NewRawMaterial() {
               value={f.reorder_level} onChange={set("reorder_level")} />
           </div>
           <div>
-            <label className="text-xs text-muted">Purchase rate (₹ per {f.unit})</label>
+            <label className="text-xs text-muted">Purchase rate ({currencySymbol()} per {f.unit})</label>
             <input className="input w-full" inputMode="decimal" placeholder="0"
               value={f.unit_cost} onChange={set("unit_cost")} />
           </div>
@@ -272,7 +272,7 @@ export function NewRawMaterial() {
                 <td className="px-4 py-2.5"><Badge tone="muted">{s.unit}</Badge></td>
                 <td className="px-4 py-2.5 text-right">{s.opening_stock || "0"} {s.unit}</td>
                 <td className="px-4 py-2.5 text-right text-muted">{s.min_stock_level || "0"} / {s.reorder_level || "0"}</td>
-                <td className="px-4 py-2.5 text-right">{inr(s.unit_cost || 0)}</td>
+                <td className="px-4 py-2.5 text-right">{money(s.unit_cost || 0)}</td>
                 <td className="px-4 py-2.5 text-xs text-muted">{s.storage_location || "—"}</td>
                 <td className="px-4 py-2.5 text-xs text-muted">{s.expiry_date || "—"}</td>
                 <td className="px-4 py-2.5 text-right">

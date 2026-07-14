@@ -5,7 +5,7 @@ import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount, digits } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface RoomType {
   id: number; code: string; name: string; base_rate: string;
@@ -76,7 +76,7 @@ export function RoomMaster() {
               <tr key={rt.id} className="border-t border-line">
                 <td className="px-4 py-3 font-mono text-xs">{rt.code}</td>
                 <td className="px-4 py-3 font-medium">{rt.name}</td>
-                <td className="px-4 py-3 text-right">{inr(rt.base_rate)}</td>
+                <td className="px-4 py-3 text-right">{money(rt.base_rate)}</td>
                 <td className="px-4 py-3 text-right">{rt.max_occupancy}</td>
                 <td className="px-4 py-3 text-right">{Number(rt.gst_slab)}%</td>
               </tr>

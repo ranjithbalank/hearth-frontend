@@ -5,7 +5,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import type { MenuItem } from "../../lib/types";
 
 interface Category { id: number; name: string }
@@ -112,7 +112,7 @@ export function BarMenu() {
           <div className="space-y-1 max-h-64 overflow-y-auto">
             {kitchenItems.map((m) => (
               <div key={m.id} className="flex items-center justify-between text-sm py-1.5 border-b border-line last:border-0">
-                <span>{m.name} <span className="text-muted">· {inr(m.price)}</span></span>
+                <span>{m.name} <span className="text-muted">· {money(m.price)}</span></span>
                 <button className={`pill text-xs ${m.bar_menu ? "bg-pine text-white" : "bg-hairline text-body"}`}
                   disabled={setInBarMenu.isPending}
                   onClick={() => setInBarMenu.mutate({ id: m.id, bar_menu: !m.bar_menu })}>
@@ -146,7 +146,7 @@ export function BarMenu() {
                     {m.station === "bar" ? "Beverage" : "Kitchen dish"}
                   </Badge>
                 </td>
-                <td className="px-4 py-3 text-right">{inr(m.price)}</td>
+                <td className="px-4 py-3 text-right">{money(m.price)}</td>
                 <td className="px-4 py-3 text-right">{Number(m.gst_rate)}%</td>
               </tr>
             ))}

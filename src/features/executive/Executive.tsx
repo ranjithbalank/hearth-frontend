@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr, num } from "../../lib/money";
+import { money, num } from "../../lib/money";
 
 type View = "all" | "hotel" | "restaurant";
 
@@ -57,10 +57,10 @@ function AllView({ data }: { data: ExecData }) {
   return (
     <>
       <div className="grid grid-cols-4 gap-4">
-        <Stat tone="dark" label="Total revenue" value={inr(data.kpis.revenue)} />
+        <Stat tone="dark" label="Total revenue" value={money(data.kpis.revenue)} />
         <Stat label="Occupancy" value={`${data.kpis.occupancy_pct}%`} />
-        <Stat label="Room revenue" value={inr(data.kpis.room_revenue)} />
-        <Stat label="Receivables" value={inr(data.kpis.receivables)} sub="City ledger / AR" />
+        <Stat label="Room revenue" value={money(data.kpis.room_revenue)} />
+        <Stat label="Receivables" value={money(data.kpis.receivables)} sub="City ledger / AR" />
       </div>
 
       <Card className="mt-4">
@@ -72,7 +72,7 @@ function AllView({ data }: { data: ExecData }) {
               <div key={r.label}>
                 <div className="flex justify-between text-sm mb-1">
                   <span>{r.label}</span>
-                  <span className="text-muted">{inr(r.value)} · {pct}%</span>
+                  <span className="text-muted">{money(r.value)} · {pct}%</span>
                 </div>
                 <div className="h-2 rounded-pill bg-hairline overflow-hidden">
                   <div className="h-full bg-pine" style={{ width: `${pct}%` }} />
@@ -93,9 +93,9 @@ function HotelView({ data }: { data: ExecData }) {
     <>
       <div className="grid grid-cols-4 gap-4">
         <Stat tone="dark" label="Occupancy" value={`${rooms.occupancy_pct}%`} sub={`${rooms.occupied}/${rooms.rooms_total} rooms`} />
-        <Stat label="ADR" value={inr(rooms.adr)} sub="Average daily rate" />
-        <Stat label="RevPAR" value={inr(rooms.revpar)} sub="Revenue per available room" />
-        <Stat label="Receivables" value={inr(data.kpis.receivables)} sub="City ledger / AR" />
+        <Stat label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
+        <Stat label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
+        <Stat label="Receivables" value={money(data.kpis.receivables)} sub="City ledger / AR" />
       </div>
       <div className="grid grid-cols-4 gap-4 mt-4">
         <Stat label="Total rooms" value={rooms.rooms_total} />
@@ -113,15 +113,15 @@ function RestaurantView({ data }: { data: ExecData }) {
   return (
     <>
       <div className="grid grid-cols-3 gap-4">
-        <Stat tone="dark" label="F&B sales" value={inr(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
+        <Stat tone="dark" label="F&B sales" value={money(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
         <Stat label="Orders" value={fnb.order_count} />
-        <Stat label="Average order value" value={inr(fnb.order_count ? num(fnb.fnb_sales) / fnb.order_count : 0)} />
+        <Stat label="Average order value" value={money(fnb.order_count ? num(fnb.fnb_sales) / fnb.order_count : 0)} />
       </div>
       <div className="grid grid-cols-3 gap-4 mt-4">
         {(["dinein", "takeaway", "delivery"] as const).map((m) => (
           <div key={m} className="card p-5">
             <div className="text-xs uppercase tracking-wide text-muted">{m}</div>
-            <div className="stat-num text-2xl mt-1">{inr(fnb.by_mode[m] ?? 0)}</div>
+            <div className="stat-num text-2xl mt-1">{money(fnb.by_mode[m] ?? 0)}</div>
           </div>
         ))}
       </div>

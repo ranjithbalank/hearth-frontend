@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface Po {
   id: number; po_no: string; supplier: string; status: string; total: string;
@@ -43,7 +43,7 @@ export function PurchaseOrders() {
               <div className="font-semibold">{po.po_no || `PO #${po.id}`}</div>
               <span className="text-sm text-muted">{po.supplier}</span>
               <Badge tone={TONE[po.status] ?? "muted"}>{po.status}</Badge>
-              <div className="ml-auto font-medium">{inr(po.total)}</div>
+              <div className="ml-auto font-medium">{money(po.total)}</div>
               {po.status === "pending" && <button className="btn-outline" onClick={() => act.mutate({ id: po.id, action: "approve" })}>Approve</button>}
               {po.status === "approved" && <button className="btn-primary" onClick={() => act.mutate({ id: po.id, action: "receive" })}>Receive</button>}
             </div>

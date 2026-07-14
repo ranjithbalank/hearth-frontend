@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface Employee {
   id: number; name: string; department: string; role: string; shifts: string[]; status: string;
@@ -150,7 +150,7 @@ export function Hr() {
         <>
           <div className="flex items-center gap-3 mb-4">
             <input className="input w-40" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-            <Stat label={`Total payable · ${payroll.month}`} value={inr(payroll.total_payable)} />
+            <Stat label={`Total payable · ${payroll.month}`} value={money(payroll.total_payable)} />
           </div>
           <Card className="p-0 overflow-hidden">
             <table className="w-full text-sm">
@@ -170,10 +170,10 @@ export function Hr() {
                       <div className="font-medium">{r.name}</div>
                       <div className="text-xs text-muted">{r.department} · {r.role}</div>
                     </td>
-                    <td className="px-4 py-3 text-right">{inr(r.monthly_salary)}</td>
+                    <td className="px-4 py-3 text-right">{money(r.monthly_salary)}</td>
                     <td className="px-4 py-3 text-right text-muted">{r.days_marked}/{payroll.days_in_month}</td>
                     <td className="px-4 py-3 text-right">{r.payable_days}</td>
-                    <td className="px-4 py-3 text-right font-medium">{inr(r.payable)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{money(r.payable)}</td>
                   </tr>
                 ))}
               </tbody>

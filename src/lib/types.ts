@@ -126,6 +126,9 @@ export interface Folio {
   /** Room nights that post at check-out — preview so the bill isn't ₹0 pre-audit. */
   pending_charges: { description: string; total: string }[];
   projected_balance: string;
+  /** Registration-card evidence exists (images fetched via /registration/). */
+  has_id_scan: boolean;
+  has_signature: boolean;
 }
 
 export interface Variant {

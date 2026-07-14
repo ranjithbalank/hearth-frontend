@@ -196,16 +196,28 @@ export function MaterialRequests() {
 
 interface DraftLine { ingredient: number | null; qty: string }
 const EMPTY: DraftLine = { ingredient: null, qty: "" };
-const DEPARTMENTS = ["Kitchen", "Bar", "Housekeeping", "Banquets", "Front Office", "Maintenance"];
+// Fallback until the department master loads (it seeds with these six).
+const DEFAULT_DEPARTMENTS = ["Kitchen", "Bar", "Housekeeping", "Banquets", "Front Office", "Maintenance"];
 
 function NewRequestModal({ role, onDone, onCancel }: {
   role: string; onDone: (department: string) => void; onCancel: () => void;
 }) {
   const toast = useToast();
+  // Departments come from the master (Settings > Masters) — a department
+  // added there is immediately requestable; its indents route to GM/MD/
+  // Super Admin unless it has a dedicated approver.
+  const { data: masterDepts } = useQuery({
+    queryKey: ["master-departments"],
+    queryFn: async () =>
+      (await api.get<{ name: string; active: boolean }[]>("/masters/departments/")).data,
+  });
+  const departments = masterDepts?.length
+    ? masterDepts.filter((d) => d.active).map((d) => d.name)
+    : DEFAULT_DEPARTMENTS;
   // Hide departments this role would only be able to raise and never see
   // approved (it's the department's own approver) — matches the backend.
-  const selectable = DEPARTMENTS.filter((d) => roleCanRequestDepartment(role, d));
-  const [department, setDepartment] = useState(selectable[0] ?? DEPARTMENTS[0]);
+  const selectable = departments.filter((d) => roleCanRequestDepartment(role, d));
+  const [department, setDepartment] = useState(selectable[0] ?? departments[0]);
   const [lines, setLines] = useState<DraftLine[]>([{ ...EMPTY }]);
 
   // Scoped picklist (not /inventory/ — most roles that can raise an indent

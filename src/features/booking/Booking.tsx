@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface RoomCard { room_type: string; name: string; rate: string; available: number; max_occupancy: number }
 interface Stats { direct_share_pct: number; ota_bookings: number; direct_bookings: number; commission_saved: string }
@@ -43,7 +43,7 @@ export function Booking() {
           <Stat tone="dark" label="Direct share" value={`${stats.direct_share_pct}%`} />
           <Stat label="Direct bookings" value={stats.direct_bookings} />
           <Stat label="OTA bookings" value={stats.ota_bookings} />
-          <Stat label="Commission saved" value={inr(stats.commission_saved)} />
+          <Stat label="Commission saved" value={money(stats.commission_saved)} />
         </div>
       )}
 
@@ -52,7 +52,7 @@ export function Booking() {
           <Card key={r.room_type}>
             <div className="font-display text-xl">{r.name}</div>
             <div className="text-sm text-muted">Sleeps {r.max_occupancy} · {r.available} available</div>
-            <div className="stat-num text-2xl mt-3">{inr(r.rate)}<span className="text-sm text-muted">/night</span></div>
+            <div className="stat-num text-2xl mt-3">{money(r.rate)}<span className="text-sm text-muted">/night</span></div>
             <button
               className="btn-primary w-full mt-3"
               disabled={!r.available || book.isPending}

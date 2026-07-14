@@ -5,7 +5,7 @@ import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { currencySymbol, money } from "../../lib/money";
 
 interface Rates { veg_rate: string; nonveg_rate: string }
 
@@ -43,16 +43,16 @@ export function CateringPrices() {
           bookings pre-fill these rates automatically — you can still adjust them per event.
         </div>
 
-        <label className="block text-xs font-semibold text-muted mb-1">Veg — ₹ per plate</label>
+        <label className="block text-xs font-semibold text-muted mb-1">Veg — {currencySymbol()} per plate</label>
         <input className="input mb-3" inputMode="decimal" placeholder="e.g. 850"
           value={veg} onChange={(e) => setVeg(amount(e.target.value))} />
 
-        <label className="block text-xs font-semibold text-muted mb-1">Non-veg — ₹ per plate</label>
+        <label className="block text-xs font-semibold text-muted mb-1">Non-veg — {currencySymbol()} per plate</label>
         <input className="input mb-4" inputMode="decimal" placeholder="e.g. 1050"
           value={nonveg} onChange={(e) => setNonveg(amount(e.target.value))} />
 
         <div className="text-xs text-muted mb-4">
-          Example — 100 veg plates at {inr(Number(veg || 0))} = {inr(Number(veg || 0) * 100)}.
+          Example — 100 veg plates at {money(Number(veg || 0))} = {money(Number(veg || 0) * 100)}.
         </div>
 
         <button className="btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface DashboardData {
   view: "hotel" | "restaurant" | "combined";
@@ -48,12 +48,12 @@ export function Dashboard() {
         {data.rooms && (
           <>
             <Stat tone="dark" label="Occupancy" value={`${data.rooms.occupancy_pct}%`} sub={`${data.rooms.occupied}/${data.rooms.rooms_total} rooms`} />
-            <Stat label="ADR" value={inr(data.rooms.adr)} sub="Average daily rate" />
-            <Stat label="RevPAR" value={inr(data.rooms.revpar)} sub="Revenue per available room" />
+            <Stat label="ADR" value={money(data.rooms.adr)} sub="Average daily rate" />
+            <Stat label="RevPAR" value={money(data.rooms.revpar)} sub="Revenue per available room" />
           </>
         )}
         {data.fnb && (
-          <Stat tone={data.rooms ? undefined : "dark"} label="F&B sales" value={inr(data.fnb.fnb_sales)} sub={`${data.fnb.order_count} orders`} />
+          <Stat tone={data.rooms ? undefined : "dark"} label="F&B sales" value={money(data.fnb.fnb_sales)} sub={`${data.fnb.order_count} orders`} />
         )}
       </div>
 
@@ -75,10 +75,10 @@ export function Dashboard() {
           <div>
             <div className="text-xs uppercase tracking-wide text-muted">Accounts receivable</div>
             <div className={`stat-num text-2xl mt-1 ${Number(data.receivables.total) > 0 ? "text-clay" : "text-pine"}`}>
-              {inr(data.receivables.total)}
+              {money(data.receivables.total)}
             </div>
             <div className="text-sm text-muted mt-1">
-              {data.receivables.corporate_accounts} corporate account(s) · {inr(data.receivables.corporate)} bill-to-company
+              {data.receivables.corporate_accounts} corporate account(s) · {money(data.receivables.corporate)} bill-to-company
             </div>
           </div>
           <span className="text-pine text-sm">View ledger →</span>
@@ -110,7 +110,7 @@ export function Dashboard() {
           {(["dinein", "takeaway", "delivery"] as const).map((m) => (
             <div key={m} className="card p-5">
               <div className="text-xs uppercase tracking-wide text-muted">{m}</div>
-              <div className="stat-num text-2xl mt-1">{inr(data.fnb!.by_mode[m] ?? 0)}</div>
+              <div className="stat-num text-2xl mt-1">{money(data.fnb!.by_mode[m] ?? 0)}</div>
             </div>
           ))}
         </div>

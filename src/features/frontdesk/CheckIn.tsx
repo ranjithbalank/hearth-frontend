@@ -3,13 +3,15 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
+import { SignaturePad } from "../../design/SignaturePad";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { fileToScaledDataUrl } from "../../lib/image";
+import { money } from "../../lib/money";
 import type { Reservation, Room } from "../../lib/types";
 import { WalkInForm } from "./WalkInForm";
 
-const STEPS = ["Guest", "Room", "ID proof", "Guest type", "Payment"];
+const STEPS = ["Guest", "Room", "ID proof", "Guest type", "Signature", "Payment"];
 const GUEST_TYPES = [
   { key: "individual", label: "Individual" },
   { key: "corporate", label: "Corporate (bill to company)" },
@@ -25,6 +27,8 @@ export function CheckIn() {
   const [roomId, setRoomId] = useState<number | null>(null);
   const [idType, setIdType] = useState("Passport");
   const [idNumber, setIdNumber] = useState("");
+  const [idScan, setIdScan] = useState("");
+  const [signature, setSignature] = useState<string | null>(null);
   const [guestType, setGuestType] = useState("individual");
   const [companyName, setCompanyName] = useState("");
   const [code, setCode] = useState("+91");
@@ -61,6 +65,7 @@ export function CheckIn() {
         id_type: idType, id_number: idNumber, guest_type: guestType,
         company_name: guestType === "corporate" ? companyName.trim() : "",
         mobile: joinPhone(code, mobile),
+        id_scan: idScan, signature: signature ?? "",
       })).data,
     onSuccess: (folio) => setDone(`Checked in to room ${folio.room_number} · folio #${folio.id}`),
   });
@@ -142,6 +147,34 @@ export function CheckIn() {
             <input className="input" placeholder="ID number (required)"
               value={idNumber} onChange={(e) => setIdNumber(e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase().slice(0, 20))} />
             {!idNumber.trim() && <div className="text-xs text-clay mt-1">A valid ID proof is required to check in.</div>}
+
+            <label className="block text-xs font-semibold text-muted mb-1 mt-4">ID scan / photo</label>
+            <div className="flex items-center gap-3">
+              {idScan ? (
+                <img src={idScan} alt="ID scan" className="h-20 rounded-lg border border-hairline object-cover" />
+              ) : (
+                <div className="h-20 w-28 rounded-lg border border-dashed border-hairline flex items-center justify-center text-xs text-muted">
+                  No scan
+                </div>
+              )}
+              <div>
+                <label className="btn-outline text-xs cursor-pointer inline-block">
+                  {idScan ? "Retake" : "Scan / upload"}
+                  <input type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      try { setIdScan(await fileToScaledDataUrl(file)); }
+                      catch { alert("That file isn't an image."); }
+                    }} />
+                </label>
+                {idScan && <button className="btn-ghost text-xs ml-2" onClick={() => setIdScan("")}>Remove</button>}
+                <div className="text-xs text-muted mt-1">
+                  Photo of the {idType} — stored on the registration record.
+                </div>
+              </div>
+            </div>
           </div>
         )}
         {step === 3 && (
@@ -170,12 +203,25 @@ export function CheckIn() {
         )}
         {step === 4 && (
           <div>
+            <div className="font-semibold mb-1">Guest signature</div>
+            <div className="text-sm text-muted mb-3">
+              The guest signs the registration record — confirming the stay details and
+              the house rules. Stored with the ID proof on the folio.
+            </div>
+            <SignaturePad onChange={setSignature} />
+            {!signature && <div className="text-xs text-clay mt-1">A signature is required to complete check-in.</div>}
+          </div>
+        )}
+        {step === 5 && (
+          <div>
             <div className="font-semibold mb-3">Payment / deposit</div>
             <Field label="Room" value={room ? `${room.number}` : "—"} />
-            <Field label="Rate" value={`${inr(resv.rate)}/night`} />
-            <Field label="Deposit" value={resv.prepaid ? `${inr(resv.deposit)} (prepaid)` : "Collect at desk"} />
+            <Field label="Rate" value={`${money(resv.rate)}/night`} />
+            <Field label="Deposit" value={resv.prepaid ? `${money(resv.deposit)} (prepaid)` : "Collect at desk"} />
             <Field label="Routing" value={guestType === "corporate" ? "City ledger (BTC)" : "Guest folio"} />
             {guestType === "corporate" && <Field label="Bill to" value={companyName || "—"} />}
+            <Field label="ID proof" value={`${idType} · ${idNumber}${idScan ? " · scan ✓" : " · no scan"}`} />
+            <Field label="Signature" value={signature ? "Captured ✓" : "—"} />
           </div>
         )}
 
@@ -184,12 +230,13 @@ export function CheckIn() {
           {step < STEPS.length - 1 ? (
             <button className="btn-primary"
               disabled={(step === 2 && (!idNumber.trim() || mobile.trim().length < 7))
-                || (step === 3 && guestType === "corporate" && !companyName.trim())}
+                || (step === 3 && guestType === "corporate" && !companyName.trim())
+                || (step === 4 && !signature)}
               onClick={() => setStep((s) => s + 1)}>Continue</button>
           ) : (
             <button className="btn-primary"
               disabled={complete.isPending || !idNumber.trim() || mobile.trim().length < 7
-                || (guestType === "corporate" && !companyName.trim())}
+                || (guestType === "corporate" && !companyName.trim()) || !signature}
               onClick={() => complete.mutate()}>
               Complete check-in
             </button>
@@ -224,7 +271,7 @@ function ArrivalPicker() {
             <Card key={a.id} className="flex items-center gap-4">
               <div className="flex-1">
                 <div className="font-semibold">{a.guest_name}</div>
-                <div className="text-sm text-muted">{a.room_type_code} · {a.nights}n · {inr(a.rate)}/night</div>
+                <div className="text-sm text-muted">{a.room_type_code} · {a.nights}n · {money(a.rate)}/night</div>
               </div>
               <Badge tone="info">{a.source_label}</Badge>
               <button className="btn-primary" onClick={() => nav(`/checkin?reservation=${a.id}`)}>Begin check-in</button>

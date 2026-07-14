@@ -6,7 +6,8 @@ import { useToast } from "../../design/Toast";
 import { Badge, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
+import { useTenders } from "../../lib/tenders";
 import type { MenuItem, Order } from "../../lib/types";
 
 interface BarTable {
@@ -28,6 +29,9 @@ export function BarPos() {
   // Bar Captain runs tabs on bar tables; walk-up takeaway (no table) stays
   // with the Bar Cashier — same split as F&B Cashier vs Captain.
   const canTakeaway = user?.role === "Bar Cashier";
+  // Tenders from the payment-methods master: the Bar Captain only gets
+  // captain_allowed ones; the Bar Cashier counter takes everything active.
+  const tenders = useTenders(user?.role === "Bar Captain");
   const [view, setView] = useState<"floor" | "order">("floor");
   const [table, setTable] = useState<BarTable | null>(null);
   const [mode, setMode] = useState<"dinein" | "takeaway">("dinein");
@@ -247,7 +251,7 @@ export function BarPos() {
                   <span>{m.name}</span>
                   {m.station === "bar" && <Badge tone="amber">bar</Badge>}
                 </div>
-                <div className="text-xs text-muted mt-1">{inr(m.price)}</div>
+                <div className="text-xs text-muted mt-1">{money(m.price)}</div>
               </button>
             ))}
             {!shownItems.length && <div className="text-sm text-muted col-span-3">No items in this category.</div>}
@@ -261,7 +265,7 @@ export function BarPos() {
               <div key={l.id} className="flex items-center justify-between text-sm">
                 <div>
                   <div>{l.name}</div>
-                  <div className="text-xs text-muted">{inr(l.unit_price)} each{l.kot_fired ? " · sent" : ""}</div>
+                  <div className="text-xs text-muted">{money(l.unit_price)} each{l.kot_fired ? " · sent" : ""}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button className="btn-ghost text-xs" disabled={setQty.isPending}
@@ -276,9 +280,9 @@ export function BarPos() {
           </div>
 
           <div className="border-t border-line mt-3 pt-3 space-y-1 text-sm">
-            <div className="flex justify-between"><span className="text-muted">Taxable</span><span>{inr(order.totals.taxable)}</span></div>
-            <div className="flex justify-between"><span className="text-muted">Tax</span><span>{inr(order.totals.tax)}</span></div>
-            <div className="flex justify-between font-semibold text-base"><span>Total</span><span>{inr(order.totals.total)}</span></div>
+            <div className="flex justify-between"><span className="text-muted">Taxable</span><span>{money(order.totals.taxable)}</span></div>
+            <div className="flex justify-between"><span className="text-muted">Tax</span><span>{money(order.totals.tax)}</span></div>
+            <div className="flex justify-between font-semibold text-base"><span>Total</span><span>{money(order.totals.total)}</span></div>
           </div>
 
           <div className="mt-3 space-y-2">
@@ -288,16 +292,16 @@ export function BarPos() {
             <button className="btn-outline w-full" disabled={!canBill || canFire || bill.isPending} onClick={() => bill.mutate()}>
               Print bill
             </button>
-            {(["UPI", "Gateway"] as const).map((t) => (
+            {tenders.map((t) => (
               <button key={t} className="btn-primary w-full" disabled={!canSettle || settle.isPending}
                 onClick={async () => {
                   const ok = await ask({
                     title: "Confirm settlement", confirm: true, confirmLabel: "Settle",
-                    message: `Settle ${inr(order.totals.total)} via ${TENDER_LABELS[t]}?`,
+                    message: `Settle ${money(order.totals.total)} via ${TENDER_LABELS[t] ?? t}?`,
                   });
                   if (ok) settle.mutate(t);
                 }}>
-                Settle · {TENDER_LABELS[t]}
+                Settle · {TENDER_LABELS[t] ?? t}
               </button>
             ))}
           </div>

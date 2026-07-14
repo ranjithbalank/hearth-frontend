@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { PageHeader, Spinner } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface TaxRow { rate: string; taxable: string; cgst: string; sgst: string; tax: string; total: string }
 
@@ -48,11 +48,11 @@ export function TaxGst() {
             {data.map((r) => (
               <tr key={r.rate} className="border-t border-line">
                 <td className="px-4 py-3 font-medium">{r.rate}%</td>
-                <td className="px-4 py-3 text-right">{inr(r.taxable)}</td>
-                <td className="px-4 py-3 text-right">{inr(r.cgst)}</td>
-                <td className="px-4 py-3 text-right">{inr(r.sgst)}</td>
-                <td className="px-4 py-3 text-right">{inr(r.tax)}</td>
-                <td className="px-4 py-3 text-right font-medium">{inr(r.total)}</td>
+                <td className="px-4 py-3 text-right">{money(r.taxable)}</td>
+                <td className="px-4 py-3 text-right">{money(r.cgst)}</td>
+                <td className="px-4 py-3 text-right">{money(r.sgst)}</td>
+                <td className="px-4 py-3 text-right">{money(r.tax)}</td>
+                <td className="px-4 py-3 text-right font-medium">{money(r.total)}</td>
               </tr>
             ))}
             {!data.length && <tr><td colSpan={6} className="px-4 py-6 text-center text-muted">No taxable sales yet.</td></tr>}

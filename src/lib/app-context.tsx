@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { api, clearTokens, setTokens } from "./api";
+import { setActiveCurrency } from "./money";
 import { MODULE_ENTITLEMENT, NAV } from "./modules";
 import type { Entitlement, Property, User } from "./types";
 
@@ -32,6 +33,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   async function refreshProperty() {
     const { data } = await api.get<Property>("/auth/property/");
+    setActiveCurrency(data.currency);
     setProperty(data);
   }
 

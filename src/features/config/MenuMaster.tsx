@@ -6,7 +6,7 @@ import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { amount } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import type { MenuItem } from "../../lib/types";
 
 interface Category { id: number; name: string }
@@ -150,7 +150,7 @@ export function MenuMaster() {
                 <td className="px-4 py-3">
                   <Badge tone={m.diet === "veg" ? "pine" : "clay"}>{m.diet}</Badge>
                 </td>
-                <td className="px-4 py-3 text-right">{inr(m.price)}</td>
+                <td className="px-4 py-3 text-right">{money(m.price)}</td>
                 <td className="px-4 py-3 text-right">{Number(m.gst_rate)}%</td>
                 <td className="px-4 py-3 text-right">
                   <button

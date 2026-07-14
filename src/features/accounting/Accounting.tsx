@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import { printZReport, type ZReport } from "../print/documents";
 
 interface Customer { id: number; name: string; customer_type: string; outstanding: string }
@@ -31,7 +31,7 @@ export function Accounting() {
   const runAudit = useMutation({
     mutationFn: async () => (await api.post<NightAudit>("/night-audit/")).data,
     onSuccess: (r) => {
-      setMsg(`Night audit ${r.business_date}: ${r.rooms_posted} rooms posted, ${inr(r.room_revenue)} revenue`);
+      setMsg(`Night audit ${r.business_date}: ${r.rooms_posted} rooms posted, ${money(r.room_revenue)} revenue`);
       qc.invalidateQueries({ queryKey: ["night-audit"] });
     },
   });
@@ -50,7 +50,7 @@ export function Accounting() {
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
       <div className="grid grid-cols-3 gap-4 mb-4">
-        <Stat tone="dark" label="Total receivables" value={inr(totalAr)} />
+        <Stat tone="dark" label="Total receivables" value={money(totalAr)} />
         <Stat label="AR accounts" value={ar.length} />
         <Stat label="Audits run" value={audits?.length ?? 0} />
       </div>
@@ -61,7 +61,7 @@ export function Accounting() {
           {ar.map((c) => (
             <div key={c.id} className="flex justify-between py-2 border-t border-line text-sm">
               <span>{c.name} <span className="text-muted">· {c.customer_type}</span></span>
-              <span className="font-medium">{inr(c.outstanding)}</span>
+              <span className="font-medium">{money(c.outstanding)}</span>
             </div>
           ))}
           {!ar.length && <div className="text-sm text-muted py-4">No outstanding balances.</div>}
@@ -71,7 +71,7 @@ export function Accounting() {
           {audits?.map((a) => (
             <div key={a.id} className="flex justify-between py-2 border-t border-line text-sm">
               <span>{a.business_date}</span>
-              <span className="text-muted">{a.rooms_posted} rooms · {inr(a.room_revenue)}</span>
+              <span className="text-muted">{a.rooms_posted} rooms · {money(a.room_revenue)}</span>
             </div>
           ))}
           {!audits?.length && <div className="text-sm text-muted py-4">No audits yet.</div>}
@@ -95,15 +95,15 @@ export function Accounting() {
                 <tr key={t.tender} className="border-t border-line">
                   <td className="py-2">{t.tender}</td>
                   <td className="py-2 text-right">{t.count}</td>
-                  <td className="py-2 text-right">{inr(t.tip)}</td>
-                  <td className="py-2 text-right font-medium">{inr(t.amount)}</td>
+                  <td className="py-2 text-right">{money(t.tip)}</td>
+                  <td className="py-2 text-right font-medium">{money(t.amount)}</td>
                 </tr>
               ))}
               {!dayend.tenders.length && <tr><td colSpan={4} className="py-3 text-center text-muted">No collections yet.</td></tr>}
             </tbody>
           </table>
           <div className="flex justify-between border-t border-hairline pt-3 mt-2 font-semibold">
-            <span>Total collected</span><span>{inr(dayend.total)}</span>
+            <span>Total collected</span><span>{money(dayend.total)}</span>
           </div>
         </Card>
       )}

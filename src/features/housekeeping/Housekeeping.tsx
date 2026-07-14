@@ -4,7 +4,7 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { currencySymbol, money } from "../../lib/money";
 import type { Room } from "../../lib/types";
 
 const STATUS_TONE: Record<string, "pine" | "clay" | "amber" | "info" | "muted"> = {
@@ -47,7 +47,7 @@ export function Housekeeping() {
   const minibar = useMutation({
     mutationFn: async ({ room, item, amount }: { room: Room; item: string; amount: number }) =>
       (await api.post(`/housekeeping/${room.id}/minibar/`, { item, amount })).data,
-    onSuccess: (_d, v) => { toast(`Posted ${v.item} (${inr(v.amount)}) to room ${v.room.number}`); qc.invalidateQueries({ queryKey: ["folios"] }); },
+    onSuccess: (_d, v) => { toast(`Posted ${v.item} (${money(v.amount)}) to room ${v.room.number}`); qc.invalidateQueries({ queryKey: ["folios"] }); },
     onError: () => toast("No open folio for this room", "error"),
   });
 
@@ -130,7 +130,7 @@ export function Housekeeping() {
                 onClick={async () => {
                   const item = await ask({ title: "Post minibar", label: "Item consumed", placeholder: "e.g. Soft drink" });
                   if (!item) return;
-                  const raw = await ask({ title: "Minibar amount", label: "Amount (₹)", defaultValue: "150" });
+                  const raw = await ask({ title: "Minibar amount", label: `Amount (${currencySymbol()})`, defaultValue: "150" });
                   if (raw === null) return;
                   const amount = Number(raw);
                   if (!amount || amount <= 0) { toast("Enter a valid amount", "error"); return; }

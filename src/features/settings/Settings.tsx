@@ -6,6 +6,9 @@ import { useToast } from "../../design/Toast";
 import { Card, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount, digits, gstin as gstinFilter } from "../../lib/inputs";
+import { currencySymbol } from "../../lib/money";
+import { AuditLogPanel } from "./AuditLog";
+import { CurrencyPanel, DepartmentsPanel, DesignationsPanel, PaymentMethodsPanel } from "./Masters";
 import { useApp } from "../../lib/app-context";
 import type { Entitlement, Role, User } from "../../lib/types";
 
@@ -76,7 +79,7 @@ function UsersPanel() {
               <td className="py-2">{u.role}</td>
               <td className="py-2 text-muted">
                 {u.discount_cap_type === "percent" ? `${Number(u.discount_cap_value)}%`
-                  : u.discount_cap_type === "fixed" ? `₹${Number(u.discount_cap_value)}` : "—"}
+                  : u.discount_cap_type === "fixed" ? `${currencySymbol()}${Number(u.discount_cap_value)}` : "—"}
               </td>
               <td className="py-2 text-right">
                 <button
@@ -455,6 +458,11 @@ const SECTIONS = [
   { key: "barmode", label: "Bar Operating Mode" },
   { key: "entitlements", label: "Edition Entitlements" },
   { key: "users", label: "Users & Roles" },
+  { key: "audit", label: "Audit Log" },
+  { key: "currency", label: "Currency", group: "Masters" },
+  { key: "departments", label: "Departments", group: "Masters" },
+  { key: "designations", label: "Designations", group: "Masters" },
+  { key: "tenders", label: "Payment Methods", group: "Masters" },
 ] as const;
 type SectionKey = (typeof SECTIONS)[number]["key"];
 
@@ -503,16 +511,22 @@ export function Settings() {
 
       <div className="flex flex-col md:flex-row gap-4 items-start">
         <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible md:w-44 md:shrink-0 pb-1 md:pb-0">
-          {visibleSections.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setSection(s.key)}
-              className={`whitespace-nowrap md:w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                activeSection === s.key ? "bg-pine text-white" : "text-body hover:bg-hairline/60"
-              }`}
-            >
-              {s.label}
-            </button>
+          {visibleSections.map((s, i) => (
+            <div key={s.key} className="contents">
+              {"group" in s && s.group && (!("group" in (visibleSections[i - 1] ?? {})) ) && (
+                <div className="hidden md:block text-[10px] font-semibold uppercase tracking-wider text-muted px-3 pt-3 pb-1">
+                  {s.group}
+                </div>
+              )}
+              <button
+                onClick={() => setSection(s.key)}
+                className={`whitespace-nowrap md:w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  activeSection === s.key ? "bg-pine text-white" : "text-body hover:bg-hairline/60"
+                }`}
+              >
+                {s.label}
+              </button>
+            </div>
           ))}
         </nav>
 
@@ -607,6 +621,13 @@ export function Settings() {
               <MfaPanel />
             </>
           )}
+
+          {activeSection === "audit" && <AuditLogPanel />}
+
+          {activeSection === "currency" && <CurrencyPanel />}
+          {activeSection === "departments" && <DepartmentsPanel />}
+          {activeSection === "designations" && <DesignationsPanel />}
+          {activeSection === "tenders" && <PaymentMethodsPanel />}
         </div>
       </div>
     </div>

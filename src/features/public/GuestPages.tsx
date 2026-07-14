@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 
 import { Logo, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { currencySymbol } from "../../lib/money";
 
 /** Guest-facing pages (no login): feedback form + order status tracker.
  *  Reached via the QR/link printed on the bill. */
@@ -322,7 +323,7 @@ export function QrOrderPage() {
                       </span>
                       <span className="font-medium text-sm truncate">{m.name}</span>
                     </div>
-                    <div className="text-xs text-muted">₹{Number(m.price)}</div>
+                    <div className="text-xs text-muted">{currencySymbol()}{Number(m.price)}</div>
                   </div>
                   {cart[m.id] ? (
                     <div className="flex items-center gap-2">
@@ -353,7 +354,7 @@ export function QrOrderPage() {
           disabled={busy}
           onClick={place}
         >
-          <span>{count} item(s) · ₹{total.toFixed(0)}</span>
+          <span>{count} item(s) · {currencySymbol()}{total.toFixed(0)}</span>
           <span className="font-semibold">{busy ? "Sending…" : "Place order →"}</span>
         </button>
       )}

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 /** Build a demo Booking.com payload with a unique ref and near-future dates. */
 function demoBooking() {
@@ -54,7 +54,7 @@ export function Channel() {
     mutationFn: async () => (await api.post("/channel/ingest/", demoBooking())).data,
     onSuccess: (d) => {
       const r = d.reservation;
-      toast(`Booking imported · ${r.guest_name} · ${r.room_type_code} ${r.checkin_date}→${r.checkout_date} (prepaid ${inr(r.deposit)})`);
+      toast(`Booking imported · ${r.guest_name} · ${r.room_type_code} ${r.checkin_date}→${r.checkout_date} (prepaid ${money(r.deposit)})`);
       qc.invalidateQueries({ queryKey: ["pushes"] });
       qc.invalidateQueries({ queryKey: ["reservations"] });
       qc.invalidateQueries({ queryKey: ["arrivals"] });
@@ -106,7 +106,7 @@ export function Channel() {
                 </td>
                 {row.cells.map((cell, i) => (
                   <td key={i} className="py-2 px-3 text-right">
-                    {cell.rate ? inr(cell.rate) : "—"}
+                    {cell.rate ? money(cell.rate) : "—"}
                     <span className="text-muted text-xs"> ·{cell.availability}</span>
                   </td>
                 ))}

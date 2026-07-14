@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface ReconDay {
   date: string;
@@ -74,7 +74,7 @@ export function Reconciliation() {
           <div className="font-semibold text-clay mb-2">⚠ Payouts with no matching POS settlement</div>
           {data.unmatched_payouts.map((p, i) => (
             <div key={i} className="flex justify-between text-sm">
-              <span>{p.date} · {p.platform}</span><span>{inr(p.payout_amount)}</span>
+              <span>{p.date} · {p.platform}</span><span>{money(p.payout_amount)}</span>
             </div>
           ))}
           <div className="text-xs text-muted mt-2">The platform paid for orders the POS never recorded — investigate.</div>
@@ -91,7 +91,7 @@ export function Reconciliation() {
                 {d.tenders.map((t) => (
                   <div key={t.tender} className="flex justify-between text-sm py-0.5">
                     <span>{t.tender} <span className="text-muted text-xs">× {t.count}</span></span>
-                    <span>{inr(t.amount)}</span>
+                    <span>{money(t.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -101,13 +101,13 @@ export function Reconciliation() {
                   <div key={a.platform} className="flex items-center justify-between text-sm py-0.5">
                     <span className="capitalize">{a.platform}</span>
                     <span className="flex items-center gap-2">
-                      <span className="text-muted text-xs">POS {inr(a.pos_amount)}</span>
+                      <span className="text-muted text-xs">POS {money(a.pos_amount)}</span>
                       {a.payout_amount === null ? (
                         <Badge tone="amber">no payout imported</Badge>
                       ) : Number(a.variance) === 0 ? (
                         <Badge tone="pine">matched</Badge>
                       ) : (
-                        <Badge tone="clay">variance {inr(a.variance!)}</Badge>
+                        <Badge tone="clay">variance {money(a.variance!)}</Badge>
                       )}
                     </span>
                   </div>

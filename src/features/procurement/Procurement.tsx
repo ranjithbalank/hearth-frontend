@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { currencySymbol, money } from "../../lib/money";
 
 interface PoLine { ingredient: string; qty: string; rate: string; received_qty: string }
 interface Po { id: number; po_no: string; supplier: string; status: string; total: string; lines: PoLine[] }
@@ -101,7 +101,7 @@ export function Procurement() {
               <div className="font-semibold">{po.po_no || `PO #${po.id}`}</div>
               <span className="text-sm text-muted">{po.supplier}</span>
               <Badge tone={TONE[po.status] ?? "muted"}>{po.status}</Badge>
-              <div className="ml-auto font-medium">{inr(po.total)}</div>
+              <div className="ml-auto font-medium">{money(po.total)}</div>
               {po.status === "pending" && (
                 <button className="btn-outline" onClick={() => approve.mutate(po)}>Approve</button>
               )}
@@ -113,7 +113,7 @@ export function Procurement() {
               {po.lines.map((l, i) => (
                 <div key={i} className="flex justify-between border-b border-line py-1">
                   <span>{l.ingredient}</span>
-                  <span className="text-muted">{Number(l.qty)} × {inr(l.rate)}</span>
+                  <span className="text-muted">{Number(l.qty)} × {money(l.rate)}</span>
                 </div>
               ))}
             </div>
@@ -193,7 +193,7 @@ function NewPoModal({ prefillLow, onDone, onCancel }: {
           {suppliers?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <div className="grid grid-cols-[1fr_90px_110px_32px] gap-2 text-xs text-muted uppercase tracking-wide mb-1 px-1">
-          <span>Raw material</span><span>Qty</span><span>Rate ₹</span><span></span>
+          <span>Raw material</span><span>Qty</span><span>Rate {currencySymbol()}</span><span></span>
         </div>
         <div className="space-y-2 overflow-y-auto flex-1">
           {lines.map((l, i) => {
@@ -228,7 +228,7 @@ function NewPoModal({ prefillLow, onDone, onCancel }: {
           ＋ Add line
         </button>
         <div className="flex items-center gap-2 mt-4">
-          <div className="font-semibold text-sm">Total {inr(total)}</div>
+          <div className="font-semibold text-sm">Total {money(total)}</div>
           <div className="flex-1" />
           <button className="btn-ghost" onClick={onCancel}>Cancel</button>
           <button className="btn-primary" disabled={!supplier || !valid.length || save.isPending}
