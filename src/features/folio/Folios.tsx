@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
@@ -54,7 +55,10 @@ export function Folios() {
   const { property } = useApp();
   const toast = useToast();
   const ask = usePrompt();
-  const [selId, setSelId] = useState<number | null>(null);
+  // ?sel=<id> lets Check-In's "Open folio" land on the folio it just made
+  // (QA finding UXF-01 — it used to select whichever folio was listed first).
+  const [params] = useSearchParams();
+  const [selId, setSelId] = useState<number | null>(() => Number(params.get("sel")) || null);
   const [tender, setTender] = useState("Card");
   const [q, setQ] = useState("");
   const [showReg, setShowReg] = useState(false);

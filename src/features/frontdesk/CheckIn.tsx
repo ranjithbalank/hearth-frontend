@@ -36,6 +36,7 @@ export function CheckIn() {
   const [mobile, setMobile] = useState("");
   const [prefilled, setPrefilled] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [doneFolio, setDoneFolio] = useState<number | null>(null);
 
   const { data: resv, isLoading } = useQuery({
     queryKey: ["resv", resvId],
@@ -68,7 +69,7 @@ export function CheckIn() {
         mobile: joinPhone(code, mobile),
         id_scan: idScan, signature: signature ?? "",
       })).data,
-    onSuccess: (folio) => setDone(`Checked in to room ${folio.room_number} · folio #${folio.id}`),
+    onSuccess: (folio) => { setDoneFolio(folio.id); setDone(`Checked in to room ${folio.room_number} · folio #${folio.id}`); },
   });
 
   if (!resvId) return <ArrivalPicker />;
@@ -81,7 +82,7 @@ export function CheckIn() {
         <Card className="bg-pine-50 border-pine/20">
           <div className="text-pine font-medium">{done}</div>
           <div className="flex gap-2 mt-4">
-            <button className="btn-primary" onClick={() => nav("/folios")}>Open folio</button>
+            <button className="btn-primary" onClick={() => nav(doneFolio ? `/folios?sel=${doneFolio}` : "/folios")}>Open folio</button>
             <button className="btn-outline" onClick={() => nav("/frontdesk")}>Back to Front Desk</button>
           </div>
         </Card>

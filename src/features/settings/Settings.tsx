@@ -109,7 +109,9 @@ function UsersPanel() {
   const create = useMutation({
     mutationFn: async () => (await api.post("/auth/users/", f)).data,
     onSuccess: () => { setF(empty); toast("User created"); qc.invalidateQueries({ queryKey: ["users"] }); },
-    onError: (e: any) => toast(e?.response?.data?.username?.[0] ?? "Could not create user", "error"),
+    onError: (e: any) => toast(
+      e?.response?.data?.username?.[0] ?? e?.response?.data?.password?.[0]
+        ?? e?.response?.data?.detail ?? "Could not create user", "error"),
   });
   const toggle = useMutation({
     mutationFn: async (u: User) => (await api.patch(`/auth/users/${u.id}/`, { is_active: !u.is_active })).data,
