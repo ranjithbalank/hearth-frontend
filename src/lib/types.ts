@@ -85,6 +85,8 @@ export interface Property {
   logo: string;
   doc_header: string;
   doc_footer: string;
+  doc_header_align: "left" | "center" | "right";
+  doc_footer_align: "left" | "center" | "right";
   currency: string;
   entitlement: Entitlement;
   gst_billing_mode: string;

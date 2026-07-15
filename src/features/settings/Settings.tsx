@@ -95,6 +95,7 @@ const ROLES: Role[] = [
 function UsersPanel() {
   const qc = useQueryClient();
   const toast = useToast();
+  const { user: me, refreshUser } = useApp();
   const empty = { username: "", first_name: "", last_name: "", role: "F&B Cashier" as Role,
     password: "", passcode: "", discount_cap_type: "none", discount_cap_value: "0" };
   const [f, setF] = useState(empty);
@@ -139,7 +140,12 @@ function UsersPanel() {
         discount_cap_type: ef.discount_cap_type, discount_cap_value: ef.discount_cap_value,
         ...(ef.passcode ? { passcode: ef.passcode } : {}),
       })).data,
-    onSuccess: () => { setEditingId(null); toast("User updated"); qc.invalidateQueries({ queryKey: ["users"] }); },
+    onSuccess: (_d, id) => {
+      setEditingId(null); toast("User updated"); qc.invalidateQueries({ queryKey: ["users"] });
+      // If you edited your own record, refresh the shell so your name/role/
+      // initials at the bottom-left update immediately (no re-login needed).
+      if (me?.id === id) refreshUser();
+    },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save changes", "error"),
   });
 
@@ -354,10 +360,30 @@ function PropertyPanel() {
   );
 }
 
+type Align = "left" | "center" | "right";
+
+function AlignPicker({ value, onChange }: { value: Align; onChange: (a: Align) => void }) {
+  const opts: { k: Align; label: string }[] = [
+    { k: "left", label: "◧ Left" }, { k: "center", label: "▣ Center" }, { k: "right", label: "◨ Right" },
+  ];
+  return (
+    <span className="inline-flex rounded-lg border border-hairline overflow-hidden">
+      {opts.map((o) => (
+        <button key={o.k} type="button" onClick={() => onChange(o.k)}
+          className={`text-xs px-2 py-0.5 ${value === o.k ? "bg-pine text-white" : "text-body hover:bg-hairline/60"}`}>
+          {o.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 function LetterheadPanel() {
   const { property, refreshProperty } = useApp();
   const [header, setHeader] = useState(property?.doc_header ?? "");
   const [footer, setFooter] = useState(property?.doc_footer ?? "");
+  const [headerAlign, setHeaderAlign] = useState<Align>(property?.doc_header_align ?? "left");
+  const [footerAlign, setFooterAlign] = useState<Align>(property?.doc_footer_align ?? "center");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -373,7 +399,10 @@ function LetterheadPanel() {
   async function save() {
     setSaving(true);
     try {
-      await api.patch("/auth/property/", { doc_header: header, doc_footer: footer });
+      await api.patch("/auth/property/", {
+        doc_header: header, doc_footer: footer,
+        doc_header_align: headerAlign, doc_footer_align: footerAlign,
+      });
       await refreshProperty();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -414,9 +443,10 @@ function LetterheadPanel() {
 
       <div className="grid md:grid-cols-2 gap-4">
         <div>
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-1 gap-2">
             <label className="text-xs font-semibold text-muted">Header lines (below the address)</label>
-            <span className="flex gap-1">
+            <span className="flex items-center gap-2">
+              <AlignPicker value={headerAlign} onChange={setHeaderAlign} />
               <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrap("lh-head", "b", header, setHeader)}>B</button>
               <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrap("lh-head", "i", header, setHeader)}>I</button>
             </span>
@@ -425,9 +455,10 @@ function LetterheadPanel() {
             placeholder={"Fine dining since 1998\nFSSAI Lic. No. 12345678901234"}
             value={header} onChange={(e) => setHeader(e.target.value)} />
 
-          <div className="flex items-center justify-between mb-1 mt-3">
+          <div className="flex items-center justify-between mb-1 mt-3 gap-2">
             <label className="text-xs font-semibold text-muted">Footer — terms / bank details</label>
-            <span className="flex gap-1">
+            <span className="flex items-center gap-2">
+              <AlignPicker value={footerAlign} onChange={setFooterAlign} />
               <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrap("lh-foot", "b", footer, setFooter)}>B</button>
               <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrap("lh-foot", "i", footer, setFooter)}>I</button>
             </span>
@@ -451,7 +482,7 @@ function LetterheadPanel() {
               <div className="text-[10px] text-muted">
                 {property?.address && <div>{property.address}</div>}
                 {property?.gstin && <div>GSTIN: {property.gstin}</div>}
-                <div className="mt-0.5">{previewLines(header)}</div>
+                <div className={`mt-0.5 text-${headerAlign}`}>{previewLines(header)}</div>
               </div>
             </div>
             <div className="text-right text-[10px] text-muted">
@@ -461,7 +492,7 @@ function LetterheadPanel() {
           </div>
           <div className="border-t-2 border-pine my-2" />
           <div className="text-[10px] text-muted italic py-4 text-center">… bill lines …</div>
-          <div className="border-t border-hairline pt-2 text-[10px] text-muted">
+          <div className={`border-t border-hairline pt-2 text-[10px] text-muted text-${footerAlign}`}>
             {previewLines(footer)}
             <div className="text-center mt-1 opacity-60">{property?.name} · computer-generated, no signature required</div>
           </div>

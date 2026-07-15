@@ -19,6 +19,8 @@ interface AppState {
   login: (username: string, password: string, otp?: string) => Promise<User>;
   logout: () => void;
   refreshProperty: () => Promise<void>;
+  /** Re-fetch the logged-in user so shell (name, role, initials) reflects edits. */
+  refreshUser: () => Promise<void>;
   setup: (edition: string, name?: string) => Promise<void>;
   canAccess: (module: string) => boolean;
   landing: () => string;
@@ -47,6 +49,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data } = await api.get<Property>("/auth/property/");
     setActiveCurrency(data.currency);
     setProperty(data);
+  }
+
+  async function refreshUser() {
+    if (!localStorage.getItem("hearth_access")) return;
+    const { data } = await api.get<User>("/auth/me/");
+    setUser(data);
   }
 
   useEffect(() => {
@@ -130,7 +138,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<AppState>(
-    () => ({ user, property, loading, login, logout, refreshProperty, setup, canAccess, landing,
+    () => ({ user, property, loading, login, logout, refreshProperty, refreshUser, setup, canAccess, landing,
               activeBranch, setBranch }),
     [user, property, loading, activeBranch],
   );
