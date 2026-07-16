@@ -6,7 +6,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { inr } from "../../lib/money";
+import { currencySymbol, money } from "../../lib/money";
 
 // Plate cost & margin are ownership-level P&L info — Chef and Restaurant
 // Manager build recipes without needing to see them.
@@ -80,7 +80,7 @@ export function NewRecipe() {
         toast(`"${d.item}" saved — pending manager approval before it goes on the menu`);
       } else {
         toast(d.plate_cost
-          ? `"${d.item}" is on the menu · plate cost ${inr(d.plate_cost)} · stock deducts on every KOT`
+          ? `"${d.item}" is on the menu · plate cost ${money(d.plate_cost)} · stock deducts on every KOT`
           : `"${d.item}" is on the menu · stock deducts on every KOT`);
       }
       qc.invalidateQueries({ queryKey: ["recipes"] });
@@ -110,7 +110,7 @@ export function NewRecipe() {
               value={dish.name} onChange={(e) => setDish({ ...dish, name: e.target.value })} />
           </div>
           <div>
-            <label className="text-xs text-muted">Selling price (₹) *</label>
+            <label className="text-xs text-muted">Selling price ({currencySymbol()}) *</label>
             <input className="input w-full" inputMode="decimal" placeholder="0"
               value={dish.price} onChange={(e) => setDish({ ...dish, price: e.target.value })} />
           </div>
@@ -175,7 +175,7 @@ export function NewRecipe() {
                 <input className="input" inputMode="decimal" placeholder="0"
                   value={l.wastage_pct} onChange={(e) => setLine(i, { wastage_pct: e.target.value })} />
                 {canSeeCost && (
-                  <div className="text-right text-sm font-medium">{lineCost(l) ? inr(lineCost(l)) : "—"}</div>
+                  <div className="text-right text-sm font-medium">{lineCost(l) ? money(lineCost(l)) : "—"}</div>
                 )}
                 <button className="btn-ghost text-clay text-sm"
                   onClick={() => setLines(lines.length > 1 ? lines.filter((_, ix) => ix !== i) : [{ ...EMPTY_LINE }])}>
@@ -195,12 +195,12 @@ export function NewRecipe() {
           {canSeeCost && (
             <div>
               <div className="text-xs text-muted uppercase tracking-wide">Plate cost</div>
-              <div className="stat-num text-2xl">{inr(plateCost)}</div>
+              <div className="stat-num text-2xl">{money(plateCost)}</div>
             </div>
           )}
           <div>
             <div className="text-xs text-muted uppercase tracking-wide">Selling price</div>
-            <div className="stat-num text-2xl">{price ? inr(price) : "—"}</div>
+            <div className="stat-num text-2xl">{price ? money(price) : "—"}</div>
           </div>
           {canSeeCost && (
             <div>

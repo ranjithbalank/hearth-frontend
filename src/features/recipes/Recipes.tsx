@@ -7,7 +7,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 // Plate cost & margin are ownership-level P&L info — Chef and Restaurant
 // Manager build/run recipes without needing to see them.
@@ -161,9 +161,9 @@ export function Recipes() {
                 )}
               </div>
               <div className="flex gap-4 mt-2 text-sm">
-                <div><span className="text-muted">Sells </span>{inr(r.price)}</div>
+                <div><span className="text-muted">Sells </span>{money(r.price)}</div>
                 {canSeeCost && r.plate_cost != null && (
-                  <div><span className="text-muted">Cost </span>{inr(r.plate_cost)}</div>
+                  <div><span className="text-muted">Cost </span>{money(r.plate_cost)}</div>
                 )}
               </div>
               <div className="mt-3 border-t border-line pt-2 space-y-1">
@@ -217,13 +217,13 @@ export function Recipes() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted text-xs">{m.category}</td>
-                  <td className="px-4 py-3 text-right">{inr(m.price)}</td>
+                  <td className="px-4 py-3 text-right">{money(m.price)}</td>
                   <td className="px-4 py-3">
                     {m.recipe_id
                       ? <span className="text-xs">{m.lines.map((l) => l.name).join(", ")}</span>
                       : <Badge tone="amber">Unmapped — no stock deduction</Badge>}
                   </td>
-                  {canSeeCost && <td className="px-4 py-3 text-right">{m.plate_cost ? inr(m.plate_cost) : "—"}</td>}
+                  {canSeeCost && <td className="px-4 py-3 text-right">{m.plate_cost ? money(m.plate_cost) : "—"}</td>}
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <button className="btn-ghost text-xs" onClick={() => setEditing(m)}>
                       {m.recipe_id ? "Edit" : "Map recipe"}
@@ -277,13 +277,13 @@ export function Recipes() {
                           <div key={l.name} className="flex justify-between gap-6 text-xs">
                             <span>{l.name}</span>
                             <span className="text-muted">
-                              {Number(l.qty)} {l.unit}{canSeeCost && l.cost ? ` · ${inr(l.cost)}` : ""}
+                              {Number(l.qty)} {l.unit}{canSeeCost && l.cost ? ` · ${money(l.cost)}` : ""}
                             </span>
                           </div>
                         ))}
                       </div>
                     </td>
-                    {canSeeCost && <td className="px-4 py-3 text-right font-medium">{r.cost ? inr(r.cost) : "—"}</td>}
+                    {canSeeCost && <td className="px-4 py-3 text-right font-medium">{r.cost ? money(r.cost) : "—"}</td>}
                   </tr>
                 ))}
                 {!consumption?.rows.length && (
@@ -311,8 +311,8 @@ export function Recipes() {
                 {d.category} · proposed by {d.created_by}
               </div>
               <div className="flex gap-4 mt-2 text-sm">
-                <div><span className="text-muted">Sells </span>{inr(d.price)}</div>
-                <div><span className="text-muted">Cost </span>{inr(d.plate_cost)}</div>
+                <div><span className="text-muted">Sells </span>{money(d.price)}</div>
+                <div><span className="text-muted">Cost </span>{money(d.plate_cost)}</div>
               </div>
               <div className="mt-3 border-t border-line pt-2 space-y-1">
                 {d.lines.map((ing) => (

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePrompt } from "../../design/Prompt";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr, num } from "../../lib/money";
+import { money, num } from "../../lib/money";
 
 interface Rec {
   id: number; room_type: string; name: string; current_rate: string;
@@ -40,7 +40,7 @@ export function Revenue() {
   const accept = useMutation({
     mutationFn: async (r: Rec) => (await api.post(`/revenue/${r.id}/accept/`)).data,
     onSuccess: (d, r) => {
-      setMsg(`Accepted ${r.room_type} → ${inr(r.recommended_rate)} · pushed to ${d.channels_pushed} channels`);
+      setMsg(`Accepted ${r.room_type} → ${money(r.recommended_rate)} · pushed to ${d.channels_pushed} channels`);
       qc.invalidateQueries({ queryKey: ["recs"] });
     },
   });
@@ -75,9 +75,9 @@ export function Revenue() {
                     </div>
                     <div className="text-sm text-muted mt-1">{r.reason}</div>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-muted line-through">{inr(r.current_rate)}</span>
+                      <span className="text-muted line-through">{money(r.current_rate)}</span>
                       <span className={`font-display text-xl ${up ? "text-pine" : "text-clay"}`}>
-                        {inr(r.recommended_rate)}
+                        {money(r.recommended_rate)}
                       </span>
                     </div>
                     <div className="flex gap-2 mt-3">

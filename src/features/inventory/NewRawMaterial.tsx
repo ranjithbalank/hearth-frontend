@@ -5,7 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { amount } from "../../lib/inputs";
+import { currencySymbol, money } from "../../lib/money";
 
 interface Uom { id: number; code: string; name: string }
 interface CategoryRow { id: number; name: string }
@@ -46,6 +47,9 @@ export function NewRawMaterial() {
 
   const set = (k: keyof Draft) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
+  // Numeric fields (stock levels, cost) accept digits + one decimal only.
+  const setNum = (k: keyof Draft) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: amount(e.target.value) });
 
   function addToList() {
     const name = f.name.trim();
@@ -212,22 +216,22 @@ export function NewRawMaterial() {
           <div>
             <label className="text-xs text-muted">Opening stock ({f.unit})</label>
             <input className="input w-full" inputMode="decimal" placeholder="0"
-              value={f.opening_stock} onChange={set("opening_stock")} />
+              value={f.opening_stock} onChange={setNum("opening_stock")} />
           </div>
           <div>
             <label className="text-xs text-muted">Minimum stock level</label>
             <input className="input w-full" inputMode="decimal" placeholder="0"
-              value={f.min_stock_level} onChange={set("min_stock_level")} />
+              value={f.min_stock_level} onChange={setNum("min_stock_level")} />
           </div>
           <div>
             <label className="text-xs text-muted">Reorder level</label>
             <input className="input w-full" inputMode="decimal" placeholder="0"
-              value={f.reorder_level} onChange={set("reorder_level")} />
+              value={f.reorder_level} onChange={setNum("reorder_level")} />
           </div>
           <div>
-            <label className="text-xs text-muted">Purchase rate (₹ per {f.unit})</label>
+            <label className="text-xs text-muted">Purchase rate ({currencySymbol()} per {f.unit})</label>
             <input className="input w-full" inputMode="decimal" placeholder="0"
-              value={f.unit_cost} onChange={set("unit_cost")} />
+              value={f.unit_cost} onChange={setNum("unit_cost")} />
           </div>
           <div>
             <label className="text-xs text-muted">Storage location / warehouse</label>
@@ -272,7 +276,7 @@ export function NewRawMaterial() {
                 <td className="px-4 py-2.5"><Badge tone="muted">{s.unit}</Badge></td>
                 <td className="px-4 py-2.5 text-right">{s.opening_stock || "0"} {s.unit}</td>
                 <td className="px-4 py-2.5 text-right text-muted">{s.min_stock_level || "0"} / {s.reorder_level || "0"}</td>
-                <td className="px-4 py-2.5 text-right">{inr(s.unit_cost || 0)}</td>
+                <td className="px-4 py-2.5 text-right">{money(s.unit_cost || 0)}</td>
                 <td className="px-4 py-2.5 text-xs text-muted">{s.storage_location || "—"}</td>
                 <td className="px-4 py-2.5 text-xs text-muted">{s.expiry_date || "—"}</td>
                 <td className="px-4 py-2.5 text-right">

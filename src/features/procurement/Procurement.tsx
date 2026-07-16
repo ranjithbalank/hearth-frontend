@@ -5,10 +5,10 @@ import { useSearchParams } from "react-router-dom";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { currencySymbol, money } from "../../lib/money";
 
 interface PoLine { ingredient: string; qty: string; rate: string; received_qty: string }
-interface Po { id: number; supplier: string; status: string; total: string; lines: PoLine[] }
+interface Po { id: number; po_no: string; supplier: string; status: string; total: string; lines: PoLine[] }
 interface SupplierOpt { id: number; name: string }
 interface IngredientOpt {
   id: number; name: string; unit: string; unit_cost: string; below_par: boolean;
@@ -49,7 +49,7 @@ export function Procurement() {
   const receive = useMutation({
     mutationFn: async (po: Po) => (await api.post(`/purchase-orders/${po.id}/receive/`)).data,
     onSuccess: (_d, po) => {
-      setMsg(`Goods received against PO #${po.id} — stock & purchase rates updated`);
+      setMsg(`Goods received against ${po.po_no || `PO #${po.id}`} — stock & purchase rates updated`);
       qc.invalidateQueries({ queryKey: ["pos"] });
       qc.invalidateQueries({ queryKey: ["ingredients"] });
       qc.invalidateQueries({ queryKey: ["ingredients-low"] });
@@ -84,10 +84,10 @@ export function Procurement() {
       {creating && (
         <NewPoModal
           prefillLow={prefillLow}
-          onDone={(id) => {
+          onDone={(id, po_no) => {
             setCreating(false);
             if (prefillLow) setParams({});
-            setMsg(`PO #${id} raised — awaiting approval`);
+            setMsg(`${po_no || `PO #${id}`} raised — awaiting approval`);
             qc.invalidateQueries({ queryKey: ["pos"] });
           }}
           onCancel={() => { setCreating(false); if (prefillLow) setParams({}); }}
@@ -98,10 +98,10 @@ export function Procurement() {
         {pos.map((po) => (
           <Card key={po.id}>
             <div className="flex items-center gap-3">
-              <div className="font-semibold">PO #{po.id}</div>
+              <div className="font-semibold">{po.po_no || `PO #${po.id}`}</div>
               <span className="text-sm text-muted">{po.supplier}</span>
               <Badge tone={TONE[po.status] ?? "muted"}>{po.status}</Badge>
-              <div className="ml-auto font-medium">{inr(po.total)}</div>
+              <div className="ml-auto font-medium">{money(po.total)}</div>
               {po.status === "pending" && (
                 <button className="btn-outline" onClick={() => approve.mutate(po)}>Approve</button>
               )}
@@ -113,7 +113,7 @@ export function Procurement() {
               {po.lines.map((l, i) => (
                 <div key={i} className="flex justify-between border-b border-line py-1">
                   <span>{l.ingredient}</span>
-                  <span className="text-muted">{Number(l.qty)} × {inr(l.rate)}</span>
+                  <span className="text-muted">{Number(l.qty)} × {money(l.rate)}</span>
                 </div>
               ))}
             </div>
@@ -133,7 +133,7 @@ interface DraftLine { ingredient: number | null; qty: string; rate: string }
 const EMPTY: DraftLine = { ingredient: null, qty: "", rate: "" };
 
 function NewPoModal({ prefillLow, onDone, onCancel }: {
-  prefillLow?: boolean; onDone: (id: number) => void; onCancel: () => void;
+  prefillLow?: boolean; onDone: (id: number, po_no?: string) => void; onCancel: () => void;
 }) {
   const toast = useToast();
   const [supplier, setSupplier] = useState<number | null>(null);
@@ -176,7 +176,7 @@ function NewPoModal({ prefillLow, onDone, onCancel }: {
       supplier,
       lines: valid.map((l) => ({ ingredient: l.ingredient, qty: l.qty, rate: l.rate || undefined })),
     })).data,
-    onSuccess: (d: { id: number }) => onDone(d.id),
+    onSuccess: (d: { id: number; po_no?: string }) => onDone(d.id, d.po_no),
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not raise the PO", "error"),
   });
 
@@ -193,7 +193,7 @@ function NewPoModal({ prefillLow, onDone, onCancel }: {
           {suppliers?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <div className="grid grid-cols-[1fr_90px_110px_32px] gap-2 text-xs text-muted uppercase tracking-wide mb-1 px-1">
-          <span>Raw material</span><span>Qty</span><span>Rate ₹</span><span></span>
+          <span>Raw material</span><span>Qty</span><span>Rate {currencySymbol()}</span><span></span>
         </div>
         <div className="space-y-2 overflow-y-auto flex-1">
           {lines.map((l, i) => {
@@ -228,7 +228,7 @@ function NewPoModal({ prefillLow, onDone, onCancel }: {
           ＋ Add line
         </button>
         <div className="flex items-center gap-2 mt-4">
-          <div className="font-semibold text-sm">Total {inr(total)}</div>
+          <div className="font-semibold text-sm">Total {money(total)}</div>
           <div className="flex-1" />
           <button className="btn-ghost" onClick={onCancel}>Cancel</button>
           <button className="btn-primary" disabled={!supplier || !valid.length || save.isPending}

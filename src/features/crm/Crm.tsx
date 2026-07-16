@@ -5,7 +5,7 @@ import { usePrompt } from "../../design/Prompt";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount as amtFilter } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface Customer {
   id: number; name: string; mobile: string; type_label: string; customer_type: string;
@@ -63,7 +63,7 @@ export function Crm() {
     mutationFn: async ({ id, amount }: { id: number; amount: string }) =>
       (await api.post(`/customers/${id}/settle_ar/`, { amount })).data,
     onSuccess: (d) => {
-      setMsg(`Receipt recorded · ${inr(d.received)} · balance now ${inr(d.outstanding)}`);
+      setMsg(`Receipt recorded · ${money(d.received)} · balance now ${money(d.outstanding)}`);
       qc.invalidateQueries({ queryKey: ["customers"] });
     },
   });
@@ -87,7 +87,7 @@ export function Crm() {
       <div className="grid grid-cols-3 gap-4 mb-5">
         <Stat tone="dark" label="Customers" value={data.length} />
         <Stat label="Loyalty points" value={loyalty.toLocaleString("en-IN")} />
-        <Stat label="Outstanding (BTC/AR)" value={inr(outstanding)} />
+        <Stat label="Outstanding (BTC/AR)" value={money(outstanding)} />
       </div>
 
       {showCampaign && (
@@ -154,12 +154,12 @@ export function Crm() {
                 <td className="px-4 py-3 text-muted">{c.gstin || "—"}</td>
                 <td className="px-4 py-3 text-right">{c.loyalty_points}</td>
                 <td className="px-4 py-3 text-right">
-                  <span className={Number(c.outstanding) > 0 ? "text-clay font-medium" : ""}>{inr(c.outstanding)}</span>
+                  <span className={Number(c.outstanding) > 0 ? "text-clay font-medium" : ""}>{money(c.outstanding)}</span>
                 </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   {Number(c.outstanding) > 0 && (
                     <button className="btn-ghost text-xs py-1 text-pine" onClick={async () => {
-                      const raw = await ask({ title: `Receive payment — ${c.name}`, label: `Outstanding ${inr(c.outstanding)}`, defaultValue: c.outstanding, placeholder: "Amount received" });
+                      const raw = await ask({ title: `Receive payment — ${c.name}`, label: `Outstanding ${money(c.outstanding)}`, defaultValue: c.outstanding, placeholder: "Amount received" });
                       const amount = amtFilter(raw ?? "");
                       if (amount && Number(amount) > 0) receive.mutate({ id: c.id, amount });
                     }}>Receive</button>

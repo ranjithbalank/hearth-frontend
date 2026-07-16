@@ -5,7 +5,8 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { inr } from "../../lib/money";
+import { amount as decimalFilter, digits, personName } from "../../lib/inputs";
+import { money } from "../../lib/money";
 import { downloadPayslipPdf } from "../print/documents";
 
 interface Employee {
@@ -141,7 +142,7 @@ export function Hr() {
           </Card>
           <Card>
             <div className="text-xs text-muted uppercase tracking-wide">Monthly wage bill</div>
-            <div className="font-display text-2xl mt-1">{inr(overview.monthly_wage_bill)}</div>
+            <div className="font-display text-2xl mt-1">{money(overview.monthly_wage_bill)}</div>
             <div className="text-xs text-muted mt-1">gross · day rates × 26 days</div>
           </Card>
         </div>
@@ -176,8 +177,8 @@ export function Hr() {
                   ))}
                   <td className="py-2 pl-2 text-right">
                     {e.wage_type === "daily"
-                      ? <>{inr(e.daily_rate)}<span className="text-xs text-muted">/day</span></>
-                      : inr(e.monthly_salary)}
+                      ? <>{money(e.daily_rate)}<span className="text-xs text-muted">/day</span></>
+                      : money(e.monthly_salary)}
                     {!e.statutory && <div className="text-[10px] text-muted">no PF/ESI</div>}
                   </td>
                   <td className="py-2 pl-2 text-right">
@@ -284,7 +285,7 @@ function PayrollSheet({ payroll, month, setMonth, canManage }: {
     <>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <input className="input w-40" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-        <Stat label={`Total net payable · ${payroll.month}`} value={inr(payroll.total_payable)} />
+        <Stat label={`Total net payable · ${payroll.month}`} value={money(payroll.total_payable)} />
         {run
           ? <Badge tone={RUN_TONE[run.status] ?? "muted"}>{run.status}{run.status === "paid" && run.paid_by ? ` by ${run.paid_by}` : ""}</Badge>
           : <Badge tone="muted">preview — not run yet</Badge>}
@@ -343,29 +344,29 @@ function PayrollSheet({ payroll, month, setMonth, canManage }: {
                   <div className="text-xs text-muted">{r.department} · {r.role}</div>
                 </td>
                 <td className="px-3 py-2.5 text-right">
-                  {inr(r.monthly_salary)}{r.wage_type === "daily" && <span className="text-xs text-muted">/day</span>}
+                  {money(r.monthly_salary)}{r.wage_type === "daily" && <span className="text-xs text-muted">/day</span>}
                 </td>
                 <td className="px-3 py-2.5 text-right text-muted">
                   {Number(r.payable_days)}{r.days_marked != null ? `/${payroll.days_in_month}` : ""}
                 </td>
-                <td className="px-3 py-2.5 text-right">{inr(r.basic)}</td>
-                <td className="px-3 py-2.5 text-right">{Number(r.hra) ? inr(r.hra) : "—"}</td>
-                <td className="px-3 py-2.5 text-right">{Number(r.other_allowance) ? inr(r.other_allowance) : "—"}</td>
-                <td className="px-3 py-2.5 text-right">{inr(r.gross_earned)}</td>
-                <td className="px-3 py-2.5 text-right text-clay">{Number(r.pf) ? `−${inr(r.pf)}` : "—"}</td>
-                <td className="px-3 py-2.5 text-right text-clay">{Number(r.esi) ? `−${inr(r.esi)}` : "—"}</td>
-                <td className="px-3 py-2.5 text-right text-clay">{Number(r.pt) ? `−${inr(r.pt)}` : "—"}</td>
+                <td className="px-3 py-2.5 text-right">{money(r.basic)}</td>
+                <td className="px-3 py-2.5 text-right">{Number(r.hra) ? money(r.hra) : "—"}</td>
+                <td className="px-3 py-2.5 text-right">{Number(r.other_allowance) ? money(r.other_allowance) : "—"}</td>
+                <td className="px-3 py-2.5 text-right">{money(r.gross_earned)}</td>
+                <td className="px-3 py-2.5 text-right text-clay">{Number(r.pf) ? `−${money(r.pf)}` : "—"}</td>
+                <td className="px-3 py-2.5 text-right text-clay">{Number(r.esi) ? `−${money(r.esi)}` : "—"}</td>
+                <td className="px-3 py-2.5 text-right text-clay">{Number(r.pt) ? `−${money(r.pt)}` : "—"}</td>
                 <td className="px-3 py-2.5 text-right text-clay">
-                  {Number(r.advance_recovery) ? `−${inr(r.advance_recovery)}` : "—"}
+                  {Number(r.advance_recovery) ? `−${money(r.advance_recovery)}` : "—"}
                 </td>
                 <td className="px-3 py-2.5 text-right">
                   {isDraft && canManage && r.payslip
                     ? <AdjustCell row={r} onSaved={refresh} />
                     : Number(r.adjustment)
-                      ? <span title={r.adjustment_note}>{inr(r.adjustment)}</span>
+                      ? <span title={r.adjustment_note}>{money(r.adjustment)}</span>
                       : "—"}
                 </td>
-                <td className="px-4 py-2.5 text-right font-medium">{inr(r.net)}</td>
+                <td className="px-4 py-2.5 text-right font-medium">{money(r.net)}</td>
                 <td className="px-2 py-2.5 text-right">
                   {r.payslip && (
                     <button className="btn-ghost text-sm" title="Download payslip PDF"
@@ -410,14 +411,14 @@ function AdjustCell({ row, onSaved }: { row: PayrollRow; onSaved: () => void }) 
     return (
       <button className="btn-ghost text-sm" title={row.adjustment_note}
         onClick={() => setOpen(true)}>
-        {Number(row.adjustment) ? inr(row.adjustment) : "＋"}
+        {Number(row.adjustment) ? money(row.adjustment) : "＋"}
       </button>
     );
   }
   return (
     <span className="inline-flex gap-1 items-center">
       <input className="input w-24 text-right" inputMode="decimal" placeholder="± amount"
-        value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
+        value={amount} onChange={(e) => setAmount(decimalFilter(e.target.value))} autoFocus />
       <input className="input w-32" placeholder="Why? (bonus…)"
         value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />
       <button className="btn-primary text-xs" disabled={save.isPending} onClick={() => save.mutate()}>✓</button>
@@ -456,7 +457,8 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
            ["phone", "Phone"]] as const).map(([k, label]) => (
           <label key={k} className="block mb-3">
             <span className="text-xs text-muted uppercase tracking-wide">{label}</span>
-            <input className="input mt-1" value={(form as any)[k]} onChange={(e) => set(k, e.target.value)} />
+            <input className="input mt-1" value={(form as any)[k]}
+              onChange={(e) => set(k, k === "name" ? personName(e.target.value) : k === "phone" ? digits(e.target.value, 15) : e.target.value)} />
           </label>
         ))}
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -478,7 +480,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
             </span>
             <input className="input mt-1" inputMode="decimal"
               value={daily ? form.daily_rate : form.monthly_salary}
-              onChange={(e) => set(daily ? "daily_rate" : "monthly_salary", e.target.value)} />
+              onChange={(e) => set(daily ? "daily_rate" : "monthly_salary", decimalFilter(e.target.value))} />
           </label>
         </div>
         {!daily && (
@@ -606,12 +608,12 @@ function AdvancesPanel({ employees, canManage }: { employees: Employee[]; canMan
                     <div className="text-xs text-muted">{a.department}{a.note ? ` · ${a.note}` : ""}</div>
                   </td>
                   <td className="px-3 py-3 capitalize">{a.kind}</td>
-                  <td className="px-3 py-3 text-right">{inr(a.amount)}</td>
+                  <td className="px-3 py-3 text-right">{money(a.amount)}</td>
                   <td className="px-3 py-3 text-right text-muted">
-                    {a.kind === "loan" ? `${inr(a.monthly_installment)}/mo` : "full next payroll"}
+                    {a.kind === "loan" ? `${money(a.monthly_installment)}/mo` : "full next payroll"}
                   </td>
-                  <td className="px-3 py-3 text-right">{inr(a.recovered)}</td>
-                  <td className="px-3 py-3 text-right font-medium">{inr(a.balance)}</td>
+                  <td className="px-3 py-3 text-right">{money(a.recovered)}</td>
+                  <td className="px-3 py-3 text-right font-medium">{money(a.balance)}</td>
                   <td className="px-3 py-3"><Badge tone={ADVANCE_TONE[a.status]}>{a.status}</Badge></td>
                   <td className="px-4 py-3 text-right">
                     {canManage && a.status === "active" && (
@@ -680,13 +682,13 @@ function IssueAdvanceModal({ employees, onDone, onCancel }: {
           <label className="block">
             <span className="text-xs text-muted uppercase tracking-wide">Amount</span>
             <input className="input mt-1" inputMode="decimal" value={amount}
-              onChange={(e) => setAmount(e.target.value)} />
+              onChange={(e) => setAmount(decimalFilter(e.target.value))} />
           </label>
           {kind === "loan" && (
             <label className="block">
               <span className="text-xs text-muted uppercase tracking-wide">Monthly installment</span>
               <input className="input mt-1" inputMode="decimal" value={installment}
-                onChange={(e) => setInstallment(e.target.value)} />
+                onChange={(e) => setInstallment(decimalFilter(e.target.value))} />
             </label>
           )}
         </div>

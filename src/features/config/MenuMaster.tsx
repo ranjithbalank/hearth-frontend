@@ -7,7 +7,7 @@ import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { amount } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import type { MenuItem } from "../../lib/types";
 
 interface Category { id: number; name: string }
@@ -193,7 +193,7 @@ export function MenuMaster() {
                     {editing ? (
                       <input className="input py-1 text-xs text-right w-24" inputMode="decimal"
                         value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: amount(e.target.value) })} />
-                    ) : inr(m.price)}
+                    ) : money(m.price)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {editing ? (

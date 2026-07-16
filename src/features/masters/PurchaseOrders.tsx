@@ -5,7 +5,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface Po {
   id: number; supplier: string; status: string; total: string;
@@ -62,7 +62,7 @@ export function PurchaseOrders() {
               <div className="font-semibold">PO #{po.id}</div>
               <span className="text-sm text-muted">{po.supplier}</span>
               <Badge tone={TONE[po.status] ?? "muted"}>{po.status}</Badge>
-              <div className="ml-auto font-medium">{inr(po.total)}</div>
+              <div className="ml-auto font-medium">{money(po.total)}</div>
               {po.status === "pending" && canApprove && (
                 <button className="btn-outline" onClick={() => act.mutate({ id: po.id, action: "approve" })}>Approve</button>
               )}

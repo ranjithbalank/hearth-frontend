@@ -6,7 +6,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/date";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import type { Reservation } from "../../lib/types";
 
 const STATUS_TONE: Record<string, "pine" | "clay" | "amber" | "info" | "muted"> = {
@@ -111,7 +111,7 @@ export function Reservations() {
                 <td className="px-4 py-3">{fmtDate(r.checkin_date)}</td>
                 <td className="px-4 py-3">{fmtDate(r.checkout_date)} <span className="text-muted text-xs">· {r.nights}n</span></td>
                 <td className="px-4 py-3">{r.room_number ?? "—"}</td>
-                <td className="px-4 py-3 text-right">{inr(r.rate)}</td>
+                <td className="px-4 py-3 text-right">{money(r.rate)}</td>
                 <td className="px-4 py-3"><Badge tone={STATUS_TONE[r.status] ?? "muted"}>{r.status_label}</Badge></td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   {r.status === "booked" && (

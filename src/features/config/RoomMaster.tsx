@@ -5,7 +5,7 @@ import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount, digits } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface RoomType {
   id: number; code: string; name: string; base_rate: string;
@@ -108,7 +108,7 @@ export function RoomMaster() {
                     {editing ? (
                       <input className="input py-1 text-xs text-right w-24" inputMode="decimal"
                         value={editForm.base_rate} onChange={(e) => setEditForm({ ...editForm, base_rate: amount(e.target.value) })} />
-                    ) : inr(rt.base_rate)}
+                    ) : money(rt.base_rate)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {editing ? (

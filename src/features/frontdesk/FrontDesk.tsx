@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import { useApp } from "../../lib/app-context";
 import type { Reservation, Room } from "../../lib/types";
 import { RoomServiceFlow } from "./RoomService";
@@ -75,11 +75,11 @@ export function FrontDesk() {
                 <div className="font-semibold text-ink">{a.guest_name}</div>
                 <div className="text-sm text-muted">
                   {a.room_type_code} · {a.nights} night{a.nights > 1 ? "s" : ""} ·{" "}
-                  {inr(a.rate)}/night
+                  {money(a.rate)}/night
                 </div>
               </div>
               <Badge tone={SOURCE_TONE[a.source] ?? "muted"}>{a.source_label}</Badge>
-              {a.prepaid && <Badge tone="amber">Prepaid {inr(a.deposit)}</Badge>}
+              {a.prepaid && <Badge tone="amber">Prepaid {money(a.deposit)}</Badge>}
               {a.precheckin_done && (
                 <Badge tone="pine">✓ Pre-checked-in{a.precheckin?.eta ? ` · ETA ${a.precheckin.eta}` : ""}</Badge>
               )}

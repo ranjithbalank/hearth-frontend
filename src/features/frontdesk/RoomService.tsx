@@ -5,7 +5,7 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import type { Folio } from "../../lib/types";
 
 interface MenuOpt { id: number; name: string; category: string; price: string; diet: string }
@@ -165,7 +165,7 @@ export function RoomServiceFlow({ onClose }: { onClose: () => void }) {
                 <div key={m.id} className="flex items-center justify-between border-t border-line py-1.5 text-sm">
                   <div>
                     <span className="font-medium">{m.name}</span>
-                    <span className="text-xs text-muted ml-2">{m.category} · {inr(m.price)}</span>
+                    <span className="text-xs text-muted ml-2">{m.category} · {money(m.price)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {(qty[m.id] ?? 0) > 0 ? (
@@ -205,14 +205,14 @@ export function RoomServiceFlow({ onClose }: { onClose: () => void }) {
                 <div key={m.id} className="flex items-center justify-between border-t border-line py-2 text-sm">
                   <div className="flex-1">
                     <span className="font-medium">{m.name}</span>
-                    <span className="text-xs text-muted ml-2">{inr(m.price)} each</span>
+                    <span className="text-xs text-muted ml-2">{money(m.price)} each</span>
                   </div>
                   <div className="flex items-center gap-2 mr-3">
                     <button className="btn-ghost text-sm px-2" onClick={() => add(m.id, -1)}>−</button>
                     <span className="w-6 text-center font-medium">{qty[m.id]}</span>
                     <button className="btn-ghost text-sm px-2" onClick={() => add(m.id, 1)}>+</button>
                   </div>
-                  <div className="w-20 text-right font-medium">{inr(qty[m.id] * Number(m.price))}</div>
+                  <div className="w-20 text-right font-medium">{money(qty[m.id] * Number(m.price))}</div>
                   <button className="btn-ghost text-xs text-clay ml-2"
                     onClick={() => setQty((q) => ({ ...q, [m.id]: 0 }))}>✕</button>
                 </div>
@@ -227,7 +227,7 @@ export function RoomServiceFlow({ onClose }: { onClose: () => void }) {
               ＋ Add more items
             </button>
             <div className="flex justify-between font-semibold border-t border-hairline pt-3 mt-3 text-sm">
-              <span>{count} item(s)</span><span>{inr(total)} + GST</span>
+              <span>{count} item(s)</span><span>{money(total)} + GST</span>
             </div>
             <div className="flex gap-2 mt-3">
               <button className="btn-ghost flex-1" onClick={() => setStep("menu")}>← Back</button>
