@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Badge, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { amount, digits } from "../../lib/inputs";
+import { amount, digits, personName } from "../../lib/inputs";
 import { currencySymbol, money } from "../../lib/money";
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
@@ -1090,7 +1090,7 @@ function DiscountModal({ onCancel, onApply }: { onCancel: () => void; onApply: (
             <option value="fixed">Fixed {currencySymbol()}</option>
           </select>
           <div className="relative">
-            <input className="input pr-7" inputMode="decimal" value={value} onChange={(e) => onValue(e.target.value)} placeholder="Value" />
+            <input className="input pr-7" inputMode="decimal" value={value} onChange={(e) => onValue(amount(e.target.value))} placeholder="Value" />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-sm">{kind === "percent" ? "%" : currencySymbol()}</span>
           </div>
         </div>
@@ -1369,7 +1369,7 @@ function ReserveModal({ tables, onDone, onCancel }: { tables: Table[]; onDone: (
           ))}
         </div>
         <div className="grid gap-2">
-          <input className="input" placeholder="Guest name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <input className="input" placeholder="Guest name" value={f.name} onChange={(e) => setF({ ...f, name: personName(e.target.value) })} />
           <div className="grid grid-cols-2 gap-2">
             <input className="input" placeholder="Mobile (optional)" inputMode="tel"
               value={f.mobile} onChange={(e) => setF({ ...f, mobile: digits(e.target.value, 10) })} />

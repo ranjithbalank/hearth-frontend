@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { amount, digits } from "../../lib/inputs";
+import { amount, digits, personName } from "../../lib/inputs";
 import { currencySymbol } from "../../lib/money";
 import type { Branch } from "../../lib/types";
 
@@ -88,7 +88,7 @@ export function Employees() {
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add employee</div>
         <div className="grid grid-cols-4 gap-2 mb-2">
-          <input className="input" placeholder="Name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <input className="input" placeholder="Name" value={f.name} onChange={(e) => setF({ ...f, name: personName(e.target.value) })} />
           <select className="input" value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })}>
             <option value="">Department…</option>
             {active(departments).map((d) => <option key={d.id}>{d.name}</option>)}
@@ -135,7 +135,7 @@ export function Employees() {
               return (
                 <tr key={e.id} className="border-t border-line">
                   <td className="px-4 py-3 font-medium">
-                    {editing ? <input className="input py-1 text-xs w-28" value={ef.name} onChange={(v) => setEf({ ...ef, name: v.target.value })} /> : e.name}
+                    {editing ? <input className="input py-1 text-xs w-28" value={ef.name} onChange={(v) => setEf({ ...ef, name: personName(v.target.value) })} /> : e.name}
                   </td>
                   <td className="px-4 py-3">
                     {editing ? (

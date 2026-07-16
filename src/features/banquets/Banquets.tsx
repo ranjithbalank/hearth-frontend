@@ -7,7 +7,7 @@ import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { fmtDate } from "../../lib/date";
-import { amount, digits } from "../../lib/inputs";
+import { amount, digits, personName } from "../../lib/inputs";
 import { currencySymbol, money } from "../../lib/money";
 import { downloadBeoPdf } from "../print/documents";
 
@@ -253,7 +253,7 @@ function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Host / customer</label>
-            <input className="input" value={f.host} onChange={(e) => set("host", e.target.value)} />
+            <input className="input" value={f.host} onChange={(e) => set("host", personName(e.target.value))} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-muted mb-1">Contact</label>

@@ -434,7 +434,7 @@ function TypesMaster() {
             <label className="block mb-3">
               <span className="text-xs text-muted uppercase tracking-wide">Days per year (0 = no cap)</span>
               <input className="input mt-1" inputMode="numeric" value={draft.annual_quota}
-                onChange={(e) => setDraft({ ...draft, annual_quota: Number(e.target.value) || 0 })} />
+                onChange={(e) => setDraft({ ...draft, annual_quota: Number(e.target.value.replace(/\D/g, "")) || 0 })} />
             </label>
             <div className="space-y-2 mb-4 text-sm">
               {([["is_paid", "Paid leave (counts as a payable day)"],

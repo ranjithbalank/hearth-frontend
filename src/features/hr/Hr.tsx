@@ -5,6 +5,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { amount as decimalFilter, digits, personName } from "../../lib/inputs";
 import { money } from "../../lib/money";
 import { downloadPayslipPdf } from "../print/documents";
 
@@ -417,7 +418,7 @@ function AdjustCell({ row, onSaved }: { row: PayrollRow; onSaved: () => void }) 
   return (
     <span className="inline-flex gap-1 items-center">
       <input className="input w-24 text-right" inputMode="decimal" placeholder="± amount"
-        value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
+        value={amount} onChange={(e) => setAmount(decimalFilter(e.target.value))} autoFocus />
       <input className="input w-32" placeholder="Why? (bonus…)"
         value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />
       <button className="btn-primary text-xs" disabled={save.isPending} onClick={() => save.mutate()}>✓</button>
@@ -456,7 +457,8 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
            ["phone", "Phone"]] as const).map(([k, label]) => (
           <label key={k} className="block mb-3">
             <span className="text-xs text-muted uppercase tracking-wide">{label}</span>
-            <input className="input mt-1" value={(form as any)[k]} onChange={(e) => set(k, e.target.value)} />
+            <input className="input mt-1" value={(form as any)[k]}
+              onChange={(e) => set(k, k === "name" ? personName(e.target.value) : k === "phone" ? digits(e.target.value, 15) : e.target.value)} />
           </label>
         ))}
         <div className="grid grid-cols-2 gap-3 mb-3">
@@ -478,7 +480,7 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
             </span>
             <input className="input mt-1" inputMode="decimal"
               value={daily ? form.daily_rate : form.monthly_salary}
-              onChange={(e) => set(daily ? "daily_rate" : "monthly_salary", e.target.value)} />
+              onChange={(e) => set(daily ? "daily_rate" : "monthly_salary", decimalFilter(e.target.value))} />
           </label>
         </div>
         {!daily && (
@@ -680,13 +682,13 @@ function IssueAdvanceModal({ employees, onDone, onCancel }: {
           <label className="block">
             <span className="text-xs text-muted uppercase tracking-wide">Amount</span>
             <input className="input mt-1" inputMode="decimal" value={amount}
-              onChange={(e) => setAmount(e.target.value)} />
+              onChange={(e) => setAmount(decimalFilter(e.target.value))} />
           </label>
           {kind === "loan" && (
             <label className="block">
               <span className="text-xs text-muted uppercase tracking-wide">Monthly installment</span>
               <input className="input mt-1" inputMode="decimal" value={installment}
-                onChange={(e) => setInstallment(e.target.value)} />
+                onChange={(e) => setInstallment(decimalFilter(e.target.value))} />
             </label>
           )}
         </div>

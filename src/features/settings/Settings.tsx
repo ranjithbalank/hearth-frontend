@@ -6,7 +6,7 @@ import { useToast } from "../../design/Toast";
 import { Card, Field, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/date";
-import { amount, digits, gstin as gstinFilter } from "../../lib/inputs";
+import { amount, digits, gstin as gstinFilter, personName } from "../../lib/inputs";
 import { currencySymbol } from "../../lib/money";
 import { useApp } from "../../lib/app-context";
 import { AuditLogPanel } from "./AuditLog";
@@ -157,10 +157,10 @@ function UsersPanel() {
           <input className="input" value={f.username} onChange={(e) => set("username", e.target.value)} />
         </Field>
         <Field label="First name">
-          <input className="input" value={f.first_name} onChange={(e) => set("first_name", e.target.value)} />
+          <input className="input" value={f.first_name} onChange={(e) => set("first_name", personName(e.target.value))} />
         </Field>
         <Field label="Last name">
-          <input className="input" value={f.last_name} onChange={(e) => set("last_name", e.target.value)} />
+          <input className="input" value={f.last_name} onChange={(e) => set("last_name", personName(e.target.value))} />
         </Field>
         <Field label="Role">
           <select className="input" value={f.role} onChange={(e) => set("role", e.target.value)}>
@@ -209,8 +209,8 @@ function UsersPanel() {
                 <td className="py-2 font-medium">
                   {editing ? (
                     <div className="flex gap-1">
-                      <input className="input py-1 text-xs w-20" value={ef.first_name} onChange={(e) => setEf({ ...ef, first_name: e.target.value })} />
-                      <input className="input py-1 text-xs w-20" value={ef.last_name} onChange={(e) => setEf({ ...ef, last_name: e.target.value })} />
+                      <input className="input py-1 text-xs w-20" value={ef.first_name} onChange={(e) => setEf({ ...ef, first_name: personName(e.target.value) })} />
+                      <input className="input py-1 text-xs w-20" value={ef.last_name} onChange={(e) => setEf({ ...ef, last_name: personName(e.target.value) })} />
                     </div>
                   ) : u.name}
                 </td>
@@ -596,12 +596,12 @@ function CommissionPanel() {
         <div>
           <label className="text-xs text-muted">Zomato commission %</label>
           <input className="input w-full" inputMode="decimal" value={zomato}
-            onChange={(e) => setZomato(e.target.value)} />
+            onChange={(e) => setZomato(amount(e.target.value))} />
         </div>
         <div>
           <label className="text-xs text-muted">Swiggy commission %</label>
           <input className="input w-full" inputMode="decimal" value={swiggy}
-            onChange={(e) => setSwiggy(e.target.value)} />
+            onChange={(e) => setSwiggy(amount(e.target.value))} />
         </div>
       </div>
       <div className="flex items-center gap-3 mt-3">

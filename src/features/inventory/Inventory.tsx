@@ -6,6 +6,7 @@ import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
 import { useToast } from "../../design/Toast";
 import { fmtDate } from "../../lib/date";
+import { amount, signedAmount } from "../../lib/inputs";
 import { money } from "../../lib/money";
 
 interface Ingredient {
@@ -529,7 +530,7 @@ function StockCountSheet({ materials, onSaved, q, setQ }: {
                   <td className="px-4 py-2.5 text-right">{Number(i.current_stock)} {i.unit}</td>
                   <td className="px-4 py-2.5 text-right">
                     <input className="input w-24 text-right" inputMode="decimal" value={val}
-                      onChange={(e) => setCounted({ ...counted, [i.id]: e.target.value })} />
+                      onChange={(e) => setCounted({ ...counted, [i.id]: amount(e.target.value) })} />
                   </td>
                   <td className={`px-4 py-2.5 text-right font-medium ${diff == null ? "text-muted" : diff < 0 ? "text-clay" : "text-pine"}`}>
                     {diff == null ? "—" : `${diff > 0 ? "+" : ""}${diff.toFixed(3)} ${i.unit}`}
@@ -643,7 +644,7 @@ function StockActionModal({ kind, ing, onDone, onCancel }: {
           )}
           <input className="input" inputMode="decimal" autoFocus
             placeholder={kind === "count" ? `Counted quantity (${ing.unit})` : kind === "adjust" ? `Qty ± (${ing.unit})` : `Qty (${ing.unit})`}
-            value={qty} onChange={(e) => setQty(e.target.value)} />
+            value={qty} onChange={(e) => setQty(kind === "adjust" ? signedAmount(e.target.value) : amount(e.target.value))} />
           {(kind === "adjust" || kind === "waste") && (
             <input className="input" placeholder={`Reason${kind === "waste" ? " (required)" : ""}`} value={reason} onChange={(e) => setReason(e.target.value)} />
           )}

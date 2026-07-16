@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PhoneInput, joinPhone } from "../../design/PhoneInput";
 import { Field } from "../../design/ui";
 import { api } from "../../lib/api";
-import { digits } from "../../lib/inputs";
+import { digits, personName } from "../../lib/inputs";
 import { money } from "../../lib/money";
 import type { Reservation } from "../../lib/types";
 
@@ -35,7 +35,7 @@ export function WalkInForm({ onCancel, onCreated }: { onCancel: () => void; onCr
         <div className="font-display text-xl mb-4">Walk-in guest</div>
         <div className="mb-3">
           <Field label="Guest name" required>
-            <input className="input" value={form.guest_name} onChange={(e) => setForm({ ...form, guest_name: e.target.value })} />
+            <input className="input" value={form.guest_name} onChange={(e) => setForm({ ...form, guest_name: personName(e.target.value) })} />
           </Field>
         </div>
         <div className="mb-3">
