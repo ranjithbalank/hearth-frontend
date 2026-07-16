@@ -183,6 +183,7 @@ export function Pos() {
   const [showTablePick, setShowTablePick] = useState(false);
   const [showTill, setShowTill] = useState(false);
   const [showReserve, setShowReserve] = useState(false);
+  const [showRefund, setShowRefund] = useState(false);
 
   // Till session (day-end close) + open reservations/waitlist for the floor.
   const { data: till } = useQuery({
@@ -444,6 +445,7 @@ export function Pos() {
           {user?.role !== "Captain" && (
             <>
               <a className="btn-ghost text-sm" href="/reconciliation">Reconciliation</a>
+              <button className="btn-ghost text-sm" onClick={() => setShowRefund(true)}>Refund a bill</button>
               <div className="ml-auto">
                 <button
                   className={`pill border ${till ? "bg-pine-50 border-pine text-pine" : "border-hairline"}`}
@@ -584,6 +586,7 @@ export function Pos() {
             onClose={() => { setShowTill(false); qc.invalidateQueries({ queryKey: ["till"] }); }}
           />
         )}
+        {showRefund && <RefundModal onClose={() => setShowRefund(false)} />}
         {showReserve && (
           <ReserveModal
             tables={tables ?? []}
@@ -1038,6 +1041,26 @@ function FinalBillModal({
   onCancel: () => void;
   onConfirm: (tender: string) => void;
 }) {
+  // Cash is settled through a change calculator; other tenders settle on one tap.
+  const [cashMode, setCashMode] = useState(false);
+  const [received, setReceived] = useState("");
+  const totalNum = Number(total) || 0;
+  const recvNum = Number(received) || 0;
+  const change = recvNum - totalNum;
+  // Handy "the guest gave me…" quick amounts: exact, and round up to the next
+  // ₹100 / ₹500 / ₹2000 above the bill.
+  const quick = Array.from(new Set([
+    Math.ceil(totalNum),
+    Math.ceil(totalNum / 100) * 100,
+    Math.ceil(totalNum / 500) * 500,
+    Math.ceil(totalNum / 2000) * 2000,
+  ])).filter((n) => n >= totalNum);
+
+  function tap(tn: string) {
+    if (tn === "Cash") { setCashMode(true); setReceived(String(Math.ceil(totalNum))); }
+    else onConfirm(tn);
+  }
+
   return (
     <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
       <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
@@ -1049,14 +1072,120 @@ function FinalBillModal({
         <div className="flex justify-between font-semibold text-lg mb-4">
           <span>Total to collect</span><span>{money(total)}</span>
         </div>
-        <div className={`grid gap-2 mb-2 ${tenders.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-          {tenders.map((tn, idx) => (
-            <button key={tn} className={idx === 0 ? "btn-primary" : "btn-outline"} disabled={busy} onClick={() => onConfirm(tn)}>
-              {busy ? "Settling…" : TENDER_LABELS[tn] ?? tn}
+
+        {cashMode ? (
+          <div>
+            <label className="text-xs font-semibold text-muted">Cash received</label>
+            <input className="input w-full text-lg text-right mt-1" inputMode="decimal" autoFocus
+              value={received} onChange={(e) => setReceived(amount(e.target.value))} />
+            <div className="flex flex-wrap gap-1 mt-2">
+              {quick.map((n) => (
+                <button key={n} className="pill bg-hairline text-body hover:bg-pine hover:text-white"
+                  onClick={() => setReceived(String(n))}>{money(n)}</button>
+              ))}
+            </div>
+            <div className={`flex justify-between font-semibold text-lg mt-3 ${change < 0 ? "text-clay" : "text-pine"}`}>
+              <span>{change < 0 ? "Short by" : "Change to return"}</span>
+              <span>{money(Math.abs(change))}</span>
+            </div>
+            <button className="btn-primary w-full mt-3" disabled={busy || recvNum < totalNum}
+              onClick={() => onConfirm("Cash")}>
+              {busy ? "Settling…" : `Settle · give change ${money(Math.max(change, 0))}`}
             </button>
-          ))}
-        </div>
-        <button className="btn-ghost w-full" disabled={busy} onClick={onCancel}>Cancel</button>
+            <button className="btn-ghost w-full mt-1" disabled={busy} onClick={() => setCashMode(false)}>← Other tender</button>
+          </div>
+        ) : (
+          <>
+            <div className={`grid gap-2 mb-2 ${tenders.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+              {tenders.map((tn, idx) => (
+                <button key={tn} className={idx === 0 ? "btn-primary" : "btn-outline"} disabled={busy} onClick={() => tap(tn)}>
+                  {busy ? "Settling…" : TENDER_LABELS[tn] ?? tn}
+                </button>
+              ))}
+            </div>
+            <button className="btn-ghost w-full" disabled={busy} onClick={onCancel}>Cancel</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Recall a settled bill by its printed number and refund it (full or partial)
+ *  with a reason and a manager override passcode. */
+function RefundModal({ onClose }: { onClose: () => void }) {
+  const toast = useToast();
+  const [billNo, setBillNo] = useState("");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [reason, setReason] = useState("");
+  const [override, setOverride] = useState("");
+  const [amountVal, setAmountVal] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function find() {
+    setBusy(true);
+    try {
+      const rows = (await api.get<Order[]>(`/pos/orders/?bill_no=${encodeURIComponent(billNo.trim())}`)).data;
+      const found = rows.find((o) => o.status === "settled");
+      if (!found) { toast("No settled bill with that number", "error"); setOrder(null); }
+      else { setOrder(found); setAmountVal(String(found.totals.total)); }
+    } finally { setBusy(false); }
+  }
+
+  async function refund() {
+    if (!order) return;
+    setBusy(true);
+    try {
+      const d = (await api.post(`/pos/orders/${order.id}/refund/`, {
+        reason, override, amount: amountVal,
+      })).data;
+      toast(`Refunded ${money(d.refunded)} · bill ${billNo}`);
+      onClose();
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Refund failed", "error");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-3">Refund a bill</div>
+        {!order ? (
+          <div className="flex gap-2">
+            <input className="input flex-1" placeholder="Bill number (e.g. BILL-202607-00001)"
+              value={billNo} onChange={(e) => setBillNo(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === "Enter" && billNo.trim() && find()} />
+            <button className="btn-primary" disabled={!billNo.trim() || busy} onClick={find}>Find</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">Bill {billNo}</span>
+              <span className="font-semibold">Settled {money(order.totals.total)}</span>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted">Refund amount (full or partial)</label>
+              <input className="input w-full" inputMode="decimal" value={amountVal}
+                onChange={(e) => setAmountVal(amount(e.target.value))} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted">Reason <span className="text-clay">*</span></label>
+              <input className="input w-full" placeholder="e.g. wrong item, quality complaint"
+                value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted">Manager passcode <span className="text-clay">*</span></label>
+              <input className="input w-full" type="password" inputMode="numeric" placeholder="Override"
+                value={override} onChange={(e) => setOverride(e.target.value.replace(/\D/g, "").slice(0, 6))} />
+            </div>
+            <div className="flex gap-2">
+              <button className="btn-ghost flex-1" disabled={busy} onClick={() => setOrder(null)}>← Back</button>
+              <button className="btn-primary flex-1" disabled={busy || !reason.trim() || !override}
+                onClick={refund}>{busy ? "Refunding…" : "Refund"}</button>
+            </div>
+          </div>
+        )}
+        <button className="btn-ghost w-full mt-3" onClick={onClose}>Close</button>
       </div>
     </div>
   );

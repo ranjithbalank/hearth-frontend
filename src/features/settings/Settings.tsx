@@ -123,13 +123,14 @@ function UsersPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [ef, setEf] = useState({
     first_name: "", last_name: "", role: "F&B Cashier" as Role, passcode: "",
-    discount_cap_type: "none", discount_cap_value: "0",
+    discount_cap_type: "none", discount_cap_value: "0", password: "",
   });
   function startEdit(u: User) {
     setEditingId(u.id);
     setEf({
       first_name: u.first_name, last_name: u.last_name, role: u.role,
       passcode: "", // write-only field — never sent back by the API, so it can't be pre-filled
+      password: "", // reset-only: blank leaves the existing password untouched
       discount_cap_type: u.discount_cap_type ?? "none", discount_cap_value: u.discount_cap_value ?? "0",
     });
   }
@@ -139,6 +140,7 @@ function UsersPanel() {
         first_name: ef.first_name, last_name: ef.last_name, role: ef.role,
         discount_cap_type: ef.discount_cap_type, discount_cap_value: ef.discount_cap_value,
         ...(ef.passcode ? { passcode: ef.passcode } : {}),
+        ...(ef.password ? { password: ef.password } : {}),
       })).data,
     onSuccess: (_d, id) => {
       setEditingId(null); toast("User updated"); qc.invalidateQueries({ queryKey: ["users"] });
@@ -256,8 +258,14 @@ function UsersPanel() {
                 <td className="py-2 text-right whitespace-nowrap">
                   {editing ? (
                     <div className="flex flex-col items-end gap-1">
-                      <input className="input py-1 text-xs w-24" inputMode="numeric" placeholder="New passcode"
+                      <input className="input py-1 text-xs w-32" inputMode="numeric" placeholder="New passcode"
                         value={ef.passcode} onChange={(e) => setEf({ ...ef, passcode: digits(e.target.value, 6) })} />
+                      <input className="input py-1 text-xs w-32" type="password" placeholder="Reset password"
+                        autoComplete="new-password"
+                        value={ef.password} onChange={(e) => setEf({ ...ef, password: e.target.value })} />
+                      {ef.password && ef.password.length < 8 && (
+                        <span className="text-[10px] text-clay">Min 8 characters</span>
+                      )}
                       <div className="flex gap-1">
                         <button className="btn-ghost text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => setEditingId(null)}>Cancel</button>
                         <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(u.id)}>Save</button>
