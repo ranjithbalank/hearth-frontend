@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { Badge, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { amount, digits } from "../../lib/inputs";
-import { inr } from "../../lib/money";
+import { amount, digits, personName } from "../../lib/inputs";
+import { currencySymbol, money } from "../../lib/money";
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { cacheMenu, enqueue, getCachedMenu, uuid, type OfflineBill } from "../../lib/offline";
+import { useTenders } from "../../lib/tenders";
 import { useOnline } from "../../lib/useOnline";
 import type { MenuItem, Order, Table } from "../../lib/types";
 import { downloadBillPdf, printKot } from "../print/documents";
@@ -46,9 +47,9 @@ export function Pos() {
   // drinks show up right here — still their own category pills (Beer, Wine,
   // Cocktails…), just not a whole separate desk/login.
   const barCombined = property?.entitlement.bar_mode === "combined";
-  // Role↔tender mapping (mirrors the backend): captains settle digital payments
-  // tableside; cash is collected only at the cashier counter.
-  const tenders = user?.role === "Captain" ? ["UPI", "Gateway"] : ["Cash", "UPI", "Gateway"];
+  // Tender buttons come from the payment-methods master; captains only get
+  // captain_allowed tenders — drawer cash stays at the cashier counter.
+  const tenders = useTenders(user?.role === "Captain");
   // Captains work the tables — takeaway/delivery/room orders are counter flows.
   const isCaptain = user?.role === "Captain";
   // Who's allowed to hand tables to captains — the F&B Cashier runs the
@@ -182,6 +183,7 @@ export function Pos() {
   const [showTablePick, setShowTablePick] = useState(false);
   const [showTill, setShowTill] = useState(false);
   const [showReserve, setShowReserve] = useState(false);
+  const [showRefund, setShowRefund] = useState(false);
 
   // Till session (day-end close) + open reservations/waitlist for the floor.
   const { data: till } = useQuery({
@@ -443,12 +445,13 @@ export function Pos() {
           {user?.role !== "Captain" && (
             <>
               <a className="btn-ghost text-sm" href="/reconciliation">Reconciliation</a>
+              <button className="btn-ghost text-sm" onClick={() => setShowRefund(true)}>Refund a bill</button>
               <div className="ml-auto">
                 <button
                   className={`pill border ${till ? "bg-pine-50 border-pine text-pine" : "border-hairline"}`}
                   onClick={() => setShowTill(true)}
                 >
-                  {till ? `Till open · float ${inr(till.opening_float)}` : "Open till"}
+                  {till ? `Till open · float ${money(till.opening_float)}` : "Open till"}
                 </button>
               </div>
             </>
@@ -545,7 +548,7 @@ export function Pos() {
                           onClick={(e) => { e.stopPropagation(); if (!lockedForMe) openTable(t, o.id); }}
                         >
                           <span>G{ix + 1}{o.status === "billed" ? " 🧾" : ""}</span>
-                          <span>{inr(o.totals.total)}</span>
+                          <span>{money(o.totals.total)}</span>
                         </button>
                       ))}
                       <button
@@ -583,6 +586,7 @@ export function Pos() {
             onClose={() => { setShowTill(false); qc.invalidateQueries({ queryKey: ["till"] }); }}
           />
         )}
+        {showRefund && <RefundModal onClose={() => setShowRefund(false)} />}
         {showReserve && (
           <ReserveModal
             tables={tables ?? []}
@@ -649,7 +653,7 @@ export function Pos() {
                 orderId === o.id ? "bg-ink text-white border-ink" : "bg-surface border-hairline"}`}
               onClick={() => setOrderId(o.id)}
             >
-              G{ix + 1} · {inr(o.totals.total)}{o.status === "billed" ? " 🧾" : ""}
+              G{ix + 1} · {money(o.totals.total)}{o.status === "billed" ? " 🧾" : ""}
             </button>
           ))}
           <button
@@ -677,7 +681,7 @@ export function Pos() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           {order?.token_no && <Badge tone="pine">Token {order.token_no}</Badge>}
-          {order?.kot_no && <Badge tone="amber">{order.kot_no}</Badge>}
+          {(order?.bill_no || order?.kot_no) && <Badge tone="amber">{order.bill_no || order.kot_no}</Badge>}
           {order && <Badge tone={billed ? "clay" : "pine"}>{order.status_label}</Badge>}
         </div>
       </div>
@@ -755,7 +759,7 @@ export function Pos() {
                   <span className="font-medium text-sm">{i.name}</span>
                 </div>
                 <div className="flex items-center justify-between mt-1">
-                  <span className="text-sm text-muted">{inr(i.price)}</span>
+                  <span className="text-sm text-muted">{money(i.price)}</span>
                   {!i.available
                     ? <span className="pill bg-clay-50 text-clay text-[10px]">86'd</span>
                     : i.short_code && <span className="text-[10px] uppercase tracking-wide text-muted">{i.short_code}</span>}
@@ -809,7 +813,7 @@ export function Pos() {
                       </svg>
                     </button>
                   </div>
-                  <div className="w-16 text-right">{inr(Number(l.unit_price) * l.qty)}</div>
+                  <div className="w-16 text-right">{money(Number(l.unit_price) * l.qty)}</div>
                 </div>
               ))}
             </div>
@@ -818,18 +822,18 @@ export function Pos() {
           {order?.lines.length ? (
             <>
               <div className="border-t border-hairline pt-2 text-sm space-y-1">
-                <Row label="Subtotal" value={inr(order.totals.subtotal)} />
+                <Row label="Subtotal" value={money(order.totals.subtotal)} />
                 {Number(order.totals.discount) > 0 && (
                   <div className="flex justify-between text-clay">
                     <span>Discount{order.coupon_code ? ` (${order.coupon_code})` : ""}</span>
-                    <span>−{inr(order.totals.discount)}</span>
+                    <span>−{money(order.totals.discount)}</span>
                   </div>
                 )}
-                <Row label="Taxable" value={inr(order.totals.taxable)} />
-                <Row label="CGST" value={inr(order.totals.cgst)} />
-                <Row label="SGST" value={inr(order.totals.sgst)} />
+                <Row label="Taxable" value={money(order.totals.taxable)} />
+                <Row label="CGST" value={money(order.totals.cgst)} />
+                <Row label="SGST" value={money(order.totals.sgst)} />
                 <div className="flex justify-between font-semibold text-base pt-1">
-                  <span>Total</span><span>{inr(order.totals.total)}</span>
+                  <span>Total</span><span>{money(order.totals.total)}</span>
                 </div>
               </div>
 
@@ -890,7 +894,7 @@ export function Pos() {
                     <div className={`grid gap-2 ${tenders.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
                       {tenders.map((tn) => (
                         <button key={tn} className="btn-outline" disabled={settle.isPending} onClick={() => settle.mutate(tn)}>
-                          {TENDER_LABELS[tn]}
+                          {TENDER_LABELS[tn] ?? tn}
                         </button>
                       ))}
                     </div>
@@ -927,7 +931,7 @@ export function Pos() {
           onClick={() => document.getElementById("pos-order-panel")?.scrollIntoView({ behavior: "smooth" })}
         >
           <span>{order.lines.reduce((n, l) => n + l.qty, 0)} item(s)</span>
-          <span className="font-semibold">{inr(order.totals.total)} → view order</span>
+          <span className="font-semibold">{money(order.totals.total)} → view order</span>
         </button>
       )}
 
@@ -1037,6 +1041,26 @@ function FinalBillModal({
   onCancel: () => void;
   onConfirm: (tender: string) => void;
 }) {
+  // Cash is settled through a change calculator; other tenders settle on one tap.
+  const [cashMode, setCashMode] = useState(false);
+  const [received, setReceived] = useState("");
+  const totalNum = Number(total) || 0;
+  const recvNum = Number(received) || 0;
+  const change = recvNum - totalNum;
+  // Handy "the guest gave me…" quick amounts: exact, and round up to the next
+  // ₹100 / ₹500 / ₹2000 above the bill.
+  const quick = Array.from(new Set([
+    Math.ceil(totalNum),
+    Math.ceil(totalNum / 100) * 100,
+    Math.ceil(totalNum / 500) * 500,
+    Math.ceil(totalNum / 2000) * 2000,
+  ])).filter((n) => n >= totalNum);
+
+  function tap(tn: string) {
+    if (tn === "Cash") { setCashMode(true); setReceived(String(Math.ceil(totalNum))); }
+    else onConfirm(tn);
+  }
+
   return (
     <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
       <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
@@ -1046,16 +1070,122 @@ function FinalBillModal({
           {tableName ? ` Table ${tableName} will be freed for the next guest.` : ""} This cannot be undone.
         </div>
         <div className="flex justify-between font-semibold text-lg mb-4">
-          <span>Total to collect</span><span>{inr(total)}</span>
+          <span>Total to collect</span><span>{money(total)}</span>
         </div>
-        <div className={`grid gap-2 mb-2 ${tenders.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-          {tenders.map((tn, idx) => (
-            <button key={tn} className={idx === 0 ? "btn-primary" : "btn-outline"} disabled={busy} onClick={() => onConfirm(tn)}>
-              {busy ? "Settling…" : TENDER_LABELS[tn]}
+
+        {cashMode ? (
+          <div>
+            <label className="text-xs font-semibold text-muted">Cash received</label>
+            <input className="input w-full text-lg text-right mt-1" inputMode="decimal" autoFocus
+              value={received} onChange={(e) => setReceived(amount(e.target.value))} />
+            <div className="flex flex-wrap gap-1 mt-2">
+              {quick.map((n) => (
+                <button key={n} className="pill bg-hairline text-body hover:bg-pine hover:text-white"
+                  onClick={() => setReceived(String(n))}>{money(n)}</button>
+              ))}
+            </div>
+            <div className={`flex justify-between font-semibold text-lg mt-3 ${change < 0 ? "text-clay" : "text-pine"}`}>
+              <span>{change < 0 ? "Short by" : "Change to return"}</span>
+              <span>{money(Math.abs(change))}</span>
+            </div>
+            <button className="btn-primary w-full mt-3" disabled={busy || recvNum < totalNum}
+              onClick={() => onConfirm("Cash")}>
+              {busy ? "Settling…" : `Settle · give change ${money(Math.max(change, 0))}`}
             </button>
-          ))}
-        </div>
-        <button className="btn-ghost w-full" disabled={busy} onClick={onCancel}>Cancel</button>
+            <button className="btn-ghost w-full mt-1" disabled={busy} onClick={() => setCashMode(false)}>← Other tender</button>
+          </div>
+        ) : (
+          <>
+            <div className={`grid gap-2 mb-2 ${tenders.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+              {tenders.map((tn, idx) => (
+                <button key={tn} className={idx === 0 ? "btn-primary" : "btn-outline"} disabled={busy} onClick={() => tap(tn)}>
+                  {busy ? "Settling…" : TENDER_LABELS[tn] ?? tn}
+                </button>
+              ))}
+            </div>
+            <button className="btn-ghost w-full" disabled={busy} onClick={onCancel}>Cancel</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Recall a settled bill by its printed number and refund it (full or partial)
+ *  with a reason and a manager override passcode. */
+function RefundModal({ onClose }: { onClose: () => void }) {
+  const toast = useToast();
+  const [billNo, setBillNo] = useState("");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [reason, setReason] = useState("");
+  const [override, setOverride] = useState("");
+  const [amountVal, setAmountVal] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function find() {
+    setBusy(true);
+    try {
+      const rows = (await api.get<Order[]>(`/pos/orders/?bill_no=${encodeURIComponent(billNo.trim())}`)).data;
+      const found = rows.find((o) => o.status === "settled");
+      if (!found) { toast("No settled bill with that number", "error"); setOrder(null); }
+      else { setOrder(found); setAmountVal(String(found.totals.total)); }
+    } finally { setBusy(false); }
+  }
+
+  async function refund() {
+    if (!order) return;
+    setBusy(true);
+    try {
+      const d = (await api.post(`/pos/orders/${order.id}/refund/`, {
+        reason, override, amount: amountVal,
+      })).data;
+      toast(`Refunded ${money(d.refunded)} · bill ${billNo}`);
+      onClose();
+    } catch (e: any) {
+      toast(e?.response?.data?.detail ?? "Refund failed", "error");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-3">Refund a bill</div>
+        {!order ? (
+          <div className="flex gap-2">
+            <input className="input flex-1" placeholder="Bill number (e.g. BILL-202607-00001)"
+              value={billNo} onChange={(e) => setBillNo(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === "Enter" && billNo.trim() && find()} />
+            <button className="btn-primary" disabled={!billNo.trim() || busy} onClick={find}>Find</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">Bill {billNo}</span>
+              <span className="font-semibold">Settled {money(order.totals.total)}</span>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted">Refund amount (full or partial)</label>
+              <input className="input w-full" inputMode="decimal" value={amountVal}
+                onChange={(e) => setAmountVal(amount(e.target.value))} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted">Reason <span className="text-clay">*</span></label>
+              <input className="input w-full" placeholder="e.g. wrong item, quality complaint"
+                value={reason} onChange={(e) => setReason(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted">Manager passcode <span className="text-clay">*</span></label>
+              <input className="input w-full" type="password" inputMode="numeric" placeholder="Override"
+                value={override} onChange={(e) => setOverride(e.target.value.replace(/\D/g, "").slice(0, 6))} />
+            </div>
+            <div className="flex gap-2">
+              <button className="btn-ghost flex-1" disabled={busy} onClick={() => setOrder(null)}>← Back</button>
+              <button className="btn-primary flex-1" disabled={busy || !reason.trim() || !override}
+                onClick={refund}>{busy ? "Refunding…" : "Refund"}</button>
+            </div>
+          </div>
+        )}
+        <button className="btn-ghost w-full mt-3" onClick={onClose}>Close</button>
       </div>
     </div>
   );
@@ -1086,11 +1216,11 @@ function DiscountModal({ onCancel, onApply }: { onCancel: () => void; onApply: (
         <div className="grid grid-cols-2 gap-2 mb-3">
           <select className="input" value={kind} onChange={(e) => onKind(e.target.value)}>
             <option value="percent">Percentage %</option>
-            <option value="fixed">Fixed ₹</option>
+            <option value="fixed">Fixed {currencySymbol()}</option>
           </select>
           <div className="relative">
-            <input className="input pr-7" inputMode="decimal" value={value} onChange={(e) => onValue(e.target.value)} placeholder="Value" />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-sm">{kind === "percent" ? "%" : "₹"}</span>
+            <input className="input pr-7" inputMode="decimal" value={value} onChange={(e) => onValue(amount(e.target.value))} placeholder="Value" />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted text-sm">{kind === "percent" ? "%" : currencySymbol()}</span>
           </div>
         </div>
         <input className="input mb-1" placeholder="Reason (required)" value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -1164,7 +1294,7 @@ function ItemPicker({
                   className={`rounded-card border p-2 text-left ${variant === v.id ? "border-pine bg-pine-50" : "border-hairline"}`}
                 >
                   <div className="font-medium text-sm">{v.name}</div>
-                  <div className="text-xs text-muted">{inr(v.price)}</div>
+                  <div className="text-xs text-muted">{money(v.price)}</div>
                 </button>
               ))}
             </div>
@@ -1184,7 +1314,7 @@ function ItemPicker({
                   className={`flex justify-between rounded-lg border px-3 py-2 text-sm ${addons.includes(o.id) ? "border-pine bg-pine-50" : "border-hairline"}`}
                 >
                   <span>{o.name}</span>
-                  <span className="text-muted">{Number(o.price) > 0 ? `+${inr(o.price)}` : "free"}</span>
+                  <span className="text-muted">{Number(o.price) > 0 ? `+${money(o.price)}` : "free"}</span>
                 </button>
               ))}
             </div>
@@ -1256,17 +1386,17 @@ function TillModal({ till, onClose }: { till: TillSession | null; onClose: () =>
         {closed ? (
           <>
             <div className="grid grid-cols-3 gap-2 text-center mb-4">
-              <div className="card p-3"><div className="text-xs text-muted">Expected</div><div className="font-semibold">{inr(closed.expected_cash ?? 0)}</div></div>
-              <div className="card p-3"><div className="text-xs text-muted">Counted</div><div className="font-semibold">{inr(closed.counted_cash ?? 0)}</div></div>
+              <div className="card p-3"><div className="text-xs text-muted">Expected</div><div className="font-semibold">{money(closed.expected_cash ?? 0)}</div></div>
+              <div className="card p-3"><div className="text-xs text-muted">Counted</div><div className="font-semibold">{money(closed.counted_cash ?? 0)}</div></div>
               <div className={`card p-3 ${Number(closed.variance) !== 0 ? "bg-clay/10" : "bg-pine-50"}`}>
                 <div className="text-xs text-muted">Variance</div>
-                <div className="font-semibold">{inr(closed.variance ?? 0)}</div>
+                <div className="font-semibold">{money(closed.variance ?? 0)}</div>
               </div>
             </div>
             <div className="text-xs uppercase tracking-wide text-muted mb-1">Tender totals (session)</div>
             <div className="space-y-1 mb-4 text-sm">
               {closed.tender_totals.map((t) => (
-                <div key={t.tender} className="flex justify-between"><span>{t.tender} × {t.count}</span><span>{inr(t.amount)}</span></div>
+                <div key={t.tender} className="flex justify-between"><span>{t.tender} × {t.count}</span><span>{money(t.amount)}</span></div>
               ))}
               {!closed.tender_totals.length && <div className="text-muted text-sm">No settlements this session.</div>}
             </div>
@@ -1287,14 +1417,14 @@ function TillModal({ till, onClose }: { till: TillSession | null; onClose: () =>
           <>
             <div className="text-sm space-y-1 mb-4">
               <div className="flex justify-between"><span className="text-muted">Opened by</span><span>{state.opened_by}</span></div>
-              <div className="flex justify-between"><span className="text-muted">Opening float</span><span>{inr(state.opening_float)}</span></div>
-              <div className="flex justify-between"><span className="text-muted">Cash in / out</span><span>+{inr(state.cash_in)} / −{inr(state.cash_out)}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Opening float</span><span>{money(state.opening_float)}</span></div>
+              <div className="flex justify-between"><span className="text-muted">Cash in / out</span><span>+{money(state.cash_in)} / −{money(state.cash_out)}</span></div>
             </div>
             {!!state.entries.length && (
               <div className="mb-4 space-y-1 text-xs text-muted border-t border-hairline pt-2">
                 {state.entries.map((e) => (
                   <div key={e.id} className="flex justify-between">
-                    <span>{e.kind === "in" ? "＋" : "−"} {e.reason}</span><span>{inr(e.amount)}</span>
+                    <span>{e.kind === "in" ? "＋" : "−"} {e.reason}</span><span>{money(e.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -1368,7 +1498,7 @@ function ReserveModal({ tables, onDone, onCancel }: { tables: Table[]; onDone: (
           ))}
         </div>
         <div className="grid gap-2">
-          <input className="input" placeholder="Guest name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+          <input className="input" placeholder="Guest name" value={f.name} onChange={(e) => setF({ ...f, name: personName(e.target.value) })} />
           <div className="grid grid-cols-2 gap-2">
             <input className="input" placeholder="Mobile (optional)" inputMode="tel"
               value={f.mobile} onChange={(e) => setF({ ...f, mobile: digits(e.target.value, 10) })} />
@@ -1545,7 +1675,7 @@ function OfflineBilling({ mode, table, onQueued }: { mode: string; table: Table 
           <button key={m.id} className="card p-3 text-left hover:bg-cream"
             onClick={() => setCart((c) => ({ ...c, [m.id]: (c[m.id] ?? 0) + 1 }))}>
             <div className="font-medium text-sm">{m.name}</div>
-            <div className="text-sm text-muted mt-1">{inr(m.price)}</div>
+            <div className="text-sm text-muted mt-1">{money(m.price)}</div>
           </button>
         ))}
       </div>
@@ -1559,12 +1689,12 @@ function OfflineBilling({ mode, table, onQueued }: { mode: string; table: Table 
               {lines.map((l) => (
                 <div key={l.item.id} className="flex justify-between text-sm">
                   <span>{l.qty}× {l.item.name}</span>
-                  <span>{inr(Number(l.item.price) * l.qty)}</span>
+                  <span>{money(Number(l.item.price) * l.qty)}</span>
                 </div>
               ))}
             </div>
             <div className="flex justify-between font-semibold border-t border-hairline pt-2">
-              <span>Total (incl. GST)</span><span>{inr(total)}</span>
+              <span>Total (incl. GST)</span><span>{money(total)}</span>
             </div>
             <div className="grid grid-cols-2 gap-2 mt-4">
               <button className="btn-primary" onClick={() => settle("Cash")}>Settle cash</button>

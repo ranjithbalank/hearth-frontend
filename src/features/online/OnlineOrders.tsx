@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 import type { MenuItem, Order } from "../../lib/types";
 
 // The counter only accepts and dispatches — "ready" is the kitchen's call
@@ -92,7 +92,7 @@ export function OnlineOrders() {
                   ))}
                 </div>
                 <div className="flex justify-between items-center text-sm border-t border-line pt-2">
-                  <span className="font-semibold">{inr(o.totals.total)}</span>
+                  <span className="font-semibold">{money(o.totals.total)}</span>
                   {o.prepaid && <Badge tone="pine">prepaid</Badge>}
                 </div>
                 <div className="flex items-center gap-2 mt-3">

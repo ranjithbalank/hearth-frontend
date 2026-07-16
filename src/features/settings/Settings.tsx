@@ -6,8 +6,11 @@ import { useToast } from "../../design/Toast";
 import { Card, Field, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/date";
-import { amount, digits, gstin as gstinFilter } from "../../lib/inputs";
+import { amount, digits, gstin as gstinFilter, personName } from "../../lib/inputs";
+import { currencySymbol } from "../../lib/money";
 import { useApp } from "../../lib/app-context";
+import { AuditLogPanel } from "./AuditLog";
+import { CurrencyPanel, DepartmentsPanel, DesignationsPanel, PaymentMethodsPanel } from "./Masters";
 import type { Branch, BranchAccess, Entitlement, Role, User } from "../../lib/types";
 
 const PROTECTED_ROLES: Role[] = ["Super Admin", "Managing Director", "General Manager"];
@@ -92,6 +95,7 @@ const ROLES: Role[] = [
 function UsersPanel() {
   const qc = useQueryClient();
   const toast = useToast();
+  const { user: me, refreshUser } = useApp();
   const empty = { username: "", first_name: "", last_name: "", role: "F&B Cashier" as Role,
     password: "", passcode: "", discount_cap_type: "none", discount_cap_value: "0" };
   const [f, setF] = useState(empty);
@@ -106,7 +110,9 @@ function UsersPanel() {
   const create = useMutation({
     mutationFn: async () => (await api.post("/auth/users/", f)).data,
     onSuccess: () => { setF(empty); toast("User created"); qc.invalidateQueries({ queryKey: ["users"] }); },
-    onError: (e: any) => toast(e?.response?.data?.username?.[0] ?? "Could not create user", "error"),
+    onError: (e: any) => toast(
+      e?.response?.data?.username?.[0] ?? e?.response?.data?.password?.[0]
+        ?? e?.response?.data?.detail ?? "Could not create user", "error"),
   });
   const toggle = useMutation({
     mutationFn: async (u: User) => (await api.patch(`/auth/users/${u.id}/`, { is_active: !u.is_active })).data,
@@ -117,13 +123,14 @@ function UsersPanel() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [ef, setEf] = useState({
     first_name: "", last_name: "", role: "F&B Cashier" as Role, passcode: "",
-    discount_cap_type: "none", discount_cap_value: "0",
+    discount_cap_type: "none", discount_cap_value: "0", password: "",
   });
   function startEdit(u: User) {
     setEditingId(u.id);
     setEf({
       first_name: u.first_name, last_name: u.last_name, role: u.role,
       passcode: "", // write-only field — never sent back by the API, so it can't be pre-filled
+      password: "", // reset-only: blank leaves the existing password untouched
       discount_cap_type: u.discount_cap_type ?? "none", discount_cap_value: u.discount_cap_value ?? "0",
     });
   }
@@ -133,8 +140,14 @@ function UsersPanel() {
         first_name: ef.first_name, last_name: ef.last_name, role: ef.role,
         discount_cap_type: ef.discount_cap_type, discount_cap_value: ef.discount_cap_value,
         ...(ef.passcode ? { passcode: ef.passcode } : {}),
+        ...(ef.password ? { password: ef.password } : {}),
       })).data,
-    onSuccess: () => { setEditingId(null); toast("User updated"); qc.invalidateQueries({ queryKey: ["users"] }); },
+    onSuccess: (_d, id) => {
+      setEditingId(null); toast("User updated"); qc.invalidateQueries({ queryKey: ["users"] });
+      // If you edited your own record, refresh the shell so your name/role/
+      // initials at the bottom-left update immediately (no re-login needed).
+      if (me?.id === id) refreshUser();
+    },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save changes", "error"),
   });
 
@@ -146,10 +159,10 @@ function UsersPanel() {
           <input className="input" value={f.username} onChange={(e) => set("username", e.target.value)} />
         </Field>
         <Field label="First name">
-          <input className="input" value={f.first_name} onChange={(e) => set("first_name", e.target.value)} />
+          <input className="input" value={f.first_name} onChange={(e) => set("first_name", personName(e.target.value))} />
         </Field>
         <Field label="Last name">
-          <input className="input" value={f.last_name} onChange={(e) => set("last_name", e.target.value)} />
+          <input className="input" value={f.last_name} onChange={(e) => set("last_name", personName(e.target.value))} />
         </Field>
         <Field label="Role">
           <select className="input" value={f.role} onChange={(e) => set("role", e.target.value)}>
@@ -198,8 +211,8 @@ function UsersPanel() {
                 <td className="py-2 font-medium">
                   {editing ? (
                     <div className="flex gap-1">
-                      <input className="input py-1 text-xs w-20" value={ef.first_name} onChange={(e) => setEf({ ...ef, first_name: e.target.value })} />
-                      <input className="input py-1 text-xs w-20" value={ef.last_name} onChange={(e) => setEf({ ...ef, last_name: e.target.value })} />
+                      <input className="input py-1 text-xs w-20" value={ef.first_name} onChange={(e) => setEf({ ...ef, first_name: personName(e.target.value) })} />
+                      <input className="input py-1 text-xs w-20" value={ef.last_name} onChange={(e) => setEf({ ...ef, last_name: personName(e.target.value) })} />
                     </div>
                   ) : u.name}
                 </td>
@@ -231,7 +244,7 @@ function UsersPanel() {
                     </div>
                   ) : (
                     u.discount_cap_type === "percent" ? `${Number(u.discount_cap_value)}%`
-                      : u.discount_cap_type === "fixed" ? `₹${Number(u.discount_cap_value)}` : "—"
+                      : u.discount_cap_type === "fixed" ? `${currencySymbol()}${Number(u.discount_cap_value)}` : "—"
                   )}
                 </td>
                 <td className="py-2 text-right">
@@ -245,8 +258,14 @@ function UsersPanel() {
                 <td className="py-2 text-right whitespace-nowrap">
                   {editing ? (
                     <div className="flex flex-col items-end gap-1">
-                      <input className="input py-1 text-xs w-24" inputMode="numeric" placeholder="New passcode"
+                      <input className="input py-1 text-xs w-32" inputMode="numeric" placeholder="New passcode"
                         value={ef.passcode} onChange={(e) => setEf({ ...ef, passcode: digits(e.target.value, 6) })} />
+                      <input className="input py-1 text-xs w-32" type="password" placeholder="Reset password"
+                        autoComplete="new-password"
+                        value={ef.password} onChange={(e) => setEf({ ...ef, password: e.target.value })} />
+                      {ef.password && ef.password.length < 8 && (
+                        <span className="text-[10px] text-clay">Min 8 characters</span>
+                      )}
                       <div className="flex gap-1">
                         <button className="btn-ghost text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => setEditingId(null)}>Cancel</button>
                         <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(u.id)}>Save</button>
@@ -349,10 +368,30 @@ function PropertyPanel() {
   );
 }
 
+type Align = "left" | "center" | "right";
+
+function AlignPicker({ value, onChange }: { value: Align; onChange: (a: Align) => void }) {
+  const opts: { k: Align; label: string }[] = [
+    { k: "left", label: "◧ Left" }, { k: "center", label: "▣ Center" }, { k: "right", label: "◨ Right" },
+  ];
+  return (
+    <span className="inline-flex rounded-lg border border-hairline overflow-hidden">
+      {opts.map((o) => (
+        <button key={o.k} type="button" onClick={() => onChange(o.k)}
+          className={`text-xs px-2 py-0.5 ${value === o.k ? "bg-pine text-white" : "text-body hover:bg-hairline/60"}`}>
+          {o.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 function LetterheadPanel() {
   const { property, refreshProperty } = useApp();
   const [header, setHeader] = useState(property?.doc_header ?? "");
   const [footer, setFooter] = useState(property?.doc_footer ?? "");
+  const [headerAlign, setHeaderAlign] = useState<Align>(property?.doc_header_align ?? "left");
+  const [footerAlign, setFooterAlign] = useState<Align>(property?.doc_footer_align ?? "center");
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -368,7 +407,10 @@ function LetterheadPanel() {
   async function save() {
     setSaving(true);
     try {
-      await api.patch("/auth/property/", { doc_header: header, doc_footer: footer });
+      await api.patch("/auth/property/", {
+        doc_header: header, doc_footer: footer,
+        doc_header_align: headerAlign, doc_footer_align: footerAlign,
+      });
       await refreshProperty();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -409,9 +451,10 @@ function LetterheadPanel() {
 
       <div className="grid md:grid-cols-2 gap-4">
         <div>
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-1 gap-2">
             <label className="text-xs font-semibold text-muted">Header lines (below the address)</label>
-            <span className="flex gap-1">
+            <span className="flex items-center gap-2">
+              <AlignPicker value={headerAlign} onChange={setHeaderAlign} />
               <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrap("lh-head", "b", header, setHeader)}>B</button>
               <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrap("lh-head", "i", header, setHeader)}>I</button>
             </span>
@@ -420,9 +463,10 @@ function LetterheadPanel() {
             placeholder={"Fine dining since 1998\nFSSAI Lic. No. 12345678901234"}
             value={header} onChange={(e) => setHeader(e.target.value)} />
 
-          <div className="flex items-center justify-between mb-1 mt-3">
+          <div className="flex items-center justify-between mb-1 mt-3 gap-2">
             <label className="text-xs font-semibold text-muted">Footer — terms / bank details</label>
-            <span className="flex gap-1">
+            <span className="flex items-center gap-2">
+              <AlignPicker value={footerAlign} onChange={setFooterAlign} />
               <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrap("lh-foot", "b", footer, setFooter)}>B</button>
               <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrap("lh-foot", "i", footer, setFooter)}>I</button>
             </span>
@@ -446,7 +490,7 @@ function LetterheadPanel() {
               <div className="text-[10px] text-muted">
                 {property?.address && <div>{property.address}</div>}
                 {property?.gstin && <div>GSTIN: {property.gstin}</div>}
-                <div className="mt-0.5">{previewLines(header)}</div>
+                <div className={`mt-0.5 text-${headerAlign}`}>{previewLines(header)}</div>
               </div>
             </div>
             <div className="text-right text-[10px] text-muted">
@@ -456,7 +500,7 @@ function LetterheadPanel() {
           </div>
           <div className="border-t-2 border-pine my-2" />
           <div className="text-[10px] text-muted italic py-4 text-center">… bill lines …</div>
-          <div className="border-t border-hairline pt-2 text-[10px] text-muted">
+          <div className={`border-t border-hairline pt-2 text-[10px] text-muted text-${footerAlign}`}>
             {previewLines(footer)}
             <div className="text-center mt-1 opacity-60">{property?.name} · computer-generated, no signature required</div>
           </div>
@@ -560,12 +604,12 @@ function CommissionPanel() {
         <div>
           <label className="text-xs text-muted">Zomato commission %</label>
           <input className="input w-full" inputMode="decimal" value={zomato}
-            onChange={(e) => setZomato(e.target.value)} />
+            onChange={(e) => setZomato(amount(e.target.value))} />
         </div>
         <div>
           <label className="text-xs text-muted">Swiggy commission %</label>
           <input className="input w-full" inputMode="decimal" value={swiggy}
-            onChange={(e) => setSwiggy(e.target.value)} />
+            onChange={(e) => setSwiggy(amount(e.target.value))} />
         </div>
       </div>
       <div className="flex items-center gap-3 mt-3">
@@ -576,9 +620,89 @@ function CommissionPanel() {
   );
 }
 
+
+function DocumentNumberingPanel() {
+  const { property, refreshProperty } = useApp();
+  const FIELDS = [
+    { key: "invoice_prefix" as const, label: "Invoice (folio)" },
+    { key: "bill_prefix" as const, label: "POS bill" },
+    { key: "po_prefix" as const, label: "Purchase order" },
+    { key: "grn_prefix" as const, label: "GRN" },
+    { key: "beo_prefix" as const, label: "Banquet BEO" },
+  ];
+  const [f, setF] = useState({
+    invoice_prefix: property?.invoice_prefix ?? "HRT",
+    bill_prefix: property?.bill_prefix ?? "BILL",
+    po_prefix: property?.po_prefix ?? "PO",
+    grn_prefix: property?.grn_prefix ?? "GRN",
+    beo_prefix: property?.beo_prefix ?? "BEO",
+  });
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const period = new Date().toISOString().slice(0, 7).replace("-", "");
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch("/auth/property/", f);
+      await refreshProperty();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <div className="font-semibold mb-1">Document numbering</div>
+      <div className="text-sm text-muted mb-4">
+        The prefix each document type uses for its sequential number — {"{prefix}"}-{"{YYYYMM}"}-{"{00001}"}, resetting every month.
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
+        {FIELDS.map((field) => (
+          <div key={field.key}>
+            <label className="text-xs text-muted">{field.label} prefix</label>
+            <input className="input w-full" value={f[field.key]}
+              onChange={(e) => setF({ ...f, [field.key]: e.target.value.toUpperCase() })} />
+            <div className="text-xs text-muted mt-1">
+              Preview: {f[field.key] || "—"}-{period}-00001
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-3 mt-4">
+        <button className="btn-primary" onClick={save} disabled={saving}>Save</button>
+        {saved && <span className="text-sm text-pine">Saved ✓</span>}
+      </div>
+    </Card>
+  );
+}
+
+const SECTIONS = [
+  { key: "property", label: "Property Details" },
+  { key: "letterhead", label: "Letterhead & Documents" },
+  { key: "commission", label: "Aggregator Commission" },
+  { key: "numbering", label: "Document Numbering" },
+  { key: "edition", label: "Edition" },
+  { key: "barmode", label: "Bar Operating Mode" },
+  { key: "entitlements", label: "Edition Entitlements" },
+  { key: "users", label: "Users & Roles" },
+  { key: "audit", label: "Audit Log" },
+  { key: "currency", label: "Currency", group: "Masters" },
+  { key: "departments", label: "Departments", group: "Masters" },
+  { key: "designations", label: "Designations", group: "Masters" },
+  { key: "tenders", label: "Payment Methods", group: "Masters" },
+] as const;
+type SectionKey = (typeof SECTIONS)[number]["key"];
+
 export function Settings() {
   const { property, refreshProperty } = useApp();
   const [saving, setSaving] = useState<string | null>(null);
+  const [section, setSection] = useState<SectionKey>("property");
+  const hasBar = !!property?.entitlement.restaurant;
+  const visibleSections = SECTIONS.filter((s) => (s.key !== "barmode" && s.key !== "commission") || hasBar);
+  const activeSection = (section === "barmode" || section === "commission") && !hasBar ? "property" : section;
 
   async function toggle(flag: keyof Entitlement) {
     if (!property) return;
@@ -615,85 +739,127 @@ export function Settings() {
     <div>
       <PageHeader title="Settings" subtitle={`${property?.name} · edition: ${property?.edition}`} />
 
-      <PropertyPanel />
-      <LetterheadPanel />
-      {property?.entitlement.restaurant && <CommissionPanel />}
-
-      <MfaPanel />
-
-      <Card className="mb-4">
-        <div className="font-semibold mb-1">Edition</div>
-        <div className="text-sm text-muted mb-3">
-          Switch the whole property between Hotel, Restaurant, or both — this re-applies the
-          module entitlements below.
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { k: "hotel", label: "Hotel only", desc: "Rooms, front office, distribution" },
-            { k: "restaurant", label: "Restaurant only", desc: "Standalone POS — no rooms" },
-            { k: "both", label: "Hotel + Restaurant", desc: "Everything on one core" },
-          ].map((e) => (
-            <button key={e.k} onClick={() => setEdition(e.k)} disabled={saving === e.k}
-              className={`text-left rounded-card border p-4 ${property?.edition === e.k ? "border-pine bg-pine-50" : "border-hairline"}`}>
-              <div className="font-semibold">{e.label}</div>
-              <div className="text-sm text-muted mt-1">{e.desc}</div>
-            </button>
-          ))}
-        </div>
-      </Card>
-
-      {property?.entitlement.restaurant && (
-        <Card className="mb-4">
-          <div className="font-semibold mb-1">Bar operating mode</div>
-          <div className="text-sm text-muted mb-3">
-            Changeable anytime. Separate gives the bar its own tables, menu, and Bar Captain/Bar
-            Cashier logins. Combined folds drinks into the one restaurant POS as a Food/Bar tab —
-            no separate bar desk.
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { k: "separate" as const, label: "Separate operation", desc: "Its own tables, menu, and bar-only logins" },
-              { k: "combined" as const, label: "Combined with restaurant", desc: "One POS, one set of roles, drinks in their own tab" },
-            ].map((m) => (
-              <button key={m.k} onClick={() => setBarMode(m.k)} disabled={saving === `bar_mode:${m.k}`}
-                className={`text-left rounded-card border p-4 ${property?.entitlement.bar_mode === m.k ? "border-pine bg-pine-50" : "border-hairline"}`}>
-                <div className="font-semibold">{m.label}</div>
-                <div className="text-sm text-muted mt-1">{m.desc}</div>
-              </button>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      <Card className="mb-4">
-        <div className="font-semibold mb-1">Edition entitlements</div>
-        <div className="text-sm text-muted mb-4">
-          Toggling a flag hides its modules across the app (and blocks their APIs).
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {FLAGS.map((f) => {
-            const on = property?.entitlement[f.key];
-            return (
-              <button
-                key={f.key}
-                onClick={() => toggle(f.key)}
-                disabled={saving === f.key}
-                className={`text-left rounded-card border p-4 ${on ? "border-pine bg-pine-50" : "border-hairline"}`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">{f.label}</span>
-                  <span className={`pill ${on ? "bg-pine text-white" : "bg-hairline text-muted"}`}>
-                    {on ? "On" : "Off"}
-                  </span>
+      <div className="flex flex-col md:flex-row gap-4 items-start">
+        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible md:w-44 md:shrink-0 pb-1 md:pb-0">
+          {visibleSections.map((s, i) => (
+            <div key={s.key} className="contents">
+              {"group" in s && s.group && (!("group" in (visibleSections[i - 1] ?? {})) ) && (
+                <div className="hidden md:block text-[10px] font-semibold uppercase tracking-wider text-muted px-3 pt-3 pb-1">
+                  {s.group}
                 </div>
-                <div className="text-sm text-muted mt-1">{f.desc}</div>
+              )}
+              <button
+                onClick={() => setSection(s.key)}
+                className={`whitespace-nowrap md:w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  activeSection === s.key ? "bg-pine text-white" : "text-body hover:bg-hairline/60"
+                }`}
+              >
+                {s.label}
               </button>
-            );
-          })}
-        </div>
-      </Card>
+            </div>
+          ))}
+        </nav>
 
-      <UsersPanel />
+        <div className="flex-1 min-w-0 space-y-4">
+          {activeSection === "property" && <PropertyPanel />}
+
+          {activeSection === "letterhead" && <LetterheadPanel />}
+
+          {activeSection === "commission" && hasBar && <CommissionPanel />}
+
+          {activeSection === "numbering" && <DocumentNumberingPanel />}
+
+          {activeSection === "edition" && (
+            <Card>
+              <div className="font-semibold mb-1">Edition</div>
+              <div className="text-sm text-muted mb-3">
+                Switch the whole property between Hotel, Restaurant, or both — this re-applies the
+                module entitlements below.
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { k: "hotel", label: "Hotel only", desc: "Rooms, front office, distribution" },
+                  { k: "restaurant", label: "Restaurant only", desc: "Standalone POS — no rooms" },
+                  { k: "both", label: "Hotel + Restaurant", desc: "Everything on one core" },
+                ].map((e) => (
+                  <button key={e.k} onClick={() => setEdition(e.k)} disabled={saving === e.k}
+                    className={`text-left rounded-card border p-4 ${property?.edition === e.k ? "border-pine bg-pine-50" : "border-hairline"}`}>
+                    <div className="font-semibold">{e.label}</div>
+                    <div className="text-sm text-muted mt-1">{e.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {activeSection === "barmode" && hasBar && (
+            <Card>
+              <div className="font-semibold mb-1">Bar operating mode</div>
+              <div className="text-sm text-muted mb-3">
+                Changeable anytime. Separate gives the bar its own tables, menu, and Bar Captain/Bar
+                Cashier logins. Combined folds drinks into the one restaurant POS as a Food/Bar tab —
+                no separate bar desk.
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  { k: "separate" as const, label: "Separate operation", desc: "Its own tables, menu, and bar-only logins" },
+                  { k: "combined" as const, label: "Combined with restaurant", desc: "One POS, one set of roles, drinks in their own tab" },
+                ].map((m) => (
+                  <button key={m.k} onClick={() => setBarMode(m.k)} disabled={saving === `bar_mode:${m.k}`}
+                    className={`text-left rounded-card border p-4 ${property?.entitlement.bar_mode === m.k ? "border-pine bg-pine-50" : "border-hairline"}`}>
+                    <div className="font-semibold">{m.label}</div>
+                    <div className="text-sm text-muted mt-1">{m.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {activeSection === "entitlements" && (
+            <Card>
+              <div className="font-semibold mb-1">Edition entitlements</div>
+              <div className="text-sm text-muted mb-4">
+                Toggling a flag hides its modules across the app (and blocks their APIs).
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {FLAGS.map((f) => {
+                  const on = property?.entitlement[f.key];
+                  return (
+                    <button
+                      key={f.key}
+                      onClick={() => toggle(f.key)}
+                      disabled={saving === f.key}
+                      className={`text-left rounded-card border p-4 ${on ? "border-pine bg-pine-50" : "border-hairline"}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold">{f.label}</span>
+                        <span className={`pill ${on ? "bg-pine text-white" : "bg-hairline text-muted"}`}>
+                          {on ? "On" : "Off"}
+                        </span>
+                      </div>
+                      <div className="text-sm text-muted mt-1">{f.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {activeSection === "users" && (
+            <>
+              <UsersPanel />
+              <MfaPanel />
+            </>
+          )}
+
+          {activeSection === "audit" && <AuditLogPanel />}
+
+          {activeSection === "currency" && <CurrencyPanel />}
+          {activeSection === "departments" && <DepartmentsPanel />}
+          {activeSection === "designations" && <DesignationsPanel />}
+          {activeSection === "tenders" && <PaymentMethodsPanel />}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,25 +1,67 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { inr, num } from "../../lib/money";
+import { money, num } from "../../lib/money";
 import type { Folio } from "../../lib/types";
 import { downloadInvoicePdf, printInvoice } from "../print/documents";
 
 const TENDERS = ["Cash", "Card", "UPI", "BTC"];
+
+interface Registration {
+  id: number; guest_name: string; id_type: string; id_number: string;
+  id_scan: string; signature: string;
+}
+
+/** Registration-card evidence captured at check-in (ID scan + signature).
+ *  Fetched on open only — the server audit-logs every view of it. */
+function RegistrationModal({ folioId, onClose }: { folioId: number; onClose: () => void }) {
+  const { data: reg, isLoading } = useQuery({
+    queryKey: ["registration", folioId],
+    queryFn: async () => (await api.get<Registration>(`/folios/${folioId}/registration/`)).data,
+  });
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[520px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {isLoading || !reg ? <Spinner /> : (
+          <>
+            <div className="font-display text-xl mb-1">Registration — {reg.guest_name}</div>
+            <div className="text-sm text-muted mb-4">{reg.id_type} · {reg.id_number || "—"}</div>
+            <div className="text-xs font-semibold text-muted mb-1">ID proof</div>
+            {reg.id_scan
+              ? <img src={reg.id_scan} alt="ID scan" className="w-full rounded-card border border-hairline mb-4" />
+              : <div className="text-sm text-muted mb-4">No scan on file.</div>}
+            <div className="text-xs font-semibold text-muted mb-1">Guest signature</div>
+            {reg.signature
+              ? <img src={reg.signature} alt="Signature" className="w-full h-28 object-contain rounded-card border border-hairline bg-white" />
+              : <div className="text-sm text-muted">No signature on file.</div>}
+            <div className="text-right mt-4">
+              <button className="btn-outline" onClick={onClose}>Close</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function Folios() {
   const qc = useQueryClient();
   const { property } = useApp();
   const toast = useToast();
   const ask = usePrompt();
-  const [selId, setSelId] = useState<number | null>(null);
+  // ?sel=<id> lets Check-In's "Open folio" land on the folio it just made
+  // (QA finding UXF-01 — it used to select whichever folio was listed first).
+  const [params] = useSearchParams();
+  const [selId, setSelId] = useState<number | null>(() => Number(params.get("sel")) || null);
   const [tender, setTender] = useState("Card");
   const [q, setQ] = useState("");
+  const [showReg, setShowReg] = useState(false);
 
   const { data: folios, isLoading } = useQuery({
     queryKey: ["folios"],
@@ -89,7 +131,7 @@ export function Folios() {
       <PageHeader
         title={sel ? `Guest Folios — ${sel.guest_name}` : "Guest Folios"}
         subtitle={sel
-          ? `Room ${sel.room_number ?? "—"} · Balance ${inr(sel.projected_balance ?? sel.balance)} · ${sel.status}`
+          ? `Room ${sel.room_number ?? "—"} · Balance ${money(sel.projected_balance ?? sel.balance)} · ${sel.status}`
           : "Charge ledger & settlement"}
       />
       <div className="grid grid-cols-[300px_1fr] gap-4">
@@ -107,7 +149,7 @@ export function Folios() {
               </div>
               <div className="text-sm text-muted mt-1">
                 Room {f.room_number ?? "—"} · Balance{" "}
-                <span className={num(f.balance) > 0 ? "text-clay font-medium" : ""}>{inr(f.balance)}</span>
+                <span className={num(f.balance) > 0 ? "text-clay font-medium" : ""}>{money(f.balance)}</span>
               </div>
             </button>
           ))}
@@ -162,8 +204,15 @@ export function Folios() {
                 >
                   {emailInvoice.isPending ? "Sending…" : "Email"}
                 </button>
+                {(sel.has_id_scan || sel.has_signature) && (
+                  <button className="btn-ghost text-xs py-1" title="ID scan & signature from check-in"
+                    onClick={() => setShowReg(true)}>
+                    Registration
+                  </button>
+                )}
               </div>
             </div>
+            {showReg && <RegistrationModal folioId={sel.id} onClose={() => setShowReg(false)} />}
 
             <table className="w-full text-sm mb-4">
               <thead className="text-muted text-xs uppercase">
@@ -178,9 +227,9 @@ export function Folios() {
                 {sel.lines.map((l) => (
                   <tr key={l.id} className="border-t border-line">
                     <td className="py-2">{l.description}</td>
-                    <td className="py-2 text-right">{inr(l.taxable)}</td>
-                    <td className="py-2 text-right">{inr(num(l.cgst) + num(l.sgst))}</td>
-                    <td className="py-2 text-right font-medium">{inr(l.total)}</td>
+                    <td className="py-2 text-right">{money(l.taxable)}</td>
+                    <td className="py-2 text-right">{money(num(l.cgst) + num(l.sgst))}</td>
+                    <td className="py-2 text-right font-medium">{money(l.total)}</td>
                   </tr>
                 ))}
                 {sel.pending_charges?.map((c) => (
@@ -188,7 +237,7 @@ export function Folios() {
                     <td className="py-2">{c.description}</td>
                     <td className="py-2 text-right">—</td>
                     <td className="py-2 text-right">—</td>
-                    <td className="py-2 text-right font-medium">{inr(c.total)}</td>
+                    <td className="py-2 text-right font-medium">{money(c.total)}</td>
                   </tr>
                 ))}
                 {!sel.lines.length && !sel.pending_charges?.length && (
@@ -198,20 +247,20 @@ export function Folios() {
             </table>
 
             <div className="flex justify-between border-t border-hairline pt-3 text-sm">
-              <span className="text-muted">Charges</span><span>{inr(sel.charges_total)}</span>
+              <span className="text-muted">Charges</span><span>{money(sel.charges_total)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted">Paid</span><span>{inr(sel.paid_total)}</span>
+              <span className="text-muted">Paid</span><span>{money(sel.paid_total)}</span>
             </div>
             <div className="flex justify-between font-semibold text-lg mt-1">
               <span>Balance</span>
-              <span className={num(sel.balance) > 0 ? "text-clay" : "text-pine"}>{inr(sel.balance)}</span>
+              <span className={num(sel.balance) > 0 ? "text-clay" : "text-pine"}>{money(sel.balance)}</span>
             </div>
 
             {sel.status === "open" && sel.routing === "city_ledger" && (
               <div className="mt-5">
                 <div className="text-sm text-muted mb-2">
-                  Bill-to-company — no payment collected at the desk. The {inr(sel.balance)} balance
+                  Bill-to-company — no payment collected at the desk. The {money(sel.balance)} balance
                   posts to <span className="font-medium text-body">{sel.company_name || "the company"}</span>'s
                   account and is settled later from Guest CRM.
                 </div>
@@ -223,7 +272,7 @@ export function Folios() {
                       title: "Bill to company & check out",
                       confirm: true,
                       confirmLabel: "Check out (BTC)",
-                      message: `Post the ${inr(sel.balance)} balance to ${sel.company_name || "the company"}'s city-ledger account and check out ${sel.guest_name}? No payment is collected now.`,
+                      message: `Post the ${money(sel.balance)} balance to ${sel.company_name || "the company"}'s city-ledger account and check out ${sel.guest_name}? No payment is collected now.`,
                     });
                     if (ok) checkout.mutate(sel);
                   }}
@@ -248,7 +297,7 @@ export function Folios() {
                       confirm: true,
                       confirmLabel: "Check out",
                       message: bal > 0
-                        ? `Settle the ${inr(sel.balance)} balance via ${tender} and check out ${sel.guest_name}?`
+                        ? `Settle the ${money(sel.balance)} balance via ${tender} and check out ${sel.guest_name}?`
                         : `Check out ${sel.guest_name}? The folio is already settled.`,
                     });
                     if (ok) checkout.mutate(sel);

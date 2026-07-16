@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BarChart } from "../../design/BarChart";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface Group { group: string; tiles: string[] }
 interface Catalogue { groups: Group[]; allowed_reports: string[] }
@@ -93,7 +93,7 @@ export function Reports() {
               <div className="font-display text-xl">{report.title}</div>
               {report.kpis.map((k) => (
                 <div key={k.label} className="card p-4">
-                  <div className="stat-num text-2xl">{k.money ? inr(k.value) : k.value}</div>
+                  <div className="stat-num text-2xl">{k.money ? money(k.value) : k.value}</div>
                   <div className="text-xs text-muted mt-1">{k.label}</div>
                 </div>
               ))}
@@ -131,7 +131,7 @@ export function Reports() {
                         <td key={j} className={`px-4 py-2 ${
                           report.records!.columns[j] === "Total" ? "text-right font-medium"
                             : report.records!.columns[j] === "Items" ? "text-right" : ""}`}>
-                          {report.records!.columns[j] === "Total" ? inr(cell) : cell}
+                          {report.records!.columns[j] === "Total" ? money(cell) : cell}
                         </td>
                       ))}
                     </tr>

@@ -7,7 +7,7 @@ import { NavIcon } from "../../design/NavIcon";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { fmtDate, greeting } from "../../lib/date";
-import { inr, num } from "../../lib/money";
+import { money, num } from "../../lib/money";
 
 interface DashboardData {
   view: "hotel" | "restaurant" | "combined";
@@ -92,10 +92,10 @@ export function Dashboard() {
               <div>
                 <div className="text-xs uppercase tracking-wide text-muted">Accounts receivable</div>
                 <div className={`stat-num text-2xl mt-1 ${Number(data.receivables.total) > 0 ? "text-clay" : "text-pine"}`}>
-                  {inr(data.receivables.total)}
+                  {money(data.receivables.total)}
                 </div>
                 <div className="text-sm text-muted mt-1">
-                  {data.receivables.corporate_accounts} corporate account(s) · {inr(data.receivables.corporate)} bill-to-company
+                  {data.receivables.corporate_accounts} corporate account(s) · {money(data.receivables.corporate)} bill-to-company
                 </div>
               </div>
               <span className="text-pine text-sm">View ledger →</span>
@@ -175,12 +175,12 @@ function AnalyticalView({ data }: { data: DashboardData }) {
         {rooms && (
           <>
             <Stat tone="dark" label="Occupancy" value={`${rooms.occupancy_pct}%`} sub={`${rooms.occupied}/${rooms.rooms_total} rooms`} />
-            <Stat label="ADR" value={inr(rooms.adr)} sub="Average daily rate" />
-            <Stat label="RevPAR" value={inr(rooms.revpar)} sub="Revenue per available room" />
+            <Stat label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
+            <Stat label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
           </>
         )}
         {fnb && (
-          <Stat tone={rooms ? undefined : "dark"} label="F&B sales" value={inr(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
+          <Stat tone={rooms ? undefined : "dark"} label="F&B sales" value={money(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
         )}
       </div>
 
@@ -200,8 +200,8 @@ function AnalyticalView({ data }: { data: DashboardData }) {
           <Card>
             <div className="font-semibold mb-4">Revenue mix</div>
             <div className="space-y-3">
-              <ProportionRow label="Rooms" display={inr(rooms.room_revenue)} pct={Math.round((num(rooms.room_revenue) / revenueMixTotal) * 100)} fill="bg-pine" />
-              <ProportionRow label="F&B" display={inr(fnb.fnb_sales)} pct={Math.round((num(fnb.fnb_sales) / revenueMixTotal) * 100)} fill="bg-clay" />
+              <ProportionRow label="Rooms" display={money(rooms.room_revenue)} pct={Math.round((num(rooms.room_revenue) / revenueMixTotal) * 100)} fill="bg-pine" />
+              <ProportionRow label="F&B" display={money(fnb.fnb_sales)} pct={Math.round((num(fnb.fnb_sales) / revenueMixTotal) * 100)} fill="bg-clay" />
             </div>
           </Card>
         )}
@@ -214,7 +214,7 @@ function AnalyticalView({ data }: { data: DashboardData }) {
                 <ProportionRow
                   key={m}
                   label={m === "dinein" ? "Dine-in" : m === "takeaway" ? "Takeaway" : "Delivery"}
-                  display={inr(fnb.by_mode[m] ?? 0)}
+                  display={money(fnb.by_mode[m] ?? 0)}
                   pct={Math.round((num(fnb.by_mode[m] ?? 0) / fnbTotal) * 100)}
                   fill="bg-pine"
                 />
@@ -286,9 +286,9 @@ function DataView({ data }: { data: DashboardData }) {
               { label: "Available to sell", value: String(rooms.available) },
               { label: "Dirty", value: String(rooms.dirty) },
               { label: "Out of order", value: String(rooms.ooo) },
-              { label: "ADR", value: inr(rooms.adr) },
-              { label: "RevPAR", value: inr(rooms.revpar) },
-              { label: "Room revenue", value: inr(rooms.room_revenue) },
+              { label: "ADR", value: money(rooms.adr) },
+              { label: "RevPAR", value: money(rooms.revpar) },
+              { label: "Room revenue", value: money(rooms.room_revenue) },
             ]}
           />
         </Card>
@@ -297,13 +297,13 @@ function DataView({ data }: { data: DashboardData }) {
         <Card>
           <LedgerSection
             title="F&B"
-            headline={{ label: "Total sales", value: inr(fnb.fnb_sales) }}
+            headline={{ label: "Total sales", value: money(fnb.fnb_sales) }}
             rows={[
               { label: "Orders", value: String(fnb.order_count) },
-              { label: "Average order value", value: inr(fnb.order_count ? num(fnb.fnb_sales) / fnb.order_count : 0) },
-              { label: "Dine-in", value: inr(fnb.by_mode.dinein ?? 0) },
-              { label: "Takeaway", value: inr(fnb.by_mode.takeaway ?? 0) },
-              { label: "Delivery", value: inr(fnb.by_mode.delivery ?? 0) },
+              { label: "Average order value", value: money(fnb.order_count ? num(fnb.fnb_sales) / fnb.order_count : 0) },
+              { label: "Dine-in", value: money(fnb.by_mode.dinein ?? 0) },
+              { label: "Takeaway", value: money(fnb.by_mode.takeaway ?? 0) },
+              { label: "Delivery", value: money(fnb.by_mode.delivery ?? 0) },
             ]}
           />
         </Card>
@@ -312,9 +312,9 @@ function DataView({ data }: { data: DashboardData }) {
         <Card>
           <LedgerSection
             title="Receivables"
-            headline={{ label: "Total outstanding", value: inr(data.receivables.total) }}
+            headline={{ label: "Total outstanding", value: money(data.receivables.total) }}
             rows={[
-              { label: "Bill-to-company", value: inr(data.receivables.corporate) },
+              { label: "Bill-to-company", value: money(data.receivables.corporate) },
               { label: "Corporate accounts", value: String(data.receivables.corporate_accounts) },
             ]}
           />

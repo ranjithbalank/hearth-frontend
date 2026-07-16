@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/date";
-import { inr } from "../../lib/money";
+import { money } from "../../lib/money";
 
 interface Customer {
   id: number; name: string; mobile: string; customer_type: string; type_label: string;
@@ -48,7 +48,7 @@ function GuestModal({ id, onClose }: { id: number; onClose: () => void }) {
               <Field label="Email" value={data.profile.email || "—"} />
               <Field label="GSTIN" value={data.profile.gstin || "—"} />
               <Field label="Address" value={data.profile.address || "—"} />
-              <Field label="Outstanding" value={inr(data.profile.outstanding)} />
+              <Field label="Outstanding" value={money(data.profile.outstanding)} />
             </div>
 
             <div className="text-xs uppercase tracking-wide text-muted mb-2">Stay history ({data.reservations.length})</div>
@@ -67,12 +67,12 @@ function GuestModal({ id, onClose }: { id: number; onClose: () => void }) {
                 {data.city_ledger.map((f) => (
                   <div key={f.folio} className="flex justify-between py-1.5 border-t border-line text-sm">
                     <span>{f.invoice_no || `Folio #${f.folio}`} · {f.guest}{f.room ? ` · Rm ${f.room}` : ""}</span>
-                    <span className="font-medium">{inr(f.amount)}</span>
+                    <span className="font-medium">{money(f.amount)}</span>
                   </div>
                 ))}
                 <div className="flex justify-between pt-1.5 border-t border-line text-sm font-semibold">
                   <span>Outstanding</span>
-                  <span className={Number(data.profile.outstanding) > 0 ? "text-clay" : "text-pine"}>{inr(data.profile.outstanding)}</span>
+                  <span className={Number(data.profile.outstanding) > 0 ? "text-clay" : "text-pine"}>{money(data.profile.outstanding)}</span>
                 </div>
               </>
             )}
@@ -143,7 +143,7 @@ export function Customers() {
                 <td className="px-4 py-3">{c.type_label}</td>
                 <td className="px-4 py-3 text-muted">{c.gstin || "—"}</td>
                 <td className="px-4 py-3">{c.btc_enabled ? <Badge tone="info">BTC</Badge> : "—"}</td>
-                <td className="px-4 py-3 text-right">{inr(c.outstanding)}</td>
+                <td className="px-4 py-3 text-right">{money(c.outstanding)}</td>
                 <td className="px-4 py-3 text-right"><span className="text-pine text-sm">View →</span></td>
               </tr>
             ))}

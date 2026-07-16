@@ -6,7 +6,8 @@ import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
 import { useToast } from "../../design/Toast";
 import { fmtDate } from "../../lib/date";
-import { inr } from "../../lib/money";
+import { amount, signedAmount } from "../../lib/inputs";
+import { money } from "../../lib/money";
 
 interface Ingredient {
   id: number; code: string; name: string; unit: string; category: string;
@@ -248,10 +249,10 @@ export function Inventory({ fixedTab, tabGroup, title }: {
         <>
           <div className="grid grid-cols-5 gap-4 mb-4">
             <Stat tone="dark" label="Materials tracked" value={data.length} />
-            <Stat label="Stock value" value={stockValue == null ? "—" : inr(stockValue)} />
+            <Stat label="Stock value" value={stockValue == null ? "—" : money(stockValue)} />
             <Stat label="Below reorder level" value={low.length} />
             <Stat label="Expiring ≤ 30 days" value={expiring?.length ?? 0} />
-            <Stat label={`Consumption cost (${days}d)`} value={consumed30 == null ? "—" : inr(consumed30)} />
+            <Stat label={`Consumption cost (${days}d)`} value={consumed30 == null ? "—" : money(consumed30)} />
           </div>
 
           {/* Deep links to the sibling screens the spec lists as tabs (§6) */}
@@ -294,7 +295,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                     <td className="px-4 py-3 text-right">{Number(r.consumed)} {r.unit}</td>
                     <td className="px-4 py-3 text-right text-clay">{Number(r.wasted)} {r.unit}</td>
                     <td className="px-4 py-3 text-right text-muted">{Number(r.in_stock)} {r.unit}</td>
-                    <td className="px-4 py-3 text-right font-medium">{r.consumption_cost == null ? "—" : inr(r.consumption_cost)}</td>
+                    <td className="px-4 py-3 text-right font-medium">{r.consumption_cost == null ? "—" : money(r.consumption_cost)}</td>
                   </tr>
                 ))}
                 {!consumption?.rows.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">No consumption in this period.</td></tr>}
@@ -329,7 +330,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                   <td className="px-4 py-3 text-muted text-xs">{i.category || "—"}</td>
                   <td className="px-4 py-3 text-right">{Number(i.current_stock)} {i.unit}</td>
                   <td className="px-4 py-3 text-right text-muted">{Number(i.min_stock_level)} / {Number(i.reorder_level)}</td>
-                  <td className="px-4 py-3 text-right">{i.unit_cost == null ? "—" : inr(i.unit_cost)}</td>
+                  <td className="px-4 py-3 text-right">{i.unit_cost == null ? "—" : money(i.unit_cost)}</td>
                   <td className="px-4 py-3 text-muted text-xs">{i.storage_location || "—"}</td>
                   <td className="px-4 py-3 text-muted text-xs">{i.expiry_date ?? "—"}</td>
                   <td className="px-4 py-3">
@@ -529,7 +530,7 @@ function StockCountSheet({ materials, onSaved, q, setQ }: {
                   <td className="px-4 py-2.5 text-right">{Number(i.current_stock)} {i.unit}</td>
                   <td className="px-4 py-2.5 text-right">
                     <input className="input w-24 text-right" inputMode="decimal" value={val}
-                      onChange={(e) => setCounted({ ...counted, [i.id]: e.target.value })} />
+                      onChange={(e) => setCounted({ ...counted, [i.id]: amount(e.target.value) })} />
                   </td>
                   <td className={`px-4 py-2.5 text-right font-medium ${diff == null ? "text-muted" : diff < 0 ? "text-clay" : "text-pine"}`}>
                     {diff == null ? "—" : `${diff > 0 ? "+" : ""}${diff.toFixed(3)} ${i.unit}`}
@@ -643,7 +644,7 @@ function StockActionModal({ kind, ing, onDone, onCancel }: {
           )}
           <input className="input" inputMode="decimal" autoFocus
             placeholder={kind === "count" ? `Counted quantity (${ing.unit})` : kind === "adjust" ? `Qty ± (${ing.unit})` : `Qty (${ing.unit})`}
-            value={qty} onChange={(e) => setQty(e.target.value)} />
+            value={qty} onChange={(e) => setQty(kind === "adjust" ? signedAmount(e.target.value) : amount(e.target.value))} />
           {(kind === "adjust" || kind === "waste") && (
             <input className="input" placeholder={`Reason${kind === "waste" ? " (required)" : ""}`} value={reason} onChange={(e) => setReason(e.target.value)} />
           )}

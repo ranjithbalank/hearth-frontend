@@ -85,11 +85,18 @@ export interface Property {
   logo: string;
   doc_header: string;
   doc_footer: string;
+  doc_header_align: "left" | "center" | "right";
+  doc_footer_align: "left" | "center" | "right";
   currency: string;
   entitlement: Entitlement;
   gst_billing_mode: string;
   zomato_commission_pct: string;
   swiggy_commission_pct: string;
+  invoice_prefix: string;
+  bill_prefix: string;
+  po_prefix: string;
+  grn_prefix: string;
+  beo_prefix: string;
 }
 
 export interface Room {
@@ -157,6 +164,9 @@ export interface Folio {
   /** Room nights that post at check-out — preview so the bill isn't ₹0 pre-audit. */
   pending_charges: { description: string; total: string }[];
   projected_balance: string;
+  /** Registration-card evidence exists (images fetched via /registration/). */
+  has_id_scan: boolean;
+  has_signature: boolean;
 }
 
 export interface Variant {
@@ -231,6 +241,7 @@ export interface Order {
   status_label: string;
   folio: number | null;
   kot_no: string;
+  bill_no: string;
   lines: OrderLine[];
   coupon_code: string | null;
   discount_kind: string;

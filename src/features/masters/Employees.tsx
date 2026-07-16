@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { amount, digits } from "../../lib/inputs";
+import { amount, digits, personName } from "../../lib/inputs";
+import { currencySymbol } from "../../lib/money";
 import type { Branch } from "../../lib/types";
 
 interface Employee {
@@ -13,6 +14,7 @@ interface Employee {
   branch: number | null; branch_name: string | null;
 }
 interface User { username: string; name: string; role: string }
+interface MasterItem { id: number; name: string; active: boolean }
 
 export function Employees() {
   const qc = useQueryClient();
@@ -31,6 +33,15 @@ export function Employees() {
   const { data: branches } = useQuery({
     queryKey: ["branches"],
     queryFn: async () => (await api.get<Branch[]>("/auth/branches/")).data,
+  });
+  // Department & designation options come from Settings > Masters.
+  const { data: departments } = useQuery({
+    queryKey: ["master-departments"],
+    queryFn: async () => (await api.get<MasterItem[]>("/masters/departments/")).data,
+  });
+  const { data: designations } = useQuery({
+    queryKey: ["master-designations"],
+    queryFn: async () => (await api.get<MasterItem[]>("/masters/designations/")).data,
   });
 
   const create = useMutation({
@@ -67,6 +78,8 @@ export function Employees() {
   if (isLoading || !staff) return <Spinner />;
   const userByName = new Map((users ?? []).map((u) => [u.name, u]));
   const showBranch = (branches?.length ?? 0) > 0;
+  const active = (items?: MasterItem[], current = "") =>
+    (items ?? []).filter((i) => i.active || i.name === current);
 
   return (
     <div>
@@ -75,9 +88,15 @@ export function Employees() {
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add employee</div>
         <div className="grid grid-cols-4 gap-2 mb-2">
-          <input className="input" placeholder="Name" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-          <input className="input" placeholder="Department" value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })} />
-          <input className="input" placeholder="Role" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })} />
+          <input className="input" placeholder="Name" value={f.name} onChange={(e) => setF({ ...f, name: personName(e.target.value) })} />
+          <select className="input" value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })}>
+            <option value="">Department…</option>
+            {active(departments).map((d) => <option key={d.id}>{d.name}</option>)}
+          </select>
+          <select className="input" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}>
+            <option value="">Designation…</option>
+            {active(designations).map((d) => <option key={d.id}>{d.name}</option>)}
+          </select>
           <input className="input" placeholder="Phone" value={f.phone} onChange={(e) => setF({ ...f, phone: digits(e.target.value, 15) })} />
           <input className="input" inputMode="decimal" placeholder="Monthly salary" value={f.monthly_salary}
             onChange={(e) => setF({ ...f, monthly_salary: amount(e.target.value) })} />
@@ -116,13 +135,21 @@ export function Employees() {
               return (
                 <tr key={e.id} className="border-t border-line">
                   <td className="px-4 py-3 font-medium">
-                    {editing ? <input className="input py-1 text-xs w-28" value={ef.name} onChange={(v) => setEf({ ...ef, name: v.target.value })} /> : e.name}
+                    {editing ? <input className="input py-1 text-xs w-28" value={ef.name} onChange={(v) => setEf({ ...ef, name: personName(v.target.value) })} /> : e.name}
                   </td>
                   <td className="px-4 py-3">
-                    {editing ? <input className="input py-1 text-xs w-24" value={ef.department} onChange={(v) => setEf({ ...ef, department: v.target.value })} /> : e.department}
+                    {editing ? (
+                      <select className="input py-1 text-xs w-28" value={ef.department} onChange={(v) => setEf({ ...ef, department: v.target.value })}>
+                        {active(departments, ef.department).map((d) => <option key={d.id}>{d.name}</option>)}
+                      </select>
+                    ) : e.department}
                   </td>
                   <td className="px-4 py-3 text-muted">
-                    {editing ? <input className="input py-1 text-xs w-24" value={ef.role} onChange={(v) => setEf({ ...ef, role: v.target.value })} /> : e.role}
+                    {editing ? (
+                      <select className="input py-1 text-xs w-28" value={ef.role} onChange={(v) => setEf({ ...ef, role: v.target.value })}>
+                        {active(designations, ef.role).map((d) => <option key={d.id}>{d.name}</option>)}
+                      </select>
+                    ) : e.role}
                   </td>
                   <td className="px-4 py-3 text-muted">
                     {editing ? (
@@ -133,7 +160,7 @@ export function Employees() {
                     {editing ? (
                       <input className="input py-1 text-xs text-right w-24" inputMode="decimal"
                         value={ef.monthly_salary} onChange={(v) => setEf({ ...ef, monthly_salary: amount(v.target.value) })} />
-                    ) : (Number(e.monthly_salary) ? `₹${Number(e.monthly_salary).toLocaleString("en-IN")}` : "—")}
+                    ) : (Number(e.monthly_salary) ? `${currencySymbol()}${Number(e.monthly_salary).toLocaleString("en-IN")}` : "—")}
                   </td>
                   {showBranch && (
                     <td className="px-4 py-3 text-muted">

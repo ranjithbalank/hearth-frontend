@@ -1,6 +1,7 @@
 /** Print-ready documents (open in a new window, trigger the print dialog).
  *  Used for GST tax invoices (folio) and POS bills/receipts. */
 import { getAccess } from "../../lib/api";
+import { money } from "../../lib/money";
 import type { Folio, Order } from "../../lib/types";
 
 async function downloadPdf(path: string, filename: string) {
@@ -31,9 +32,6 @@ export const downloadBeoPdf = (eventId: number) =>
 export const downloadPayslipPdf = (payslipId: number, employeeName: string, month: string) =>
   downloadPdf(`/api/hr/payslip_pdf/?payslip=${payslipId}`,
     `payslip-${employeeName.replace(/\s+/g, "-")}-${month}.pdf`);
-
-const inr = (v: string | number) =>
-  "₹" + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2 }).format(Number(v) || 0);
 
 /** Escape free text (guest names, order notes, descriptions) before it's
  *  concatenated into an HTML string for document.write() — these print
@@ -75,10 +73,10 @@ const BASE_CSS = `
 export function printInvoice(folio: Folio, propertyName: string, gstin: string) {
   const rows = folio.lines.map((l) => `
     <tr><td>${esc(l.description)}</td>
-        <td class="r">${inr(l.taxable)}</td>
-        <td class="r">${inr(l.cgst)}</td>
-        <td class="r">${inr(l.sgst)}</td>
-        <td class="r">${inr(l.total)}</td></tr>`).join("");
+        <td class="r">${money(l.taxable)}</td>
+        <td class="r">${money(l.cgst)}</td>
+        <td class="r">${money(l.sgst)}</td>
+        <td class="r">${money(l.total)}</td></tr>`).join("");
   const cgst = folio.lines.reduce((s, l) => s + Number(l.cgst), 0);
   const sgst = folio.lines.reduce((s, l) => s + Number(l.sgst), 0);
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${esc(folio.invoice_no || folio.id)}</title>
@@ -96,12 +94,12 @@ export function printInvoice(folio: Folio, propertyName: string, gstin: string) 
       <tbody>${rows || '<tr><td colspan="5">No charges</td></tr>'}</tbody>
     </table>
     <div class="tot">
-      <div><span>Taxable</span><span>${inr(Number(folio.charges_total) - cgst - sgst)}</span></div>
-      <div><span>CGST</span><span>${inr(cgst)}</span></div>
-      <div><span>SGST</span><span>${inr(sgst)}</span></div>
-      <div class="grand"><span>Total</span><span>${inr(folio.charges_total)}</span></div>
-      <div><span>Paid</span><span>${inr(folio.paid_total)}</span></div>
-      <div><span>Balance</span><span>${inr(folio.balance)}</span></div>
+      <div><span>Taxable</span><span>${money(Number(folio.charges_total) - cgst - sgst)}</span></div>
+      <div><span>CGST</span><span>${money(cgst)}</span></div>
+      <div><span>SGST</span><span>${money(sgst)}</span></div>
+      <div class="grand"><span>Total</span><span>${money(folio.charges_total)}</span></div>
+      <div><span>Paid</span><span>${money(folio.paid_total)}</span></div>
+      <div><span>Balance</span><span>${money(folio.balance)}</span></div>
     </div>
     <div class="foot">${esc(propertyName)} · GST-compliant tax invoice · computer-generated, no signature required</div>
   </body></html>`;
@@ -141,7 +139,7 @@ export interface ZReport {
 
 export function printZReport(z: ZReport, propertyName: string) {
   const rows = z.tenders.map((t) =>
-    `<tr><td>${esc(t.tender)}</td><td class="r">${t.count}</td><td class="r">${inr(t.tip)}</td><td class="r">${inr(t.amount)}</td></tr>`).join("");
+    `<tr><td>${esc(t.tender)}</td><td class="r">${t.count}</td><td class="r">${money(t.tip)}</td><td class="r">${money(t.amount)}</td></tr>`).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Day-end Z</title>
   <style>${BASE_CSS} body{width:420px;}</style></head><body>
     <div class="head" style="border-bottom-width:2px;">
@@ -153,8 +151,8 @@ export function printZReport(z: ZReport, propertyName: string) {
       <tbody>${rows || '<tr><td colspan="4">No collections</td></tr>'}</tbody>
     </table>
     <div class="tot" style="width:100%;">
-      <div><span>Total tips</span><span>${inr(z.tips)}</span></div>
-      <div class="grand"><span>Total collected</span><span>${inr(z.total)}</span></div>
+      <div><span>Total tips</span><span>${money(z.tips)}</span></div>
+      <div class="grand"><span>Total collected</span><span>${money(z.total)}</span></div>
     </div>
     <div class="foot">${esc(propertyName)} · cashier reconciliation · count cash against this figure</div>
   </body></html>`;
