@@ -385,7 +385,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             capped for comfortable line lengths. */}
         <div
           className={`mx-auto w-full px-4 md:px-8 py-6 md:py-8 ${
-            ["/pos", "/kds", "/online-orders"].includes(location.pathname)
+            ["/pos", "/kds", "/online-orders", "/reports"].includes(location.pathname)
               || location.pathname.startsWith("/store")
               || location.pathname.startsWith("/recipes")
               || location.pathname === "/inventory"
