@@ -5,10 +5,15 @@ import { useSearchParams } from "react-router-dom";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
 import { currencySymbol, money } from "../../lib/money";
 
-interface PoLine { ingredient: string; qty: string; rate: string; received_qty: string }
-interface Po { id: number; po_no: string; supplier: string; status: string; total: string; lines: PoLine[] }
+interface PoLine { id: number; ingredient: string; qty: string; rate: string; received_qty: string }
+interface Grn { id: number; grn_no: string; has_bill: boolean }
+interface Po {
+  id: number; po_no: string; supplier: string; status: string; total: string;
+  requested_by: string; lines: PoLine[]; grns: Grn[];
+}
 interface SupplierOpt { id: number; name: string }
 interface IngredientOpt {
   id: number; name: string; unit: string; unit_cost: string; below_par: boolean;
@@ -23,8 +28,10 @@ const TONE: Record<string, "info" | "amber" | "pine"> = {
 
 export function Procurement() {
   const qc = useQueryClient();
+  const { user } = useApp();
   const [msg, setMsg] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [showReceived, setShowReceived] = useState(false);
   // Arriving from Low Stock: open the PO form pre-filled with the shortfalls.
   const [params, setParams] = useSearchParams();
   const prefillLow = params.get("prefill") === "low";
@@ -46,10 +53,18 @@ export function Procurement() {
     mutationFn: async (po: Po) => (await api.post(`/purchase-orders/${po.id}/approve/`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pos"] }),
   });
+  const [receiving, setReceiving] = useState<Po | null>(null);
+  const [viewBill, setViewBill] = useState<Grn | null>(null);
   const receive = useMutation({
-    mutationFn: async (po: Po) => (await api.post(`/purchase-orders/${po.id}/receive/`)).data,
-    onSuccess: (_d, po) => {
-      setMsg(`Goods received against ${po.po_no || `PO #${po.id}`} — stock & purchase rates updated`);
+    mutationFn: async ({ po, lines, note, bill }: {
+      po: Po; lines: { line: number; qty: string }[]; note: string; bill: string;
+    }) => (await api.post(`/purchase-orders/${po.id}/receive/`,
+      { lines, note, bill_image: bill })).data as Po,
+    onSuccess: (updated, { po }) => {
+      setReceiving(null);
+      setMsg(updated.status === "received"
+        ? `Goods received against ${po.po_no || `PO #${po.id}`} — stock & purchase rates updated`
+        : `Partial delivery booked against ${po.po_no || `PO #${po.id}`} — the remainder stays outstanding`);
       qc.invalidateQueries({ queryKey: ["pos"] });
       qc.invalidateQueries({ queryKey: ["ingredients"] });
       qc.invalidateQueries({ queryKey: ["ingredients-low"] });
@@ -81,6 +96,13 @@ export function Procurement() {
       />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
+      {receiving && (
+        <ReceiveModal po={receiving} busy={receive.isPending}
+          onConfirm={(lines, note, bill) => receive.mutate({ po: receiving, lines, note, bill })}
+          onCancel={() => setReceiving(null)} />
+      )}
+      {viewBill && <BillModal grn={viewBill} onClose={() => setViewBill(null)} />}
+
       {creating && (
         <NewPoModal
           prefillLow={prefillLow}
@@ -94,36 +116,207 @@ export function Procurement() {
         />
       )}
 
-      <div className="space-y-3">
-        {pos.map((po) => (
-          <Card key={po.id}>
-            <div className="flex items-center gap-3">
-              <div className="font-semibold">{po.po_no || `PO #${po.id}`}</div>
-              <span className="text-sm text-muted">{po.supplier}</span>
-              <Badge tone={TONE[po.status] ?? "muted"}>{po.status}</Badge>
-              <div className="ml-auto font-medium">{money(po.total)}</div>
-              {po.status === "pending" && (
-                <button className="btn-outline" onClick={() => approve.mutate(po)}>Approve</button>
-              )}
-              {po.status === "approved" && (
-                <button className="btn-primary" onClick={() => receive.mutate(po)}>Receive (GRN)</button>
-              )}
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-1 text-sm pl-1">
-              {po.lines.map((l, i) => (
-                <div key={i} className="flex justify-between border-b border-line py-1">
-                  <span>{l.ingredient}</span>
-                  <span className="text-muted">{Number(l.qty)} × {money(l.rate)}</span>
+      {(() => {
+        // Actionable POs first (receive, then approve — newest first inside
+        // each); the received pile stays collapsed so the list is readable.
+        const open = [...pos.filter((p) => p.status !== "received")]
+          .sort((a, b) => (a.status === b.status ? b.id - a.id : a.status === "approved" ? -1 : 1));
+        const received = [...pos.filter((p) => p.status === "received")].sort((a, b) => b.id - a.id);
+        const card = (po: Po) => {
+          const own = po.requested_by === user?.username;
+          return (
+            <Card key={po.id}>
+              <div className="flex items-center gap-3">
+                <div className="font-semibold">{po.po_no || `PO #${po.id}`}</div>
+                <span className="text-sm text-muted">{po.supplier}</span>
+                <Badge tone={TONE[po.status] ?? "muted"}>{po.status}</Badge>
+                {po.requested_by && (
+                  <span className="text-xs text-muted">by {po.requested_by}</span>
+                )}
+                <div className="ml-auto font-medium">{money(po.total)}</div>
+                {po.status === "pending" && (own ? (
+                  <span className="text-xs text-muted italic"
+                    title="You raised this PO — segregation of duties">
+                    awaiting another approver
+                  </span>
+                ) : (
+                  <button className="btn-outline" onClick={() => approve.mutate(po)}>Approve</button>
+                ))}
+                {po.status === "approved" && (
+                  <button className="btn-primary" onClick={() => setReceiving(po)}>Receive (GRN)</button>
+                )}
+              </div>
+              {po.grns?.some((g) => g.has_bill) && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {po.grns.filter((g) => g.has_bill).map((g) => (
+                    <button key={g.id} className="pill bg-hairline text-body text-xs"
+                      title="View the supplier bill photo"
+                      onClick={() => setViewBill(g)}>
+                      🧾 {g.grn_no || `GRN #${g.id}`}
+                    </button>
+                  ))}
                 </div>
-              ))}
+              )}
+              <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-1 text-sm pl-1">
+                {po.lines.map((l, i) => (
+                  <div key={i} className="flex justify-between border-b border-line py-1">
+                    <span>{l.ingredient}</span>
+                    <span className="text-muted">
+                      {Number(l.qty)} × {money(l.rate)}
+                      {Number(l.received_qty) > 0 && Number(l.received_qty) < Number(l.qty) && (
+                        <span className="ml-2 text-amber-600">· {Number(l.received_qty)} received</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          );
+        };
+        return (
+          <div className="space-y-3">
+            {open.map(card)}
+            {!open.length && (
+              <Card><div className="text-sm text-muted text-center py-6">
+                {pos.length ? "Nothing needs action — every PO is received."
+                  : "No purchase orders yet — raise one to bring stock in."}
+              </div></Card>
+            )}
+            {received.length > 0 && (
+              <button className="w-full text-left card p-4 hover:bg-cream flex items-center justify-between"
+                onClick={() => setShowReceived(!showReceived)}>
+                <span className="font-semibold">Received ({received.length})</span>
+                <span className="text-muted text-sm">{showReceived ? "Hide ▲" : "Show ▼"}</span>
+              </button>
+            )}
+            {showReceived && received.map(card)}
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+/** Goods receipt with per-line quantities: defaults to the full outstanding
+ *  amount (the common case), editable down for short deliveries — the PO
+ *  stays open for the remainder and a later GRN closes it. */
+function ReceiveModal({ po, busy, onConfirm, onCancel }: {
+  po: Po; busy: boolean;
+  onConfirm: (lines: { line: number; qty: string }[], note: string, bill: string) => void;
+  onCancel: () => void;
+}) {
+  const toast = useToast();
+  const outstanding = (l: PoLine) => Math.max(Number(l.qty) - Number(l.received_qty), 0);
+  const [qtys, setQtys] = useState<Record<number, string>>(() =>
+    Object.fromEntries(po.lines.map((l) => [l.id, String(outstanding(l))])));
+  const [note, setNote] = useState("");
+  const [bill, setBill] = useState("");
+
+  function pickBill(file: File | undefined) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast("The bill must be a photo/image file", "error");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result ?? "");
+      if (url.length > 800_000) {
+        toast("That photo is too large — retake at a smaller size", "error");
+        return;
+      }
+      setBill(url);
+    };
+    reader.readAsDataURL(file);
+  }
+  const anyShort = po.lines.some((l) => Number(qtys[l.id] || 0) < outstanding(l));
+  const invalid = po.lines.some((l) => {
+    const q = Number(qtys[l.id]);
+    return Number.isNaN(q) || q < 0 || q > outstanding(l);
+  });
+  const nothing = po.lines.every((l) => Number(qtys[l.id] || 0) === 0);
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
+      <div className="card p-5 w-[520px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-1">
+          Receive goods — {po.po_no || `PO #${po.id}`}
+        </div>
+        <div className="text-sm text-muted mb-4">
+          Enter what actually arrived. Anything short stays outstanding on the PO.
+        </div>
+        <div className="grid grid-cols-[1fr_110px_110px] gap-2 text-xs text-muted uppercase tracking-wide mb-1 px-1">
+          <span>Material</span><span className="text-right">Outstanding</span><span>Received</span>
+        </div>
+        <div className="space-y-2">
+          {po.lines.map((l) => (
+            <div key={l.id} className="grid grid-cols-[1fr_110px_110px] gap-2 items-center">
+              <span className="text-sm">{l.ingredient}</span>
+              <span className="text-sm text-muted text-right">{outstanding(l)}</span>
+              <input className="input" inputMode="decimal" value={qtys[l.id] ?? ""}
+                disabled={outstanding(l) === 0}
+                onChange={(e) => setQtys({ ...qtys, [l.id]: e.target.value })} />
             </div>
-          </Card>
-        ))}
-        {!pos.length && (
-          <Card><div className="text-sm text-muted text-center py-6">
-            No purchase orders yet — raise one to bring stock in.
-          </div></Card>
-        )}
+          ))}
+        </div>
+        <input className="input mt-3" placeholder="Note (optional — e.g. 2 kg rejected, damaged)"
+          value={note} onChange={(e) => setNote(e.target.value)} />
+
+        {/* Photo of the supplier's bill/challan, stored on the GRN */}
+        <div className="mt-3 flex items-center gap-3">
+          <label className="btn-outline text-xs cursor-pointer">
+            {bill ? "Retake bill photo" : "📷 Attach bill photo"}
+            <input type="file" accept="image/*" capture="environment" className="hidden"
+              onChange={(e) => pickBill(e.target.files?.[0])} />
+          </label>
+          {bill && (
+            <>
+              <img src={bill} alt="Supplier bill"
+                className="h-12 rounded border border-hairline object-cover" />
+              <button className="btn-ghost text-xs text-clay" onClick={() => setBill("")}>Remove</button>
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 mt-4">
+          {anyShort && !invalid && !nothing && (
+            <span className="text-xs text-amber-600">Partial delivery — PO stays open</span>
+          )}
+          <div className="flex-1" />
+          <button className="btn-ghost" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary" disabled={busy || invalid || nothing}
+            onClick={() => onConfirm(
+              po.lines.filter((l) => outstanding(l) > 0)
+                .map((l) => ({ line: l.id, qty: qtys[l.id] || "0" })),
+              note, bill)}>
+            Book receipt
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** The supplier-bill photo attached at receipt, fetched on demand. */
+function BillModal({ grn, onClose }: { grn: Grn; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["grn-bill", grn.id],
+    queryFn: async () =>
+      (await api.get<{ grn_no: string; bill_image: string }>(`/goods-receipts/${grn.id}/bill/`)).data,
+  });
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[560px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-3">
+          Supplier bill — {grn.grn_no || `GRN #${grn.id}`}
+        </div>
+        {isLoading || !data
+          ? <Spinner />
+          : <img src={data.bill_image} alt="Supplier bill"
+              className="w-full rounded-card border border-hairline" />}
+        <div className="text-right mt-4">
+          <button className="btn-outline" onClick={onClose}>Close</button>
+        </div>
       </div>
     </div>
   );
