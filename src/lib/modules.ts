@@ -91,7 +91,19 @@ export const NAV: NavGroup[] = [
       { key: "execdashboard", label: "Executive Overview", path: "/executive" },
       { key: "reports", label: "Reports", path: "/reports" },
       { key: "notifications", label: "Notifications", path: "/notifications" },
+    ],
+  },
+  // Requests & approvals — the request/sign-off desk, together in one place:
+  // raise an indent or a leave application, and (for approver roles) the
+  // inbox where POs, indents, Chef's dishes and leave all await sign-off.
+  {
+    title: "Requests & approvals",
+    color: "#818CF8",
+    zone: ZONE_OPS,
+    items: [
       { key: "approvals", label: "Approvals", path: "/approvals" },
+      { key: "matreq", label: "Material Requests", path: "/material-requests" },
+      { key: "leave", label: "Leave", path: "/leave" },
     ],
   },
   {
@@ -153,7 +165,6 @@ export const NAV: NavGroup[] = [
     color: "#7DD3FC",
     zone: ZONE_FNB,
     items: [
-      { key: "matreq", label: "Material Requests", path: "/material-requests" },
       { key: "procurement", label: "Procurement", path: "/procurement" },
       { key: "pomanage", label: "Purchase Orders", path: "/masters/purchase-orders" },
       { key: "suppliers", label: "Suppliers", path: "/masters/suppliers" },
@@ -179,7 +190,6 @@ export const NAV: NavGroup[] = [
     zone: ZONE_BACK_OFFICE,
     items: [
       { key: "hr", label: "HR & Staff", path: "/hr" },
-      { key: "leave", label: "Leave", path: "/leave" },
       { key: "employees", label: "Employees", path: "/masters/employees" },
     ],
   },
