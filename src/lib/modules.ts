@@ -93,9 +93,10 @@ export const NAV: NavGroup[] = [
       { key: "notifications", label: "Notifications", path: "/notifications" },
     ],
   },
-  // Requests & approvals — the request/sign-off desk, together in one place:
-  // raise an indent or a leave application, and (for approver roles) the
+  // Requests & approvals — raise an indent, and (for approver roles) the
   // inbox where POs, indents, Chef's dishes and leave all await sign-off.
+  // Leave APPLICATIONS stay on the HR side (the Leave screen below); only
+  // the approval step surfaces here, and only to authorized approvers.
   {
     title: "Requests & approvals",
     color: "#818CF8",
@@ -103,7 +104,6 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "approvals", label: "Approvals", path: "/approvals" },
       { key: "matreq", label: "Material Requests", path: "/material-requests" },
-      { key: "leave", label: "Leave", path: "/leave" },
     ],
   },
   {
@@ -190,6 +190,7 @@ export const NAV: NavGroup[] = [
     zone: ZONE_BACK_OFFICE,
     items: [
       { key: "hr", label: "HR & Staff", path: "/hr" },
+      { key: "leave", label: "Leave", path: "/leave" },
       { key: "employees", label: "Employees", path: "/masters/employees" },
     ],
   },
