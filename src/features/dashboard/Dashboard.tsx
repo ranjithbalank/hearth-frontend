@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
+import { LineChart } from "../../design/LineChart";
 import { NavIcon } from "../../design/NavIcon";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
@@ -14,6 +15,7 @@ interface DashboardData {
   rooms?: { occupancy_pct: number; adr: number; revpar: number; occupied: number; rooms_total: number; room_revenue: string; available: number; dirty: number; ooo: number };
   fnb?: { fnb_sales: string; order_count: number; by_mode: Record<string, string> };
   receivables?: { total: string; corporate: string; corporate_accounts: number };
+  trend?: { days: string[]; rooms?: number[]; fnb?: number[] };
 }
 
 // Whoever can sign off a Chef-proposed dish gets a standing reminder here —
@@ -148,6 +150,75 @@ export function Dashboard() {
   );
 }
 
+interface TrendData { days: string[]; rooms?: number[]; fnb?: number[]; banquets?: number[] }
+
+const TREND_RANGES = [
+  { key: "14", label: "14 days" },
+  { key: "90", label: "3 mo" },
+  { key: "180", label: "6 mo" },
+  { key: "365", label: "1 yr" },
+];
+
+/** Revenue trend with its own range picker — presets or a custom window.
+ *  Series follow role/entitlement scoping server-side. */
+function RevenueTrendCard() {
+  const [range, setRange] = useState("14");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const custom = range === "custom";
+  const qs = custom
+    ? `${from ? `&from=${from}` : ""}${to ? `&to=${to}` : ""}`
+    : `&trend_days=${range}`;
+  const { data: trend } = useQuery({
+    queryKey: ["revenue-trend", custom ? `${from}|${to}` : range],
+    queryFn: async () =>
+      (await api.get<TrendData>(`/reports/revenue-trend/?_=1${qs}`)).data,
+  });
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="font-semibold">Revenue trend</div>
+        <div className="flex flex-wrap items-center gap-1">
+          {TREND_RANGES.map((r) => (
+            <button key={r.key} onClick={() => setRange(r.key)}
+              className={`pill text-xs px-2.5 py-0.5 ${
+                range === r.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              {r.label}
+            </button>
+          ))}
+          <button onClick={() => setRange("custom")}
+            className={`pill text-xs px-2.5 py-0.5 ${
+              custom ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            Custom
+          </button>
+        </div>
+      </div>
+      {custom && (
+        <div className="flex items-center gap-2 mb-3">
+          <input type="date" value={from} max={to || undefined}
+            onChange={(e) => setFrom(e.target.value)}
+            className="input py-1 text-xs w-36" aria-label="Trend from date" />
+          <span className="text-xs text-muted">to</span>
+          <input type="date" value={to} min={from || undefined}
+            onChange={(e) => setTo(e.target.value)}
+            className="input py-1 text-xs w-36" aria-label="Trend to date" />
+        </div>
+      )}
+      {trend ? (
+        <LineChart
+          days={trend.days}
+          series={[
+            ...(trend.rooms ? [{ name: "Rooms", color: "#2563EB", values: trend.rooms }] : []),
+            ...(trend.fnb ? [{ name: "F&B", color: "#DC2626", values: trend.fnb }] : []),
+            ...(trend.banquets ? [{ name: "Banquets", color: "#D97706", values: trend.banquets }] : []),
+          ]}
+        />
+      ) : <Spinner />}
+    </Card>
+  );
+}
+
 function ProportionRow({ label, display, pct, fill }: { label: string; display: string; pct: number; fill: string }) {
   return (
     <div>
@@ -185,6 +256,7 @@ function AnalyticalView({ data }: { data: DashboardData }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4 items-start">
+        <RevenueTrendCard />
         {rooms && roomsTotal > 0 && (
           <Card>
             <div className="font-semibold mb-4">Room status mix</div>

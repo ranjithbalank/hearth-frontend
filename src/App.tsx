@@ -35,6 +35,7 @@ import { Kds } from "./features/kds/Kds";
 import { Leave } from "./features/leave/Leave";
 import { MaterialRequests } from "./features/matreq/MaterialRequests";
 import { Notifications } from "./features/notifications/Notifications";
+import { Approvals } from "./features/approvals/Approvals";
 import { OnlineOrders } from "./features/online/OnlineOrders";
 import { Procurement } from "./features/procurement/Procurement";
 import { NewRecipe } from "./features/recipes/NewRecipe";
@@ -106,6 +107,7 @@ export default function App() {
         <Route path="/booking" element={<RequireAccess module="booking"><Booking /></RequireAccess>} />
         <Route path="/crm" element={<RequireAccess module="crm"><Crm /></RequireAccess>} />
         <Route path="/notifications" element={<RequireAccess module="notifications"><Notifications /></RequireAccess>} />
+        <Route path="/approvals" element={<RequireAccess module="approvals"><Approvals /></RequireAccess>} />
         <Route path="/pos" element={<RequireAccess module="pos"><Pos /></RequireAccess>} />
         <Route path="/tokens" element={<RequireAccess module="pos"><TokenBoard /></RequireAccess>} />
         <Route path="/reconciliation" element={<RequireAccess module="pos"><Reconciliation /></RequireAccess>} />

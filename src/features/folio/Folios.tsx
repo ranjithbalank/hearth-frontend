@@ -8,7 +8,7 @@ import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { money, num } from "../../lib/money";
-import type { Folio } from "../../lib/types";
+import type { Folio, FolioLine } from "../../lib/types";
 import { downloadInvoicePdf, printInvoice } from "../print/documents";
 
 const TENDERS = ["Cash", "Card", "UPI", "BTC"];
@@ -62,6 +62,7 @@ export function Folios() {
   const [tender, setTender] = useState("Card");
   const [q, setQ] = useState("");
   const [showReg, setShowReg] = useState(false);
+  const [moveLine, setMoveLine] = useState<FolioLine | null>(null);
 
   const { data: folios, isLoading } = useQuery({
     queryKey: ["folios"],
@@ -101,6 +102,20 @@ export function Folios() {
     mutationFn: async (id: number) => (await api.post(`/folios/${id}/email_invoice/`)).data,
     onSuccess: (d: { channel: string; to: string }) => toast(`Invoice sent via ${d.channel} to ${d.to}`),
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not send", "error"),
+  });
+
+  // F&B/incidental charges can move to another open folio (companion's
+  // dinner on the wrong room, split bills). Room nights and tax stay put.
+  const transfer = useMutation({
+    mutationFn: async ({ line, to }: { line: number; to: number }) =>
+      (await api.post(`/folios/${selId}/transfer_charge/`, { line, to_folio: to })).data as
+        { moved: number; to_folio: number; to_guest: string },
+    onSuccess: (d) => {
+      setMoveLine(null);
+      qc.invalidateQueries({ queryKey: ["folios"] });
+      toast(`Charge moved to ${d.to_guest}'s folio`);
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not move charge", "error"),
   });
 
   // Room bill with or without GST (BRD 5.23): switching recomputes the lines.
@@ -213,6 +228,35 @@ export function Folios() {
               </div>
             </div>
             {showReg && <RegistrationModal folioId={sel.id} onClose={() => setShowReg(false)} />}
+            {moveLine && (
+              <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50"
+                onClick={() => setMoveLine(null)}>
+                <div className="card p-5 w-[440px] max-h-[80vh] overflow-y-auto"
+                  onClick={(e) => e.stopPropagation()}>
+                  <div className="font-display text-xl mb-1">Move charge</div>
+                  <div className="text-sm text-muted mb-4">
+                    {moveLine.description} · {money(moveLine.total)} — pick the folio it belongs on.
+                  </div>
+                  <div className="space-y-2">
+                    {folios.filter((f) => f.status === "open" && f.id !== sel.id).map((f) => (
+                      <button key={f.id}
+                        className="card p-3 w-full text-left hover:bg-cream flex justify-between items-center"
+                        disabled={transfer.isPending}
+                        onClick={() => transfer.mutate({ line: moveLine.id, to: f.id })}>
+                        <span>
+                          <span className="font-medium">{f.guest_name}</span>
+                          <span className="text-muted text-sm"> · Room {f.room_number ?? "—"}</span>
+                        </span>
+                        <span className="text-sm text-muted">{money(f.balance)}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-right mt-4">
+                    <button className="btn-outline" onClick={() => setMoveLine(null)}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <table className="w-full text-sm mb-4">
               <thead className="text-muted text-xs uppercase">
@@ -224,14 +268,29 @@ export function Folios() {
                 </tr>
               </thead>
               <tbody>
-                {sel.lines.map((l) => (
-                  <tr key={l.id} className="border-t border-line">
-                    <td className="py-2">{l.description}</td>
-                    <td className="py-2 text-right">{money(l.taxable)}</td>
-                    <td className="py-2 text-right">{money(num(l.cgst) + num(l.sgst))}</td>
-                    <td className="py-2 text-right font-medium">{money(l.total)}</td>
-                  </tr>
-                ))}
+                {sel.lines.map((l) => {
+                  const movable = sel.status === "open"
+                    && l.kind !== "room" && l.kind !== "tax"
+                    && folios.some((f) => f.status === "open" && f.id !== sel.id);
+                  return (
+                    <tr key={l.id} className="border-t border-line group">
+                      <td className="py-2">
+                        {l.description}
+                        {movable && (
+                          <button
+                            className="ml-2 text-xs text-muted underline opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Move this charge to another open folio"
+                            onClick={() => setMoveLine(l)}>
+                            Move
+                          </button>
+                        )}
+                      </td>
+                      <td className="py-2 text-right">{money(l.taxable)}</td>
+                      <td className="py-2 text-right">{money(num(l.cgst) + num(l.sgst))}</td>
+                      <td className="py-2 text-right font-medium">{money(l.total)}</td>
+                    </tr>
+                  );
+                })}
                 {sel.pending_charges?.map((c) => (
                   <tr key={c.description} className="border-t border-line text-muted">
                     <td className="py-2">{c.description}</td>

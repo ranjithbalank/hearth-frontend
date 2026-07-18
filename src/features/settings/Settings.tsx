@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { useToast } from "../../design/Toast";
@@ -699,7 +700,14 @@ type SectionKey = (typeof SECTIONS)[number]["key"];
 export function Settings() {
   const { property, refreshProperty } = useApp();
   const [saving, setSaving] = useState<string | null>(null);
-  const [section, setSection] = useState<SectionKey>("property");
+  // ?section= deep-links straight to a panel (e.g. the audit alert
+  // sends /settings?section=audit).
+  const [params] = useSearchParams();
+  const [section, setSection] = useState<SectionKey>(() => {
+    const requested = params.get("section");
+    return SECTIONS.some((s) => s.key === requested)
+      ? (requested as SectionKey) : "property";
+  });
   const hasBar = !!property?.entitlement.restaurant;
   const visibleSections = SECTIONS.filter((s) => (s.key !== "barmode" && s.key !== "commission") || hasBar);
   const activeSection = (section === "barmode" || section === "commission") && !hasBar ? "property" : section;

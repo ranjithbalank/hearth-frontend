@@ -91,6 +91,7 @@ export const NAV: NavGroup[] = [
       { key: "execdashboard", label: "Executive Overview", path: "/executive" },
       { key: "reports", label: "Reports", path: "/reports" },
       { key: "notifications", label: "Notifications", path: "/notifications" },
+      { key: "approvals", label: "Approvals", path: "/approvals" },
     ],
   },
   {
