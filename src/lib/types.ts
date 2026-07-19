@@ -103,6 +103,7 @@ export interface Room {
   id: number;
   number: string;
   branch: string;
+  location_name?: string | null;
   room_type_name: string;
   room_type_code: string;
   floor: number;
