@@ -18,6 +18,27 @@ interface ReadyKot { kot: number; kot_no: string; order: number; table: string; 
 
 const TENDER_LABELS: Record<string, string> = { UPI: "UPI", Gateway: "Card (gateway)" };
 
+// Same elapsed-time urgency scheme as the restaurant floor: how long a table
+// has been running, not just whether it is.
+const TABLE_AMBER_MIN = 30;
+const TABLE_RED_MIN = 45;
+type Urgency = "on-track" | "approaching" | "delayed";
+function tableMinutes(checks: Order[]): number {
+  const oldest = Math.min(...checks.map((o) => new Date(o.created_at).getTime()));
+  return Math.max(0, Math.floor((Date.now() - oldest) / 60000));
+}
+function tableUrgency(checks: Order[]): Urgency | null {
+  if (!checks.length) return null;
+  const mins = tableMinutes(checks);
+  return mins >= TABLE_RED_MIN ? "delayed" : mins >= TABLE_AMBER_MIN ? "approaching" : "on-track";
+}
+const URGENCY_BORDER: Record<Urgency, string> = {
+  "on-track": "border-l-pine", approaching: "border-l-amber", delayed: "border-l-clay",
+};
+const URGENCY_BADGE: Record<Urgency, string> = {
+  "on-track": "bg-pine text-white", approaching: "bg-amber text-white", delayed: "bg-clay text-white",
+};
+
 /** The bar's own POS — separate operation from the restaurant floor. A tab
  *  can include kitchen-made side dishes (they still fire a KOT to the shared
  *  kitchen display), but everything settles on the bar's own bill. */
@@ -181,24 +202,73 @@ export function BarPos() {
           ) : undefined}
         />
         {readyStrip}
-        <div className="grid grid-cols-6 gap-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs uppercase tracking-wide text-muted">Bar tables</div>
+          <div className="flex items-center gap-4 text-xs text-muted">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-clay" />Delayed</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber" />Approaching limit</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-pine" />On track</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-hairline" />Free</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
           {tables?.map((t) => {
-            const running = ordersByTable.get(t.id) ?? [];
+            const checks = ordersByTable.get(t.id) ?? [];
+            const urgency = tableUrgency(checks);
+            const mins = checks.length ? tableMinutes(checks) : 0;
             return (
-              <button key={t.id} onClick={() => openTable(t, running[0]?.id ?? null)}
-                className="card p-4 text-left hover:bg-cream">
-                <div className="font-semibold flex items-center gap-1">
-                  {running.length > 0 && <span className="text-clay">●</span>}
-                  {t.name}
+              <div
+                key={t.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openTable(t, checks[0]?.id ?? null)}
+                onKeyDown={(e) => e.key === "Enter" && openTable(t, checks[0]?.id ?? null)}
+                className={`rounded-card border p-3 cursor-pointer transition-colors ${
+                  urgency
+                    ? `bg-surface border-hairline border-l-4 ${URGENCY_BORDER[urgency]}`
+                    : "bg-cream hover:bg-hairline/40 border-hairline"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-1">
+                  <div>
+                    <div className="font-display text-lg">{t.name}</div>
+                    <div className="text-xs text-muted mt-0.5">{t.seats} seats</div>
+                  </div>
+                  {urgency && (
+                    <span className={`shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-semibold tabular-nums ${URGENCY_BADGE[urgency]}`}>
+                      {mins > 99 ? "99m+" : `${mins}m`}
+                    </span>
+                  )}
                 </div>
-                <div className="text-xs text-muted mt-1">{t.seats} seats</div>
-                {running.length > 0 && (
-                  <div className="text-xs text-pine mt-1">{running.length} open tab(s)</div>
+                {checks.length ? (
+                  <div className="mt-2 space-y-1">
+                    {checks.map((o, ix) => (
+                      <button
+                        key={o.id}
+                        className="w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 bg-cream hover:bg-hairline"
+                        onClick={(e) => { e.stopPropagation(); openTable(t, o.id); }}
+                      >
+                        <span>Tab {ix + 1}{o.status === "billed" ? " 🧾" : ""}</span>
+                        <span>{money(o.totals.total)}</span>
+                      </button>
+                    ))}
+                    <button
+                      className="w-full rounded-lg px-2 py-1 text-xs text-left bg-surface border border-dashed border-hairline hover:bg-cream text-muted"
+                      title="Another party at this table — separate tab"
+                      onClick={(e) => { e.stopPropagation(); openTable(t, null); }}
+                    >
+                      ＋ Tab
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-2 w-full rounded-lg px-2 py-1.5 text-xs text-center bg-surface border border-dashed border-hairline text-muted">
+                    ＋ Tab
+                  </div>
                 )}
-              </button>
+              </div>
             );
           })}
-          {!tables?.length && <div className="text-sm text-muted">No bar tables set up yet.</div>}
+          {!tables?.length && <div className="col-span-full text-sm text-muted py-8 text-center">No bar tables set up yet.</div>}
         </div>
       </div>
     );
@@ -235,10 +305,14 @@ export function BarPos() {
       {readyStrip}
       <div className="grid grid-cols-[1fr_360px] gap-4">
         <div>
-          <div className="flex gap-2 mb-3 flex-wrap">
-            <button onClick={() => setCat(null)} className={`pill ${!cat ? "bg-ink text-white" : "bg-hairline text-body"}`}>All</button>
+          <div className="flex flex-wrap gap-1 rounded-pill bg-hairline p-1 mb-3">
+            <button onClick={() => setCat(null)}
+              className={`pill ${!cat ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+              All
+            </button>
             {cats2.map((c) => (
-              <button key={c.id} onClick={() => setCat(c.id)} className={`pill ${cat === c.id ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              <button key={c.id} onClick={() => setCat(c.id)}
+                className={`pill ${cat === c.id ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
                 {c.name}
               </button>
             ))}
