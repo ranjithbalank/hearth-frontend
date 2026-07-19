@@ -135,14 +135,28 @@ export function Crm() {
         </Card>
       )}
 
-      <div className="flex items-center gap-2 mb-4">
-        {TABS.map(([k, label]) => (
-          <button key={k} onClick={() => setFilter(k)}
-            className={`pill ${filter === k ? "bg-ink text-white" : "bg-hairline text-body"}`}>
-            {label}{k === "due" && dueCount > 0 ? ` (${dueCount})` : ""}
-          </button>
-        ))}
-        <input className="input w-64 ml-auto py-1.5 text-sm" placeholder="Search name, mobile or GSTIN…"
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex gap-1 rounded-pill bg-hairline p-1">
+          {TABS.map(([k, label]) => {
+            const active = filter === k;
+            const n = k === "all" ? data.length
+              : k === "due" ? dueCount : data.length - dueCount;
+            return (
+              <button key={k} onClick={() => setFilter(k)}
+                className={`pill flex items-center gap-1.5 ${
+                  active ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+                {label}
+                <span className={`inline-flex items-center justify-center min-w-[1.4em] h-[1.5em]
+                  px-1 rounded-full text-[10px] font-semibold tabular-nums ${
+                  active ? "bg-white/25 text-white" : "bg-white text-muted"}`}>
+                  {n}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <input className="input w-64 ml-auto py-1.5 text-sm !rounded-pill"
+          placeholder="Search name, mobile or GSTIN…"
           value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
