@@ -295,9 +295,11 @@ function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-muted mb-1">Covers (guests)</label>
+            <label className="block text-xs font-semibold text-muted mb-1">Expected customers</label>
             <input className="input" inputMode="numeric" value={f.covers} onChange={(e) => set("covers", digits(e.target.value, 5))} />
-            {space && Number(f.covers) > space.capacity && <div className="text-xs text-clay mt-1">Exceeds {space.capacity} capacity</div>}
+            {space && Number(f.covers) > space.capacity && (
+              <div className="text-xs text-muted mt-1">Above {space.name}'s seated capacity of {space.capacity} — fine for standing/cocktail-style</div>
+            )}
           </div>
         </div>
 
@@ -374,7 +376,7 @@ function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
         <div className="flex gap-2 mt-5">
           <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
           <button className="btn-primary flex-1"
-            disabled={!f.title || !f.space || save.isPending || (!!space && Number(f.covers) > space.capacity)}
+            disabled={!f.title || !f.space || save.isPending}
             onClick={() => save.mutate()}>
             {event ? "Save changes" : "Book event (tentative)"}
           </button>
