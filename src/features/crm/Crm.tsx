@@ -10,6 +10,7 @@ import { money } from "../../lib/money";
 interface Customer {
   id: number; name: string; mobile: string; type_label: string; customer_type: string;
   gstin: string; outstanding: string; loyalty_points: number; btc_enabled: boolean;
+  stay_count: number; order_count: number;
 }
 
 interface FeedbackSummary {
@@ -29,6 +30,7 @@ export function Crm() {
   const [msg, setMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "due" | "settled">("all");
   const [q, setQ] = useState("");
+  const [side, setSide] = useState<"all" | "hotel" | "restaurant" | "new">("all");
   const [profileOf, setProfileOf] = useState<Customer | null>(null);
   const [showCampaign, setShowCampaign] = useState(false);
   const { data, isLoading } = useQuery({
@@ -80,8 +82,16 @@ export function Crm() {
   const outstanding = data.reduce((s, c) => s + Number(c.outstanding), 0);
   const dueCount = data.filter((c) => Number(c.outstanding) > 0).length;
   const needle = q.trim().toLowerCase();
+  // Which side of the house the customer belongs to: stays/BTC folios =
+  // hotel, POS orders = restaurant; a diner who also stays matches both.
+  const sideMatch = (c: Customer) =>
+    side === "all" ? true
+      : side === "hotel" ? c.stay_count > 0
+        : side === "restaurant" ? c.order_count > 0
+          : c.stay_count === 0 && c.order_count === 0;
   const rows = data.filter((c) =>
     (filter === "all" ? true : filter === "due" ? Number(c.outstanding) > 0 : Number(c.outstanding) === 0)
+    && sideMatch(c)
     && (!needle || c.name.toLowerCase().includes(needle)
       || c.mobile.includes(needle) || (c.gstin ?? "").toLowerCase().includes(needle)));
   const TABS: [typeof filter, string][] = [["all", "All"], ["due", "To receive"], ["settled", "Settled"]];
@@ -155,6 +165,13 @@ export function Crm() {
             );
           })}
         </div>
+        <select className="input py-1.5 text-sm w-44 !rounded-pill" value={side}
+          onChange={(e) => setSide(e.target.value as typeof side)} aria-label="Side of house">
+          <option value="all">Hotel + restaurant</option>
+          <option value="hotel">🏨 Hotel guests ({data.filter((c) => c.stay_count > 0).length})</option>
+          <option value="restaurant">🍽 Diners ({data.filter((c) => c.order_count > 0).length})</option>
+          <option value="new">No activity yet</option>
+        </select>
         <input className="input w-64 ml-auto py-1.5 text-sm !rounded-pill"
           placeholder="Search name, mobile or GSTIN…"
           value={q} onChange={(e) => setQ(e.target.value)} />

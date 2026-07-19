@@ -49,6 +49,26 @@ const SHIFT_TONE: Record<string, string> = {
   N: "bg-info-50 text-info",
   O: "bg-hairline text-muted",
 };
+// Same hotel/restaurant split the approval routing uses (DEPARTMENT_APPROVERS):
+// kitchen & bar staff report up the restaurant side, rooms departments up the
+// hotel side; admin/accounts/security serve both.
+const RESTAURANT_DEPTS = ["kitchen", "bar", "restaurant", "service", "steward", "f&b", "fnb"];
+const HOTEL_DEPTS = ["housekeep", "front office", "front desk", "reservation", "banquet",
+  "maintenance", "laundry", "concierge", "room", "bell", "spa"];
+type Side = "all" | "hotel" | "restaurant" | "shared";
+function sideOfDept(department: string): Exclude<Side, "all"> {
+  const d = department.toLowerCase();
+  if (RESTAURANT_DEPTS.some((k) => d.includes(k))) return "restaurant";
+  if (HOTEL_DEPTS.some((k) => d.includes(k))) return "hotel";
+  return "shared";
+}
+const SIDE_TABS: { key: Side; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "hotel", label: "🏨 Hotel" },
+  { key: "restaurant", label: "🍽 Restaurant" },
+  { key: "shared", label: "Shared" },
+];
+
 const MARKS = [
   ["present", "P", "bg-pine text-white"],
   ["half", "½", "bg-amber-400 text-white"],
@@ -69,6 +89,7 @@ export function Hr() {
   const { user } = useApp();
   const canManagePayroll = PAYROLL_MANAGERS.has(user?.role ?? "");
   const [tab, setTab] = useState<"roster" | "attendance" | "payroll" | "advances">("roster");
+  const [side, setSide] = useState<Side>("all");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [editing, setEditing] = useState<Employee | null>(null);
@@ -102,16 +123,37 @@ export function Hr() {
 
   if (isLoading || !data) return <Spinner />;
 
+  const staff = side === "all" ? data : data.filter((e) => sideOfDept(e.department) === side);
+
   return (
     <div>
       <PageHeader title="HR & Staff" subtitle="Roster · attendance · payroll & salary" />
-      <div className="flex gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
         {(["roster", "attendance", "payroll", "advances"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`pill capitalize ${tab === t ? "bg-ink text-white" : "bg-hairline text-body"}`}>
             {t}
           </button>
         ))}
+        {(tab === "roster" || tab === "attendance") && (
+          <div className="flex gap-1 rounded-pill bg-hairline p-1 ml-auto">
+            {SIDE_TABS.map(({ key, label }) => {
+              const n = key === "all" ? data.length : data.filter((e) => sideOfDept(e.department) === key).length;
+              const active = side === key;
+              return (
+                <button key={key} onClick={() => setSide(key)}
+                  className={`px-3 py-1 rounded-pill text-sm inline-flex items-center gap-1.5 transition-colors ${
+                    active ? "bg-ink text-white shadow-sm" : "text-body hover:bg-white/60"}`}>
+                  {label}
+                  <span className={`min-w-[1.4em] h-[1.5em] px-1 inline-flex items-center justify-center rounded-full text-[10px] tabular-nums ${
+                    active ? "bg-white/25 text-white" : "bg-white text-muted"}`}>
+                    {n}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {tab === "roster" && overview && (
@@ -161,7 +203,7 @@ export function Hr() {
               </tr>
             </thead>
             <tbody>
-              {data.map((e) => (
+              {staff.map((e) => (
                 <tr key={e.id} className={`border-t border-line ${e.status !== "Active" ? "opacity-50" : ""}`}>
                   <td className="py-2 pr-4">
                     <div className="font-medium">{e.name}</div>
@@ -214,7 +256,7 @@ export function Hr() {
           <Card className="p-0 overflow-hidden">
             <table className="w-full text-sm">
               <tbody>
-                {data.filter((e) => e.status === "Active").map((e) => {
+                {staff.filter((e) => e.status === "Active").map((e) => {
                   const current = att?.marks[String(e.id)];
                   return (
                     <tr key={e.id} className="border-t border-line first:border-0">
