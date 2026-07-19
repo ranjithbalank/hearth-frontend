@@ -100,30 +100,42 @@ export function Reservations() {
         />
       )}
 
-      {/* Filters: status pills (with live counts) + room type + source */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        {STATUS_FILTERS.map((s) => (
-          <button key={s.key} onClick={() => setStatus(s.key)}
-            className={`pill text-xs ${status === s.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
-            {s.label} <span className={status === s.key ? "opacity-70" : "text-muted"}>{countOf(s.key)}</span>
-          </button>
-        ))}
-        <select className="input py-1 text-xs w-44" value={rtype}
+      {/* Filters: a segmented status control (live counts) + type/source */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="flex gap-1 rounded-pill bg-hairline p-1">
+          {STATUS_FILTERS.map((s) => {
+            const active = status === s.key;
+            const n = countOf(s.key);
+            return (
+              <button key={s.key} onClick={() => setStatus(s.key)}
+                className={`pill flex items-center gap-1.5 ${
+                  active ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+                {s.label}
+                <span className={`inline-flex items-center justify-center min-w-[1.4em] h-[1.5em]
+                  px-1 rounded-full text-[10px] font-semibold tabular-nums ${
+                  active ? "bg-white/25 text-white" : "bg-white text-muted"}`}>
+                  {n}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <select className="input py-1.5 text-xs w-44 !rounded-pill" value={rtype}
           onChange={(e) => setRtype(e.target.value)} aria-label="Room type filter">
           <option value="all">All room types</option>
           {roomTypes.map(([code, name]) => (
             <option key={code} value={code}>{name || code} ({code})</option>
           ))}
         </select>
-        <select className="input py-1 text-xs w-40" value={source}
+        <select className="input py-1.5 text-xs w-40 !rounded-pill" value={source}
           onChange={(e) => setSource(e.target.value)} aria-label="Source filter">
           <option value="all">All sources</option>
           {sources.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
         </select>
         {(status !== "all" || rtype !== "all" || source !== "all") && (
-          <button className="btn-ghost text-xs py-1"
+          <button className="btn-ghost text-xs py-1 text-clay"
             onClick={() => { setStatus("all"); setRtype("all"); setSource("all"); }}>
-            Clear filters
+            ✕ Clear
           </button>
         )}
       </div>
