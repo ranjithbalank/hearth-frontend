@@ -250,6 +250,7 @@ export interface Order {
   folio: number | null;
   kot_no: string;
   bill_no: string;
+  created_at: string;
   lines: OrderLine[];
   coupon_code: string | null;
   discount_kind: string;

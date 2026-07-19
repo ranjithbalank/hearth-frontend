@@ -37,6 +37,27 @@ interface TableRes {
 
 const TENDER_LABELS: Record<string, string> = { Cash: "Cash", UPI: "UPI", Gateway: "Card (gateway)" };
 
+// Floor-view urgency: how long a table has been running, not just whether it
+// is. Measured from the oldest open bill at that table (created_at).
+const TABLE_AMBER_MIN = 30;
+const TABLE_RED_MIN = 45;
+type Urgency = "on-track" | "approaching" | "delayed";
+function tableMinutes(checks: Order[]): number {
+  const oldest = Math.min(...checks.map((o) => new Date(o.created_at).getTime()));
+  return Math.max(0, Math.floor((Date.now() - oldest) / 60000));
+}
+function tableUrgency(checks: Order[]): Urgency | null {
+  if (!checks.length) return null;
+  const mins = tableMinutes(checks);
+  return mins >= TABLE_RED_MIN ? "delayed" : mins >= TABLE_AMBER_MIN ? "approaching" : "on-track";
+}
+const URGENCY_BORDER: Record<Urgency, string> = {
+  "on-track": "border-l-pine", approaching: "border-l-amber", delayed: "border-l-clay",
+};
+const URGENCY_BADGE: Record<Urgency, string> = {
+  "on-track": "bg-pine text-white", approaching: "bg-amber text-white", delayed: "bg-clay text-white",
+};
+
 export function Pos() {
   const qc = useQueryClient();
   const { property, user } = useApp();
@@ -438,31 +459,35 @@ export function Pos() {
         />
         {banner}
         {readyStrip}
+        {/* Primary cluster: start a new order. Secondary cluster: admin/status,
+            spatially separated by a divider so they don't compete for attention. */}
         <div className="flex flex-wrap items-center gap-2 mb-5">
-          {!isCaptain && (
-            <>
-              <button className="btn-outline" onClick={() => startMode("takeaway")}>+ Takeaway</button>
-              <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
-              {hms && <button className="btn-outline" onClick={openRoomChannel}>+ Room</button>}
-            </>
-          )}
-          <button className="btn-outline" onClick={() => setShowReserve(true)}>+ Reserve / Waitlist</button>
-          <a className="btn-ghost text-sm" href="/tokens" target="_blank" rel="noreferrer">Token board ↗</a>
-          {/* Cash controls are counter business — hidden from captains. */}
-          {user?.role !== "Captain" && (
-            <>
-              <a className="btn-ghost text-sm" href="/reconciliation">Reconciliation</a>
-              <button className="btn-ghost text-sm" onClick={() => setShowRefund(true)}>Refund a bill</button>
-              <div className="ml-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            {!isCaptain && (
+              <>
+                <button className="btn-outline" onClick={() => startMode("takeaway")}>+ Takeaway</button>
+                <button className="btn-outline" onClick={() => startMode("delivery")}>+ Delivery</button>
+                {hms && <button className="btn-outline" onClick={openRoomChannel}>+ Room</button>}
+              </>
+            )}
+            <button className="btn-outline" onClick={() => setShowReserve(true)}>+ Reserve / Waitlist</button>
+          </div>
+          <div className="flex items-center gap-4 ml-auto pl-4 border-l border-hairline">
+            <a className="btn-ghost text-sm" href="/tokens" target="_blank" rel="noreferrer">Token board ↗</a>
+            {/* Cash controls are counter business — hidden from captains. */}
+            {user?.role !== "Captain" && (
+              <>
+                <a className="btn-ghost text-sm" href="/reconciliation">Reconciliation</a>
+                <button className="btn-ghost text-sm" onClick={() => setShowRefund(true)}>Refund a bill</button>
                 <button
                   className={`pill border ${till ? "bg-pine-50 border-pine text-pine" : "border-hairline"}`}
                   onClick={() => setShowTill(true)}
                 >
                   {till ? `Till open · float ${money(till.opening_float)}` : "Open till"}
                 </button>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Upcoming reservations + walk-in waitlist */}
@@ -501,11 +526,18 @@ export function Pos() {
             </div>
           </div>
         )}
-        <div className="text-xs uppercase tracking-wide text-muted mb-2">Tables</div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs uppercase tracking-wide text-muted">Tables</div>
+          <div className="flex items-center gap-4 text-xs text-muted">
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-clay" />Delayed</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber" />Approaching limit</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-pine" />On track</span>
+            <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-hairline" />Free</span>
+          </div>
+        </div>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-3">
           {tables?.map((t) => {
             const checks = ordersByTable.get(t.id) ?? [];
-            const running = t.status === "running";
             // Hard assignment: once the F&B Cashier hands a table to a
             // captain, every other captain sees it locked (mirrors the
             // backend's perform_create check — this is the same rule, not a
@@ -515,6 +547,11 @@ export function Pos() {
             // table because its owner is off.
             const lockedForMe = isCaptain && t.assigned_captain !== null && t.assigned_captain !== user?.id
               && !t.assigned_captain_on_leave;
+            // Occupied tables are colored by how long they've been running,
+            // not just that they are — a party seated 45+ minutes needs
+            // attention differently than one seated 5 minutes ago.
+            const urgency = lockedForMe ? null : tableUrgency(checks);
+            const mins = checks.length ? tableMinutes(checks) : 0;
             return (
               <div
                 key={t.id}
@@ -522,22 +559,32 @@ export function Pos() {
                 tabIndex={0}
                 onClick={() => { if (lockedForMe) { toast(`Assigned to ${t.assigned_captain_name} — not your table`, "error"); return; } openTable(t); }}
                 onKeyDown={(e) => e.key === "Enter" && !lockedForMe && openTable(t)}
-                className={`relative rounded-card border p-3 text-center transition-colors ${
+                className={`relative rounded-card border p-3 transition-colors ${
                   lockedForMe
                     ? "bg-hairline/60 border-hairline text-muted cursor-not-allowed opacity-70"
-                    : running
-                      ? "bg-clay/90 text-white border-clay cursor-pointer"
-                      : t.status === "printed"
-                        ? "bg-amber-100 border-amber-400 cursor-pointer"
-                        : t.status === "reserved"
-                          ? "bg-pine-50 border-pine cursor-pointer"
-                          : "bg-surface hover:bg-cream border-hairline cursor-pointer"
+                    : urgency
+                      ? `bg-surface border-hairline border-l-4 ${URGENCY_BORDER[urgency]} cursor-pointer`
+                      : t.status === "reserved"
+                        ? "bg-pine-50/40 hover:bg-pine-50 border-hairline cursor-pointer"
+                        : "bg-cream hover:bg-hairline/40 border-hairline cursor-pointer"
                 }`}
               >
-                <div className="font-display text-xl">{lockedForMe && "🔒 "}{t.name}</div>
-                <div className={`text-xs mt-0.5 ${running ? "opacity-80" : "text-muted"}`}>{t.seats} seats</div>
+                <div className="flex items-start justify-between gap-1">
+                  <div>
+                    <div className="font-display text-xl">{lockedForMe && "🔒 "}{t.name}</div>
+                    <div className="text-xs mt-0.5 text-muted">{t.seats} seats</div>
+                  </div>
+                  {urgency && (
+                    <span className={`shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-semibold tabular-nums ${URGENCY_BADGE[urgency]}`}>
+                      {mins > 99 ? "99m+" : `${mins}m`}
+                    </span>
+                  )}
+                  {!urgency && !lockedForMe && t.status === "reserved" && (
+                    <span className="shrink-0 pill bg-pine-50 text-pine text-[10px]">Reserved</span>
+                  )}
+                </div>
                 {t.assigned_captain_name && (
-                  <div className={`text-[10px] mt-0.5 truncate ${running ? "opacity-80" : "text-muted"}`}>
+                  <div className="text-[10px] mt-0.5 truncate text-muted">
                     👤 {t.assigned_captain_name}{t.assigned_captain_on_leave ? " (on leave — up for grabs)" : ""}
                   </div>
                 )}
@@ -550,8 +597,7 @@ export function Pos() {
                         <button
                           key={o.id}
                           disabled={lockedForMe}
-                          className={`w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 disabled:cursor-not-allowed ${
-                            running ? "bg-white/15 hover:bg-white/25" : "bg-cream hover:bg-hairline"}`}
+                          className="w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 disabled:cursor-not-allowed bg-cream hover:bg-hairline"
                           onClick={(e) => { e.stopPropagation(); if (!lockedForMe) openTable(t, o.id); }}
                         >
                           <span>G{ix + 1}{o.status === "billed" ? " 🧾" : ""}</span>
@@ -560,21 +606,22 @@ export function Pos() {
                       ))}
                       <button
                         disabled={lockedForMe}
-                        className={`w-full rounded-lg px-2 py-1 text-xs text-left disabled:cursor-not-allowed ${
-                          running ? "bg-white/10 hover:bg-white/20 opacity-90" : "bg-surface border border-dashed border-hairline hover:bg-cream"}`}
+                        className="w-full rounded-lg px-2 py-1 text-xs text-left disabled:cursor-not-allowed bg-surface border border-dashed border-hairline hover:bg-cream text-muted"
                         title="Another party at this table — separate bill"
                         onClick={(e) => { e.stopPropagation(); if (!lockedForMe) openTable(t, null); }}
                       >
                         ＋ Guest
                       </button>
                     </div>
-                    <div className="md:hidden text-[10px] uppercase tracking-wide mt-1">
+                    <div className="md:hidden text-[10px] uppercase tracking-wide mt-1 text-muted">
                       {checks.length > 1 ? `👥 ${checks.length} bills` : "● Running"}
                     </div>
                   </>
                 ) : (
-                  <div className="text-[10px] uppercase tracking-wide mt-1">
-                    {t.status === "reserved" ? "● Reserved" : t.status === "printed" ? "● Bill printed" : "Free"}
+                  <div className="mt-2">
+                    <div className="w-full rounded-lg px-2 py-1.5 text-xs text-center bg-surface border border-dashed border-hairline text-muted">
+                      {t.status === "reserved" ? "Reserved · ＋ Guest" : "＋ Guest"}
+                    </div>
                   </div>
                 )}
               </div>
