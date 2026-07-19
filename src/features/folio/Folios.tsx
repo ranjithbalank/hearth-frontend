@@ -144,6 +144,8 @@ export function Folios() {
   const [moveLine, setMoveLine] = useState<FolioLine | null>(null);
   const [addingCharge, setAddingCharge] = useState(false);
   const [payingDeposit, setPayingDeposit] = useState(false);
+  // Open folios are the desk's working set — default the list to them.
+  const [statusFilter, setStatusFilter] = useState<"open" | "settled" | "all">("open");
 
   const { data: folios, isLoading } = useQuery({
     queryKey: ["folios"],
@@ -151,7 +153,9 @@ export function Folios() {
   });
 
   useEffect(() => {
-    if (folios?.length && selId === null) setSelId(folios[0].id);
+    // Default to the first OPEN folio (the list opens on the working set).
+    if (folios?.length && selId === null)
+      setSelId((folios.find((f) => f.status === "open") ?? folios[0]).id);
   }, [folios, selId]);
 
   const sel = folios?.find((f) => f.id === selId) ?? null;
@@ -243,11 +247,15 @@ export function Folios() {
   if (!folios?.length) return <><PageHeader title="Folios" /><EmptyState title="No folios yet" hint="Check in a guest from Front Desk." /></>;
 
   const needle = q.trim().toLowerCase();
-  const matches = folios.filter((f) =>
+  const searched = folios.filter((f) =>
     !needle || f.guest_name.toLowerCase().includes(needle) || (f.room_number ?? "").toLowerCase().includes(needle));
-  // The selected guest is pinned to the top of the list.
+  const matches = searched.filter((f) => statusFilter === "all" || f.status === statusFilter);
+  // Selected guest pinned first, then open folios (the working set), then settled.
   const visible = [...matches.filter((f) => f.id === selId),
-                   ...matches.filter((f) => f.id !== selId)];
+                   ...matches.filter((f) => f.id !== selId && f.status === "open"),
+                   ...matches.filter((f) => f.id !== selId && f.status !== "open")];
+  const countOf = (s: string) =>
+    s === "all" ? searched.length : searched.filter((f) => f.status === s).length;
 
   return (
     <div>
@@ -263,6 +271,20 @@ export function Folios() {
         <div className="sticky top-4 self-start max-h-[calc(100vh-8rem)] flex flex-col">
           <input className="input w-full mb-2 shrink-0" placeholder="Search guest or room…"
             value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="flex gap-1 rounded-pill bg-hairline p-1 mb-2 shrink-0">
+            {(["open", "settled", "all"] as const).map((s) => (
+              <button key={s} onClick={() => setStatusFilter(s)}
+                className={`pill flex-1 capitalize flex items-center justify-center gap-1.5 ${
+                  statusFilter === s ? "bg-ink text-white" : "bg-transparent text-body hover:bg-white/70"}`}>
+                {s}
+                <span className={`inline-flex items-center justify-center min-w-[1.4em] h-[1.5em]
+                  px-1 rounded-full text-[10px] font-semibold tabular-nums ${
+                  statusFilter === s ? "bg-white/25 text-white" : "bg-white text-muted"}`}>
+                  {countOf(s)}
+                </span>
+              </button>
+            ))}
+          </div>
           <div className="space-y-2 overflow-y-auto pr-1 min-h-0">
             {visible.map((f) => (
               <button
