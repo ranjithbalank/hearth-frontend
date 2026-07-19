@@ -28,6 +28,7 @@ export function Crm() {
   const ask = usePrompt();
   const [msg, setMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "due" | "settled">("all");
+  const [q, setQ] = useState("");
   const [showCampaign, setShowCampaign] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["customers"],
@@ -58,6 +59,11 @@ export function Crm() {
       setMsg("Customer PII anonymised (DPDP erasure).");
       qc.invalidateQueries({ queryKey: ["customers"] });
     },
+    onError: (e: any) => {
+      setMsg(null);
+      ask({ title: "Erasure refused", confirm: true, confirmLabel: "OK",
+        message: e?.response?.data?.detail ?? "Could not erase this customer." });
+    },
   });
   const receive = useMutation({
     mutationFn: async ({ id, amount }: { id: number; amount: string }) =>
@@ -72,8 +78,11 @@ export function Crm() {
   const loyalty = data.reduce((s, c) => s + c.loyalty_points, 0);
   const outstanding = data.reduce((s, c) => s + Number(c.outstanding), 0);
   const dueCount = data.filter((c) => Number(c.outstanding) > 0).length;
+  const needle = q.trim().toLowerCase();
   const rows = data.filter((c) =>
-    filter === "all" ? true : filter === "due" ? Number(c.outstanding) > 0 : Number(c.outstanding) === 0);
+    (filter === "all" ? true : filter === "due" ? Number(c.outstanding) > 0 : Number(c.outstanding) === 0)
+    && (!needle || c.name.toLowerCase().includes(needle)
+      || c.mobile.includes(needle) || (c.gstin ?? "").toLowerCase().includes(needle)));
   const TABS: [typeof filter, string][] = [["all", "All"], ["due", "To receive"], ["settled", "Settled"]];
 
   return (
@@ -130,6 +139,8 @@ export function Crm() {
             {label}{k === "due" && dueCount > 0 ? ` (${dueCount})` : ""}
           </button>
         ))}
+        <input className="input w-64 ml-auto py-1.5 text-sm" placeholder="Search name, mobile or GSTIN…"
+          value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
       <Card className="overflow-hidden p-0">
@@ -165,7 +176,12 @@ export function Crm() {
                     }}>Receive</button>
                   )}
                   <button className="btn-ghost text-xs py-1" onClick={() => exportData.mutate(c)}>Export</button>
-                  <button className="btn-ghost text-xs py-1 text-clay" onClick={() => erase.mutate(c)}>Erase</button>
+                  <button className="btn-ghost text-xs py-1 text-clay" onClick={async () => {
+                    const ok = await ask({ title: `Erase ${c.name}?`, confirm: true, danger: true,
+                      confirmLabel: "Erase permanently",
+                      message: "DPDP erasure permanently anonymises this customer's name, mobile, email and ID scans. Financial records stay. This cannot be undone." });
+                    if (ok) erase.mutate(c);
+                  }}>Erase</button>
                 </td>
               </tr>
             ))}
