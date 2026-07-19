@@ -122,7 +122,8 @@ function NewWorkOrderModal({ onClose }: { onClose: () => void }) {
       <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">New work order</div>
         <div className="text-xs text-muted mb-3">
-          Picking a room takes it out of order until the job is marked done.
+          A vacant room goes out of order until the job is done. An occupied
+          room stays with its guest — move them from Reservations if it's unusable.
         </div>
         <div className="space-y-3">
           <input className="input w-full" placeholder="What needs fixing? (e.g. AC leaking)" autoFocus
