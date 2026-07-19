@@ -804,13 +804,6 @@ export function Pos() {
                 onClick={() => onItemClick(i)}
                 className="card p-3 text-left hover:bg-cream disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
               >
-                {i.image ? (
-                  <img src={i.image} alt="" className="h-16 w-full object-cover rounded-lg mb-2" />
-                ) : (
-                  <div className="h-16 w-full rounded-lg mb-2 bg-gradient-to-br from-pine-50 to-hairline grid place-items-center">
-                    <span className="font-display text-xl text-pine/40">{i.name[0]}</span>
-                  </div>
-                )}
                 <div className="flex items-center gap-1.5">
                   <span className={`h-2.5 w-2.5 rounded-sm border ${i.diet === "veg" ? "border-pine" : "border-clay"}`}>
                     <span className={`block h-1 w-1 m-auto mt-0.5 rounded-full ${i.diet === "veg" ? "bg-pine" : "bg-clay"}`} />
