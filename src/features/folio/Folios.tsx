@@ -257,26 +257,31 @@ export function Folios() {
           ? `Room ${sel.room_number ?? "—"} · Balance ${money(sel.projected_balance ?? sel.balance)} · ${sel.status}`
           : "Charge ledger & settlement"}
       />
-      <div className="grid grid-cols-[300px_1fr] gap-4">
-        <div className="space-y-2">
-          <input className="input w-full mb-1" placeholder="Search guest or room…" value={q} onChange={(e) => setQ(e.target.value)} />
-          {visible.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => select(f.id)}
-              className={`w-full text-left card p-4 ${selId === f.id ? "ring-2 ring-pine" : ""}`}
-            >
-              <div className="flex justify-between items-center">
-                <span className="font-medium">{f.guest_name}</span>
-                <Badge tone={f.status === "open" ? "pine" : "muted"}>{f.status}</Badge>
-              </div>
-              <div className="text-sm text-muted mt-1">
-                Room {f.room_number ?? "—"} · Balance{" "}
-                <span className={num(f.balance) > 0 ? "text-clay font-medium" : ""}>{money(f.balance)}</span>
-              </div>
-            </button>
-          ))}
-          {!visible.length && <div className="text-sm text-muted text-center py-6">No folios match.</div>}
+      <div className="grid grid-cols-[300px_1fr] gap-4 items-start">
+        {/* The guest list scrolls inside its own box; the search stays put
+            above it and the detail card on the right never moves. */}
+        <div className="sticky top-4 self-start max-h-[calc(100vh-8rem)] flex flex-col">
+          <input className="input w-full mb-2 shrink-0" placeholder="Search guest or room…"
+            value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="space-y-2 overflow-y-auto pr-1 min-h-0">
+            {visible.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => select(f.id)}
+                className={`w-full text-left card p-4 ${selId === f.id ? "ring-2 ring-pine" : ""}`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{f.guest_name}</span>
+                  <Badge tone={f.status === "open" ? "pine" : "muted"}>{f.status}</Badge>
+                </div>
+                <div className="text-sm text-muted mt-1">
+                  Room {f.room_number ?? "—"} · Balance{" "}
+                  <span className={num(f.balance) > 0 ? "text-clay font-medium" : ""}>{money(f.balance)}</span>
+                </div>
+              </button>
+            ))}
+            {!visible.length && <div className="text-sm text-muted text-center py-6">No folios match.</div>}
+          </div>
         </div>
 
         {sel && (
