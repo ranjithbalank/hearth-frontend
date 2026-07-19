@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
+import { CsvImport } from "../../design/CsvImport";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
@@ -113,6 +114,9 @@ export function MenuMaster() {
         subtitle="Items, categories, prices &amp; tax"
         action={<input className="input w-56" placeholder="Search item…" value={q} onChange={(e) => setQ(e.target.value)} />}
       />
+      <CsvImport path="/pos/menu-items/import/" templateFilename="menu-template.csv"
+        noun="dish" invalidate={["menu", "cats"]}
+        hint="Onboarding a whole menu? Download the format, fill it in Excel (name, category, price, GST, veg/nonveg, kitchen/bar), and upload once — categories are created for you." />
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add menu item</div>
         <div className={`grid gap-2 ${barCombined ? "grid-cols-6" : "grid-cols-5"}`}>

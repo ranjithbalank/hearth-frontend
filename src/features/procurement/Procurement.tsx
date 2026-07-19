@@ -106,10 +106,12 @@ export function Procurement() {
       {creating && (
         <NewPoModal
           prefillLow={prefillLow}
-          onDone={(id, po_no) => {
+          onDone={(id, po_no, status) => {
             setCreating(false);
             if (prefillLow) setParams({});
-            setMsg(`${po_no || `PO #${id}`} raised — awaiting approval`);
+            setMsg(status === "approved"
+              ? `${po_no || `PO #${id}`} raised & approved — receive when the goods arrive`
+              : `${po_no || `PO #${id}`} raised — awaiting approval`);
             qc.invalidateQueries({ queryKey: ["pos"] });
           }}
           onCancel={() => { setCreating(false); if (prefillLow) setParams({}); }}
@@ -326,7 +328,7 @@ interface DraftLine { ingredient: number | null; qty: string; rate: string }
 const EMPTY: DraftLine = { ingredient: null, qty: "", rate: "" };
 
 function NewPoModal({ prefillLow, onDone, onCancel }: {
-  prefillLow?: boolean; onDone: (id: number, po_no?: string) => void; onCancel: () => void;
+  prefillLow?: boolean; onDone: (id: number, po_no?: string, status?: string) => void; onCancel: () => void;
 }) {
   const toast = useToast();
   const [supplier, setSupplier] = useState<number | null>(null);
@@ -369,7 +371,7 @@ function NewPoModal({ prefillLow, onDone, onCancel }: {
       supplier,
       lines: valid.map((l) => ({ ingredient: l.ingredient, qty: l.qty, rate: l.rate || undefined })),
     })).data,
-    onSuccess: (d: { id: number; po_no?: string }) => onDone(d.id, d.po_no),
+    onSuccess: (d: { id: number; po_no?: string; status?: string }) => onDone(d.id, d.po_no, d.status),
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not raise the PO", "error"),
   });
 

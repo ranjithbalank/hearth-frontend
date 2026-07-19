@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { CsvImport } from "../../design/CsvImport";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, Field, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -54,6 +55,9 @@ export function Suppliers() {
   return (
     <div>
       <PageHeader title="Suppliers" subtitle="Goods suppliers · lead time & rating" />
+
+      <CsvImport path="/suppliers/import/" templateFilename="suppliers-template.csv"
+        noun="supplier" invalidate={["suppliers-master", "suppliers"]} />
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">

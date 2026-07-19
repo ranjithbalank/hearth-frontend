@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { useToast } from "../../design/Toast";
+import { CsvImport } from "../../design/CsvImport";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount, digits } from "../../lib/inputs";
@@ -58,6 +59,9 @@ export function RoomMaster() {
   return (
     <div>
       <PageHeader title="Room Master" subtitle="Room types, tariffs &amp; GST slabs" />
+      <CsvImport path="/rooms/import/" templateFilename="rooms-template.csv"
+        noun="room" invalidate={["room-types", "rooms"]}
+        hint="Setting up the whole property? Download the format, list every room with its type and rate, and upload once — room types are created for you." />
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add room type</div>
         <div className="grid grid-cols-5 gap-2">
