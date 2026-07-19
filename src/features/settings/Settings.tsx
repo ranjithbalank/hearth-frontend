@@ -687,6 +687,7 @@ const SECTIONS = [
   { key: "numbering", label: "Document Numbering" },
   { key: "edition", label: "Edition" },
   { key: "barmode", label: "Bar Operating Mode" },
+  { key: "kds", label: "Kitchen Display" },
   { key: "entitlements", label: "Edition Entitlements" },
   { key: "users", label: "Users & Roles" },
   { key: "audit", label: "Audit Log" },
@@ -820,6 +821,35 @@ export function Settings() {
                   </button>
                 ))}
               </div>
+            </Card>
+          )}
+
+          {activeSection === "kds" && (
+            <Card>
+              <div className="font-semibold mb-1">Kitchen Display</div>
+              <div className="text-sm text-muted mb-3">
+                Off: a ticket's items bump ready together — the whole course arrives at the table at
+                once. On: the kitchen can mark individual items ready as they finish; the ticket itself
+                auto-advances once every item on it is checked.
+              </div>
+              <button
+                onClick={() => toggle("kds_partial_ready")}
+                disabled={saving === "kds_partial_ready"}
+                className={`text-left rounded-card border p-4 w-full max-w-md ${
+                  property?.entitlement.kds_partial_ready ? "border-pine bg-pine-50" : "border-hairline"}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">Partial ready per item</span>
+                  <span className={`pill ${property?.entitlement.kds_partial_ready ? "bg-pine text-white" : "bg-hairline text-muted"}`}>
+                    {property?.entitlement.kds_partial_ready ? "On" : "Off"}
+                  </span>
+                </div>
+                <div className="text-sm text-muted mt-1">
+                  {property?.entitlement.kds_partial_ready
+                    ? "Chef marks each dish ready as it's done — the ticket bumps itself once everything is checked."
+                    : "Chef marks the whole ticket ready in one tap once every item is done."}
+                </div>
+              </button>
             </Card>
           )}
 

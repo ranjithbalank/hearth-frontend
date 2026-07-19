@@ -71,6 +71,7 @@ export interface Entitlement {
   banquets: boolean;
   rms: boolean;
   bar_mode: "separate" | "combined";
+  kds_partial_ready: boolean;
 }
 
 export interface Property {

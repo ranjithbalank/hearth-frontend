@@ -17,7 +17,7 @@ interface Ticket {
   kitchen_status: string;
   table: string;
   created_at: string; // KOT fire time (for BEO tickets it's the event date — no timer)
-  items: { name: string; qty: number; station: string }[];
+  items: { line?: number; name: string; qty: number; station: string; ready?: boolean }[];
 }
 
 /** Minutes since the KOT fired; null for BEO tickets and bad dates. */
@@ -42,8 +42,9 @@ interface Performance {
 export function Kds() {
   const qc = useQueryClient();
   const toast = useToast();
-  const { user } = useApp();
+  const { user, property } = useApp();
   const canBump = KITCHEN_ROLES.includes(user?.role ?? "");
+  const partialReady = !!property?.entitlement.kds_partial_ready;
   const { data, isLoading } = useQuery({
     queryKey: ["kds"],
     queryFn: async () => (await api.get<Ticket[]>("/kds/")).data,
@@ -68,6 +69,15 @@ export function Kds() {
       (await api.post(`/kds/${t.id}/${t.type === "beo" ? "beo_bump" : "bump"}/`)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["kds"] }),
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not update the ticket", "error"),
+  });
+
+  // Per-item ready — only wired up when Settings > Kitchen Display has
+  // partial-ready turned on; the ticket auto-advances once every line is checked.
+  const bumpItem = useMutation({
+    mutationFn: async ({ ticket, line }: { ticket: Ticket; line: number }) =>
+      (await api.post(`/kds/${ticket.id}/bump_item/`, { line })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["kds"] }),
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not update the item", "error"),
   });
 
   if (isLoading) return <Spinner />;
@@ -126,17 +136,45 @@ export function Kds() {
                 </span>
               </div>
               <div className="text-xs text-muted mb-2">{t.table}</div>
-              <div className="space-y-1 mb-3">
-                {t.items.map((it, i) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span>{it.qty}× {it.name}</span>
-                    <span className="text-muted text-xs">{it.station}</span>
-                  </div>
-                ))}
-              </div>
+              {/* Per-item ready checkboxes only while this ticket is still
+                  cooking and partial-ready is turned on — once it's fully
+                  ready/served there's nothing left to check off. */}
+              {partialReady && canBump && t.type === "order" && t.kitchen_status === "cooking" ? (
+                <div className="space-y-1 mb-3">
+                  {t.items.map((it) => (
+                    <button
+                      key={it.line}
+                      disabled={bumpItem.isPending}
+                      onClick={() => bumpItem.mutate({ ticket: t, line: it.line! })}
+                      className={`w-full flex items-center justify-between text-sm rounded-lg px-2 py-1 border transition-colors ${
+                        it.ready ? "bg-pine-50 border-pine/30 text-pine" : "border-hairline hover:bg-cream"}`}
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <span className={`h-4 w-4 shrink-0 rounded border flex items-center justify-center text-[10px] font-bold ${
+                          it.ready ? "bg-pine border-pine text-white" : "border-hairline"}`}>
+                          {it.ready ? "✓" : ""}
+                        </span>
+                        {it.qty}× {it.name}
+                      </span>
+                      <span className="text-muted text-xs">{it.station}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1 mb-3">
+                  {t.items.map((it, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span>{it.qty}× {it.name}</span>
+                      <span className="text-muted text-xs">{it.station}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {canBump ? (
                 <button className="btn-outline w-full text-xs py-1.5" onClick={() => bump.mutate(t)}>
-                  {t.kitchen_status === "cooking" ? "Mark ready" : "Serve & clear"}
+                  {t.kitchen_status === "cooking"
+                    ? (partialReady ? "Mark all ready" : "Mark ready")
+                    : "Serve & clear"}
                 </button>
               ) : (
                 <div className="text-center text-[11px] text-muted py-1.5">
