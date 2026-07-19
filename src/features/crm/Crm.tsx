@@ -29,6 +29,7 @@ export function Crm() {
   const [msg, setMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "due" | "settled">("all");
   const [q, setQ] = useState("");
+  const [profileOf, setProfileOf] = useState<Customer | null>(null);
   const [showCampaign, setShowCampaign] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["customers"],
@@ -99,6 +100,8 @@ export function Crm() {
         <Stat label="Outstanding (BTC/AR)" value={money(outstanding)} />
       </div>
 
+      {profileOf && <ProfileDrawer customer={profileOf} onClose={() => setProfileOf(null)} />}
+
       {showCampaign && (
         <CampaignModal
           onDone={(sent, skipped) => {
@@ -158,7 +161,9 @@ export function Crm() {
           </thead>
           <tbody>
             {rows.map((c) => (
-              <tr key={c.id} className="border-t border-line">
+              <tr key={c.id} className="border-t border-line hover:bg-cream cursor-pointer"
+                title="Open profile & visit history"
+                onClick={() => setProfileOf(c)}>
                 <td className="px-4 py-3 font-medium">{c.name}</td>
                 <td className="px-4 py-3 font-mono text-xs">{c.mobile}</td>
                 <td className="px-4 py-3"><Badge tone={TONE[c.customer_type] ?? "pine"}>{c.type_label}</Badge></td>
@@ -167,7 +172,8 @@ export function Crm() {
                 <td className="px-4 py-3 text-right">
                   <span className={Number(c.outstanding) > 0 ? "text-clay font-medium" : ""}>{money(c.outstanding)}</span>
                 </td>
-                <td className="px-4 py-3 text-right whitespace-nowrap">
+                <td className="px-4 py-3 text-right whitespace-nowrap"
+                  onClick={(e) => e.stopPropagation()}>
                   {Number(c.outstanding) > 0 && (
                     <button className="btn-ghost text-xs py-1 text-pine" onClick={async () => {
                       const raw = await ask({ title: `Receive payment — ${c.name}`, label: `Outstanding ${money(c.outstanding)}`, defaultValue: c.outstanding, placeholder: "Amount received" });
@@ -193,6 +199,113 @@ export function Crm() {
           </tbody>
         </table>
       </Card>
+    </div>
+  );
+}
+
+interface History {
+  stats: { stays: number; nights: number; fnb_orders: number; fnb_spend: string; last_visit: string | null };
+  reservations: { id: number; checkin_date: string; checkout_date: string; nights: number;
+    room: string | null; room_type: string; status: string; rate: string }[];
+  orders: { id: number; created_at: string; mode: string; status: string; total: string }[];
+  city_ledger: { folio: number; guest: string; invoice_no: string; amount: string; settled_at: string | null }[];
+}
+
+/** The customer's full story: lifetime numbers, stays, F&B orders and
+ *  bill-to-company folios — the "who is this guest" view for the desk. */
+function ProfileDrawer({ customer, onClose }: { customer: Customer; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["customer-history", customer.id],
+    queryFn: async () => (await api.get<History>(`/customers/${customer.id}/history/`)).data,
+  });
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex justify-end z-50" onClick={onClose}>
+      <div className="bg-surface h-full w-[560px] max-w-full overflow-y-auto p-6 shadow-pop"
+        onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-1">
+          <div>
+            <div className="font-display text-2xl">{customer.name}</div>
+            <div className="text-sm text-muted">
+              {customer.type_label} · {customer.mobile}{customer.gstin ? ` · ${customer.gstin}` : ""}
+            </div>
+          </div>
+          <button className="btn-ghost" onClick={onClose}>✕</button>
+        </div>
+        {isLoading || !data ? <Spinner /> : (
+          <>
+            <div className="grid grid-cols-4 gap-2 my-4">
+              <div className="card p-3 text-center">
+                <div className="stat-num text-xl">{data.stats.stays}</div>
+                <div className="text-[11px] text-muted">Stays</div>
+              </div>
+              <div className="card p-3 text-center">
+                <div className="stat-num text-xl">{data.stats.nights}</div>
+                <div className="text-[11px] text-muted">Nights</div>
+              </div>
+              <div className="card p-3 text-center">
+                <div className="stat-num text-xl">{money(data.stats.fnb_spend)}</div>
+                <div className="text-[11px] text-muted">F&B · {data.stats.fnb_orders} orders</div>
+              </div>
+              <div className="card p-3 text-center">
+                <div className="stat-num text-xl">{customer.loyalty_points}</div>
+                <div className="text-[11px] text-muted">Loyalty pts</div>
+              </div>
+            </div>
+            {Number(customer.outstanding) > 0 && (
+              <div className="card p-3 mb-4 border-l-4 border-clay text-sm">
+                <span className="font-medium text-clay">{money(customer.outstanding)} outstanding</span>
+                <span className="text-muted"> — collect from the Receive action on the list.</span>
+              </div>
+            )}
+
+            <div className="text-xs uppercase tracking-wide text-muted mb-2">
+              Stays {data.stats.last_visit && `· last visit ${data.stats.last_visit}`}
+            </div>
+            <div className="space-y-1.5 mb-5">
+              {data.reservations.map((r) => (
+                <div key={r.id} className="flex items-center gap-2 text-sm border-b border-line pb-1.5">
+                  <span className="flex-1">
+                    {r.checkin_date} → {r.checkout_date}
+                    <span className="text-muted"> · {r.room_type}{r.room ? ` · Room ${r.room}` : ""}</span>
+                  </span>
+                  <span className="text-muted text-xs">{r.nights}n · {money(r.rate)}/n</span>
+                  <Badge tone={r.status === "Checked Out" ? "muted" : r.status === "In House" ? "pine" : "amber"}>
+                    {r.status}
+                  </Badge>
+                </div>
+              ))}
+              {!data.reservations.length && <div className="text-sm text-muted">No stays yet.</div>}
+            </div>
+
+            <div className="text-xs uppercase tracking-wide text-muted mb-2">Recent F&B orders</div>
+            <div className="space-y-1.5 mb-5">
+              {data.orders.map((o) => (
+                <div key={o.id} className="flex items-center gap-2 text-sm border-b border-line pb-1.5">
+                  <span className="flex-1">#{o.id} · {o.mode}</span>
+                  <span className="text-muted text-xs">{String(o.created_at).slice(0, 10)}</span>
+                  <span className="font-medium">{money(o.total)}</span>
+                  <Badge tone={o.status === "Settled" ? "muted" : "info"}>{o.status}</Badge>
+                </div>
+              ))}
+              {!data.orders.length && <div className="text-sm text-muted">No F&B orders.</div>}
+            </div>
+
+            {data.city_ledger.length > 0 && (
+              <>
+                <div className="text-xs uppercase tracking-wide text-muted mb-2">Bill-to-company folios</div>
+                <div className="space-y-1.5">
+                  {data.city_ledger.map((f) => (
+                    <div key={f.folio} className="flex items-center gap-2 text-sm border-b border-line pb-1.5">
+                      <span className="flex-1">{f.guest} <span className="text-muted">· {f.invoice_no || `folio #${f.folio}`}</span></span>
+                      <span className="font-medium">{money(f.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
