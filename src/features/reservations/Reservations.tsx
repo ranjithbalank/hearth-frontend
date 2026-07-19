@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
-import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
+import { Badge, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/date";
 import { money } from "../../lib/money";
@@ -19,11 +19,23 @@ const STATUS_TONE: Record<string, "pine" | "clay" | "amber" | "info" | "muted"> 
 
 interface Avail { room_type: string; name: string; physical: number; held: number; available: number }
 
+const STATUS_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "booked", label: "Booked" },
+  { key: "in_house", label: "In-house" },
+  { key: "checked_out", label: "Checked out" },
+  { key: "cancelled", label: "Cancelled" },
+  { key: "no_show", label: "No-show" },
+];
+
 export function Reservations() {
   const qc = useQueryClient();
   const ask = usePrompt();
   const toast = useToast();
   const [q, setQ] = useState("");
+  const [status, setStatus] = useState("all");
+  const [rtype, setRtype] = useState("all");
+  const [source, setSource] = useState("all");
   const [changeRoomFor, setChangeRoomFor] = useState<Reservation | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -50,11 +62,24 @@ export function Reservations() {
 
   const needle = q.trim().toLowerCase();
   const rows = data.filter((r) =>
-    !needle ||
-    r.guest_name.toLowerCase().includes(needle) ||
-    (r.room_number ?? "").toLowerCase().includes(needle) ||
-    r.room_type_code.toLowerCase().includes(needle) ||
-    r.status_label.toLowerCase().includes(needle));
+    (status === "all" || r.status === status)
+    && (rtype === "all" || r.room_type_code === rtype)
+    && (source === "all" || r.source === source)
+    && (!needle
+      || r.guest_name.toLowerCase().includes(needle)
+      || (r.room_number ?? "").toLowerCase().includes(needle)
+      || r.room_type_code.toLowerCase().includes(needle)
+      || (r.room_type_name ?? "").toLowerCase().includes(needle)
+      || r.status_label.toLowerCase().includes(needle)));
+
+  // Counts respect the other filters so the pills stay honest while drilling.
+  const inScope = data.filter((r) =>
+    (rtype === "all" || r.room_type_code === rtype)
+    && (source === "all" || r.source === source));
+  const countOf = (key: string) =>
+    key === "all" ? inScope.length : inScope.filter((r) => r.status === key).length;
+  const roomTypes = [...new Map(data.map((r) => [r.room_type_code, r.room_type_name])).entries()];
+  const sources = [...new Map(data.map((r) => [r.source, r.source_label])).entries()];
 
   return (
     <div>
@@ -75,16 +100,47 @@ export function Reservations() {
         />
       )}
 
+      {/* Filters: status pills (with live counts) + room type + source */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        {STATUS_FILTERS.map((s) => (
+          <button key={s.key} onClick={() => setStatus(s.key)}
+            className={`pill text-xs ${status === s.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            {s.label} <span className={status === s.key ? "opacity-70" : "text-muted"}>{countOf(s.key)}</span>
+          </button>
+        ))}
+        <select className="input py-1 text-xs w-44" value={rtype}
+          onChange={(e) => setRtype(e.target.value)} aria-label="Room type filter">
+          <option value="all">All room types</option>
+          {roomTypes.map(([code, name]) => (
+            <option key={code} value={code}>{name || code} ({code})</option>
+          ))}
+        </select>
+        <select className="input py-1 text-xs w-40" value={source}
+          onChange={(e) => setSource(e.target.value)} aria-label="Source filter">
+          <option value="all">All sources</option>
+          {sources.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </select>
+        {(status !== "all" || rtype !== "all" || source !== "all") && (
+          <button className="btn-ghost text-xs py-1"
+            onClick={() => { setStatus("all"); setRtype("all"); setSource("all"); }}>
+            Clear filters
+          </button>
+        )}
+      </div>
+
       {avail && (
         <div className="grid grid-cols-3 gap-3 mb-4">
           {avail.map((a) => (
-            <Card key={a.room_type}>
+            <button key={a.room_type}
+              className={`card p-5 text-left hover:bg-cream ${rtype === a.room_type ? "ring-2 ring-pine" : ""}`}
+              title="Click to filter the list by this room type"
+              onClick={() => setRtype(rtype === a.room_type ? "all" : a.room_type)}>
               <div className="flex justify-between items-center">
                 <span className="font-semibold">{a.name}</span>
                 <Badge tone={a.available > 0 ? "pine" : "clay"}>{a.available} avail</Badge>
               </div>
               <div className="text-xs text-muted mt-1">{a.physical} rooms · {a.held} held</div>
-            </Card>
+            </button>
           ))}
         </div>
       )}
@@ -106,8 +162,16 @@ export function Reservations() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} className="border-t border-line">
-                <td className="px-4 py-3 font-medium">{r.guest_name}</td>
-                <td className="px-4 py-3">{r.room_type_code}</td>
+                <td className="px-4 py-3">
+                  <div className="font-medium">{r.guest_name}</div>
+                  <div className="text-xs text-muted">
+                    {r.source_label}{r.channel_name ? ` · ${r.channel_name}` : ""}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  {r.room_type_name || r.room_type_code}
+                  <span className="text-muted text-xs"> ({r.room_type_code})</span>
+                </td>
                 <td className="px-4 py-3">{fmtDate(r.checkin_date)}</td>
                 <td className="px-4 py-3">{fmtDate(r.checkout_date)} <span className="text-muted text-xs">· {r.nights}n</span></td>
                 <td className="px-4 py-3">{r.room_number ?? "—"}</td>

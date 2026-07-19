@@ -118,6 +118,8 @@ export interface Reservation {
   guest_name: string;
   guest_mobile: string;
   room_type_code: string;
+  room_type_name: string;
+  channel_name?: string;
   room_number: string | null;
   checkin_date: string;
   checkout_date: string;
