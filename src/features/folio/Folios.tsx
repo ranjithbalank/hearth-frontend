@@ -18,6 +18,85 @@ interface Registration {
   id_scan: string; signature: string;
 }
 
+/** Desk-side incidental: description + amount + GST slab. */
+function AddChargeModal({ busy, onSave, onClose }: {
+  busy: boolean;
+  onSave: (b: { description: string; amount: string; gst_rate: string }) => void;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState({ description: "", amount: "", gst_rate: "18" });
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-3">Add charge</div>
+        <div className="space-y-3">
+          <input className="input w-full" placeholder="Description (e.g. Laundry — 3 shirts)" autoFocus
+            value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input" inputMode="decimal" placeholder="Amount (pre-tax)"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, "") })} />
+            <select className="input" value={form.gst_rate}
+              onChange={(e) => setForm({ ...form, gst_rate: e.target.value })}>
+              {["0", "5", "12", "18", "28"].map((r) => <option key={r} value={r}>{r}% GST</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-4">
+          <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
+          <button className="btn-primary flex-1"
+            disabled={busy || !form.description.trim() || !(Number(form.amount) > 0)}
+            onClick={() => onSave(form)}>
+            Post charge
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Advance / part-payment: tender + amount (defaults to the balance) + ref. */
+function RecordPaymentModal({ folio, busy, onSave, onClose }: {
+  folio: Folio; busy: boolean;
+  onSave: (b: { tender: string; amount: string; reference: string }) => void;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState({
+    tender: "UPI", amount: String(Math.max(num(folio.balance), 0) || ""), reference: "",
+  });
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-1">Record payment</div>
+        <div className="text-sm text-muted mb-3">
+          {folio.guest_name} · balance {money(folio.balance)} — a part-payment keeps the folio open.
+        </div>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <select className="input" value={form.tender}
+              onChange={(e) => setForm({ ...form, tender: e.target.value })}>
+              {TENDERS.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <input className="input" inputMode="decimal" placeholder="Amount" autoFocus
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value.replace(/[^\d.]/g, "") })} />
+          </div>
+          <input className="input w-full" placeholder="Reference (UPI ref / card slip — optional)"
+            value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} />
+        </div>
+        <div className="flex gap-2 mt-4">
+          <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
+          <button className="btn-primary flex-1"
+            disabled={busy || !(Number(form.amount) > 0)}
+            onClick={() => onSave(form)}>
+            Record {form.amount ? money(form.amount) : "payment"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Registration-card evidence captured at check-in (ID scan + signature).
  *  Fetched on open only — the server audit-logs every view of it. */
 function RegistrationModal({ folioId, onClose }: { folioId: number; onClose: () => void }) {
@@ -63,6 +142,8 @@ export function Folios() {
   const [q, setQ] = useState("");
   const [showReg, setShowReg] = useState(false);
   const [moveLine, setMoveLine] = useState<FolioLine | null>(null);
+  const [addingCharge, setAddingCharge] = useState(false);
+  const [payingDeposit, setPayingDeposit] = useState(false);
 
   const { data: folios, isLoading } = useQuery({
     queryKey: ["folios"],
@@ -102,6 +183,33 @@ export function Folios() {
     mutationFn: async (id: number) => (await api.post(`/folios/${id}/email_invoice/`)).data,
     onSuccess: (d: { channel: string; to: string }) => toast(`Invoice sent via ${d.channel} to ${d.to}`),
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not send", "error"),
+  });
+
+  // Desk-side incidental (laundry, airport pickup…) straight onto the bill.
+  const addCharge = useMutation({
+    mutationFn: async (body: { description: string; amount: string; gst_rate: string }) =>
+      (await api.post(`/folios/${selId}/add_charge/`, body)).data as Folio,
+    onSuccess: (f) => {
+      setAddingCharge(false);
+      qc.invalidateQueries({ queryKey: ["folios"] });
+      toast(`Charge added — balance ${money(f.balance)}`);
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add the charge", "error"),
+  });
+
+  // Advance / part-payment: records the settlement, folio stays open until
+  // the balance clears (then it settles itself with an invoice number).
+  const recordPayment = useMutation({
+    mutationFn: async (body: { tender: string; amount: string; reference: string }) =>
+      (await api.post(`/folios/${selId}/settle/`, { payments: [body] })).data as Folio,
+    onSuccess: (f) => {
+      setPayingDeposit(false);
+      qc.invalidateQueries({ queryKey: ["folios"] });
+      toast(f.status === "settled"
+        ? `Bill cleared · invoice ${f.invoice_no ?? ""}`.trim()
+        : `Payment recorded — ${money(f.balance)} still due`);
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not record the payment", "error"),
   });
 
   // F&B/incidental charges can move to another open folio (companion's
@@ -225,9 +333,33 @@ export function Folios() {
                     Registration
                   </button>
                 )}
+                {sel.status === "open" && (
+                  <>
+                    <button className="btn-outline text-xs py-1"
+                      title="Post a desk-side incidental (laundry, airport pickup…)"
+                      onClick={() => setAddingCharge(true)}>
+                      ＋ Charge
+                    </button>
+                    <button className="btn-outline text-xs py-1"
+                      title="Record an advance / part-payment without checking out"
+                      onClick={() => setPayingDeposit(true)}>
+                      ₹ Payment
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             {showReg && <RegistrationModal folioId={sel.id} onClose={() => setShowReg(false)} />}
+            {addingCharge && (
+              <AddChargeModal busy={addCharge.isPending}
+                onSave={(b) => addCharge.mutate(b)}
+                onClose={() => setAddingCharge(false)} />
+            )}
+            {payingDeposit && (
+              <RecordPaymentModal folio={sel} busy={recordPayment.isPending}
+                onSave={(b) => recordPayment.mutate(b)}
+                onClose={() => setPayingDeposit(false)} />
+            )}
             {moveLine && (
               <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50"
                 onClick={() => setMoveLine(null)}>
