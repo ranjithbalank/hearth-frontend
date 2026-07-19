@@ -258,8 +258,11 @@ export function Pos() {
 
   // One-tap close: print the final bill, settle the payment, free the table.
   const finalBill = useMutation({
-    mutationFn: async (tender: string) => {
+    mutationFn: async ({ tender, cust }: { tender: string; cust?: { name: string; mobile: string } }) => {
       const id = orderId!;
+      // Name and number on the bill first, so the CRM profile exists when the
+      // settle sends the receipt SMS and accrues loyalty.
+      if (cust?.mobile) await api.post(`/pos/orders/${id}/attach_customer/`, cust);
       if (order?.status !== "billed") {
         await api.post(`/pos/orders/${id}/bill/`);
         downloadBillPdf(id);
@@ -268,7 +271,7 @@ export function Pos() {
         tender, token: tender === "Gateway" ? "tok_demo_card" : undefined,
       })).data;
     },
-    onSuccess: (_d, tender) => {
+    onSuccess: (_d, { tender }) => {
       setShowFinal(false);
       toast(`Final bill settled · ${tender} — table freed`);
       reset();
@@ -821,6 +824,12 @@ export function Pos() {
 
           {order?.lines.length ? (
             <>
+              {order.customer_name && (
+                <div className="text-xs text-muted mb-1 truncate">
+                  👤 {order.customer_name} · {order.customer_mobile}
+                  {order.customer_points ? ` · ${order.customer_points} pts` : ""}
+                </div>
+              )}
               <div className="border-t border-hairline pt-2 text-sm space-y-1">
                 <Row label="Subtotal" value={money(order.totals.subtotal)} />
                 {Number(order.totals.discount) > 0 && (
@@ -1023,8 +1032,11 @@ export function Pos() {
           tableName={mode === "dinein" ? table?.name : undefined}
           tenders={tenders}
           busy={finalBill.isPending}
+          initialCustomer={order.customer_mobile
+            ? { name: order.customer_name ?? "", mobile: order.customer_mobile }
+            : null}
           onCancel={() => setShowFinal(false)}
-          onConfirm={(tender) => finalBill.mutate(tender)}
+          onConfirm={(tender, cust) => finalBill.mutate({ tender, cust })}
         />
       )}
     </div>
@@ -1032,18 +1044,35 @@ export function Pos() {
 }
 
 function FinalBillModal({
-  total, tableName, tenders, busy, onCancel, onConfirm,
+  total, tableName, tenders, busy, initialCustomer, onCancel, onConfirm,
 }: {
   total: string;
   tableName?: string;
   tenders: string[];
   busy: boolean;
+  initialCustomer: { name: string; mobile: string } | null;
   onCancel: () => void;
-  onConfirm: (tender: string) => void;
+  onConfirm: (tender: string, cust?: { name: string; mobile: string }) => void;
 }) {
   // Cash is settled through a change calculator; other tenders settle on one tap.
   const [cashMode, setCashMode] = useState(false);
   const [received, setReceived] = useState("");
+  // Name and number for the bill — saved to Guest CRM on settle. A known
+  // mobile auto-fills the name and shows the guest's loyalty balance.
+  const [custName, setCustName] = useState(initialCustomer?.name ?? "");
+  const [custMobile, setCustMobile] = useState(initialCustomer?.mobile ?? "");
+  const { data: known } = useQuery({
+    queryKey: ["cust-lookup", custMobile],
+    queryFn: async () => (await api.get<{ found: boolean; customer?: { name: string; loyalty_points: number } }>(
+      `/customers/lookup/?mobile=${custMobile}`)).data,
+    enabled: custMobile.length === 10,
+  });
+  useEffect(() => {
+    if (known?.found && known.customer && !custName) setCustName(known.customer.name);
+  }, [known]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const cust = custMobile.length === 10
+    ? { name: personName(custName), mobile: custMobile }
+    : undefined;
   const totalNum = Number(total) || 0;
   const recvNum = Number(received) || 0;
   const change = recvNum - totalNum;
@@ -1058,7 +1087,7 @@ function FinalBillModal({
 
   function tap(tn: string) {
     if (tn === "Cash") { setCashMode(true); setReceived(String(Math.ceil(totalNum))); }
-    else onConfirm(tn);
+    else onConfirm(tn, cust);
   }
 
   return (
@@ -1069,8 +1098,26 @@ function FinalBillModal({
           ⚠ This prints the final bill and closes the order.
           {tableName ? ` Table ${tableName} will be freed for the next guest.` : ""} This cannot be undone.
         </div>
-        <div className="flex justify-between font-semibold text-lg mb-4">
+        <div className="flex justify-between font-semibold text-lg mb-3">
           <span>Total to collect</span><span>{money(total)}</span>
+        </div>
+
+        <div className="mb-4">
+          <label className="text-xs font-semibold text-muted">Customer name &amp; number — for the bill &amp; loyalty</label>
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <input className="input py-1.5 text-sm" placeholder="Mobile" inputMode="numeric"
+              value={custMobile} onChange={(e) => setCustMobile(digits(e.target.value, 10))} />
+            <input className="input py-1.5 text-sm" placeholder="Name"
+              value={custName} onChange={(e) => setCustName(personName(e.target.value))} />
+          </div>
+          {known?.found && known.customer && (
+            <div className="text-xs text-pine mt-1">
+              ↩ Returning guest · {known.customer.name} · {known.customer.loyalty_points} pts
+            </div>
+          )}
+          {custMobile.length > 0 && custMobile.length < 10 && (
+            <div className="text-xs text-muted mt-1">10 digits to save this guest to CRM — or clear to skip</div>
+          )}
         </div>
 
         {cashMode ? (
@@ -1089,7 +1136,7 @@ function FinalBillModal({
               <span>{money(Math.abs(change))}</span>
             </div>
             <button className="btn-primary w-full mt-3" disabled={busy || recvNum < totalNum}
-              onClick={() => onConfirm("Cash")}>
+              onClick={() => onConfirm("Cash", cust)}>
               {busy ? "Settling…" : `Settle · give change ${money(Math.max(change, 0))}`}
             </button>
             <button className="btn-ghost w-full mt-1" disabled={busy} onClick={() => setCashMode(false)}>← Other tender</button>

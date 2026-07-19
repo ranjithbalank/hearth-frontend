@@ -242,6 +242,10 @@ export interface Order {
   bar_table_name: string | null;
   status: string;
   status_label: string;
+  customer: number | null;
+  customer_name: string | null;
+  customer_mobile: string | null;
+  customer_points: number | null;
   folio: number | null;
   kot_no: string;
   bill_no: string;
