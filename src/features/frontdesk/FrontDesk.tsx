@@ -129,7 +129,7 @@ export function FrontDesk() {
                   }}>
                   Extend stay
                 </button>
-                <button className="btn-outline" onClick={() => nav("/checkout")}>
+                <button className="btn-outline" onClick={() => nav("/folios")}>
                   Check out →
                 </button>
               </Card>

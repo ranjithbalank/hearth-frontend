@@ -42,7 +42,6 @@ import { NewRecipe } from "./features/recipes/NewRecipe";
 import { Recipes } from "./features/recipes/Recipes";
 import { Revenue } from "./features/revenue/Revenue";
 import { CheckIn } from "./features/frontdesk/CheckIn";
-import { CheckOut } from "./features/frontdesk/CheckOut";
 import { FrontDesk } from "./features/frontdesk/FrontDesk";
 import { Housekeeping } from "./features/housekeeping/Housekeeping";
 import { LiveGrid } from "./features/livegrid/LiveGrid";
@@ -91,7 +90,8 @@ export default function App() {
         <Route path="/dashboard" element={<RequireAccess module="dashboard"><Dashboard /></RequireAccess>} />
         <Route path="/frontdesk" element={<RequireAccess module="frontdesk"><FrontDesk /></RequireAccess>} />
         <Route path="/checkin" element={<RequireAccess module="checkin"><CheckIn /></RequireAccess>} />
-        <Route path="/checkout" element={<RequireAccess module="checkout"><CheckOut /></RequireAccess>} />
+        {/* Check-Out merged into Folios (it was a strict subset) — old links land there. */}
+        <Route path="/checkout" element={<Navigate to="/folios" replace />} />
         <Route path="/masters/customers" element={<RequireAccess module="customers"><Customers /></RequireAccess>} />
         <Route path="/masters/suppliers" element={<RequireAccess module="suppliers"><Suppliers /></RequireAccess>} />
         <Route path="/masters/vendors" element={<RequireAccess module="vendors"><Vendors /></RequireAccess>} />

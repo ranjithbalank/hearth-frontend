@@ -115,7 +115,6 @@ export const NAV: NavGroup[] = [
       { key: "frontdesk", label: "Front Desk", path: "/frontdesk" },
       { key: "livegrid", label: "Live Grid", path: "/livegrid" },
       { key: "folio", label: "Folios", path: "/folios" },
-      { key: "checkout", label: "Check-Out", path: "/checkout" },
     ],
   },
   {
