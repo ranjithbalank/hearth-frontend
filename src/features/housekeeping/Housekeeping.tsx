@@ -151,6 +151,9 @@ export function Housekeeping() {
               <Badge tone={STATUS_TONE[r.status] ?? "muted"}>{r.status_label}</Badge>
             </div>
             <div className="text-xs text-muted mt-1">{r.room_type_name}</div>
+            {r.status === "ooo" && r.ooo_reason && (
+              <div className="text-xs text-muted mt-1">🔧 {r.ooo_reason}</div>
+            )}
             {r.cleaning_requested && (
               <div className="text-xs text-clay mt-1">
                 🔔 Requested{r.cleaning_note ? ` — ${r.cleaning_note}` : ""}
