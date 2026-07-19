@@ -720,25 +720,21 @@ export function Pos() {
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-4">
-        <div>
-          <div className="font-display text-xl">
-            {mode === "dinein" ? `Table ${table?.name ?? ""}`
-              : mode === "room" ? `Room ${roomFolio?.room ?? ""}`
-                : MODE_LABELS[mode]}
+      <PageHeader
+        title={mode === "dinein" ? `Table ${table?.name ?? ""}`
+          : mode === "room" ? `Room ${roomFolio?.room ?? ""}`
+            : MODE_LABELS[mode]}
+        subtitle={mode === "dinein" ? `${table?.seats ?? 0} seats`
+          : mode === "room" ? `${roomFolio?.guest ?? ""} · bill posts to the room folio`
+            : "New order"}
+        action={
+          <div className="flex items-center gap-2">
+            {order?.token_no && <Badge tone="pine">Token {order.token_no}</Badge>}
+            {(order?.bill_no || order?.kot_no) && <Badge tone="amber">{order.bill_no || order.kot_no}</Badge>}
+            {order && <Badge tone={billed ? "clay" : "pine"}>{order.status_label}</Badge>}
           </div>
-          <div className="text-xs text-muted">
-            {mode === "dinein" ? `${table?.seats ?? 0} seats`
-              : mode === "room" ? `${roomFolio?.guest ?? ""} · bill posts to the room folio`
-                : "New order"}
-          </div>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          {order?.token_no && <Badge tone="pine">Token {order.token_no}</Badge>}
-          {(order?.bill_no || order?.kot_no) && <Badge tone="amber">{order.bill_no || order.kot_no}</Badge>}
-          {order && <Badge tone={billed ? "clay" : "pine"}>{order.status_label}</Badge>}
-        </div>
-      </div>
+        }
+      />
       {banner}
       {readyStrip}
 
@@ -764,10 +760,14 @@ export function Pos() {
 
         <div>
           {/* Mobile: categories as a swipeable chip row instead of the rail. */}
-          <div className="flex lg:hidden items-center gap-2 mb-3 overflow-x-auto pb-1">
-            <button onClick={() => setCat(null)} className={`pill shrink-0 ${!cat ? "bg-pine text-white" : "bg-hairline text-body"}`}>All</button>
+          <div className="flex lg:hidden items-center gap-1 mb-3 overflow-x-auto pb-1 rounded-pill bg-hairline p-1">
+            <button onClick={() => setCat(null)}
+              className={`pill shrink-0 ${!cat ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+              All
+            </button>
             {cats?.map((c) => (
-              <button key={c.id} onClick={() => setCat(c.id)} className={`pill shrink-0 ${cat === c.id ? "bg-pine text-white" : "bg-hairline text-body"}`}>
+              <button key={c.id} onClick={() => setCat(c.id)}
+                className={`pill shrink-0 ${cat === c.id ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
                 {c.name}
               </button>
             ))}
@@ -780,16 +780,21 @@ export function Pos() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
-            {(["veg", "nonveg", "egg"] as const).map((d) => (
-              <button
-                key={d}
-                onClick={() => setDiet(diet === d ? "" : d)}
-                className={`pill flex items-center gap-1.5 ${diet === d ? "bg-ink text-white" : "bg-hairline text-body"}`}
-              >
-                <span className={`h-2 w-2 rounded-full ${d === "veg" ? "bg-pine" : d === "egg" ? "bg-amber-500" : "bg-clay"}`} />
-                {d === "veg" ? "Veg" : d === "egg" ? "Egg" : "Non-veg"}
-              </button>
-            ))}
+            <div className="flex gap-1 rounded-pill bg-hairline p-1">
+              {(["veg", "nonveg", "egg"] as const).map((d) => {
+                const active = diet === d;
+                return (
+                  <button
+                    key={d}
+                    onClick={() => setDiet(diet === d ? "" : d)}
+                    className={`pill flex items-center gap-1.5 ${active ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}
+                  >
+                    <span className={`h-2 w-2 rounded-full ${d === "veg" ? "bg-pine" : d === "egg" ? "bg-amber-500" : "bg-clay"}`} />
+                    {d === "veg" ? "Veg" : d === "egg" ? "Egg" : "Non-veg"}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
             {shown?.map((i) => (
@@ -840,7 +845,7 @@ export function Pos() {
           {!order?.lines.length ? (
             <div className="text-sm text-muted py-8 text-center">No items yet.</div>
           ) : (
-            <div className="space-y-2 mb-3">
+            <div className="space-y-2 mb-3 lg:max-h-[calc(100vh-28rem)] lg:overflow-y-auto lg:pr-1">
               {order.lines.map((l) => (
                 <div key={l.id} className="flex items-center gap-2 text-sm">
                   <div className="flex-1">
@@ -897,38 +902,44 @@ export function Pos() {
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-3">
-                <button className="btn-ghost text-xs flex-1" disabled={billed} onClick={() => setShowDiscount(true)}>
-                  Discount
-                </button>
-                <button className="btn-ghost text-xs flex-1" disabled={billed} onClick={() => setShowCoupon(true)}>
-                  Coupon
-                </button>
+              <div className="mt-3">
+                <div className="text-[10px] uppercase tracking-wide text-muted mb-1.5">Adjust items</div>
+                <div className="flex gap-2">
+                  <button className="btn-ghost text-xs flex-1" disabled={billed} onClick={() => setShowDiscount(true)}>
+                    Discount
+                  </button>
+                  <button className="btn-ghost text-xs flex-1" disabled={billed} onClick={() => setShowCoupon(true)}>
+                    Coupon
+                  </button>
+                </div>
               </div>
 
-              <div className="flex gap-2 mt-2">
-                <button
-                  className="btn-ghost text-xs flex-1"
-                  onClick={async () => {
-                    const name = await ask({ title: "Move order", label: "Destination table", placeholder: "Table name" });
-                    const dest = tables?.find((t) => t.name.toLowerCase() === (name ?? "").toLowerCase());
-                    if (dest) move.mutate(dest.id); else if (name) toast("Table not found", "error");
-                  }}
-                >
-                  Move
-                </button>
-                <button
-                  className="btn-ghost text-xs flex-1 text-clay"
-                  onClick={async () => {
-                    const code = await ask({ title: "Void order", label: "Manager passcode", password: true });
-                    if (code) voidOrder.mutate(code);
-                  }}
-                >
-                  Void
-                </button>
+              <div className="mt-3 pt-3 border-t border-hairline">
+                <div className="text-[10px] uppercase tracking-wide text-muted mb-1.5">Order</div>
+                <div className="flex gap-2">
+                  <button
+                    className="btn-ghost text-xs flex-1"
+                    onClick={async () => {
+                      const name = await ask({ title: "Move order", label: "Destination table", placeholder: "Table name" });
+                      const dest = tables?.find((t) => t.name.toLowerCase() === (name ?? "").toLowerCase());
+                      if (dest) move.mutate(dest.id); else if (name) toast("Table not found", "error");
+                    }}
+                  >
+                    Move
+                  </button>
+                  <button
+                    className="btn-ghost text-xs flex-1 text-clay"
+                    onClick={async () => {
+                      const code = await ask({ title: "Void order", label: "Manager passcode", password: true });
+                      if (code) voidOrder.mutate(code);
+                    }}
+                  >
+                    Void
+                  </button>
+                </div>
               </div>
 
-              <div className="grid gap-2 mt-3">
+              <div className="grid gap-2 mt-3 pt-3 border-t border-hairline">
                 {!billed && (
                   <button className="btn-primary" disabled={fireKot.isPending || !unfired} onClick={() => fireKot.mutate()}>
                     {fireKot.isPending ? "Firing…"
@@ -1188,7 +1199,7 @@ function FinalBillModal({
             </div>
           )}
           {validMobile && (
-            <div className="flex items-center gap-1.5 mt-2 text-xs">
+            <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-hairline text-xs">
               <span className="text-muted">Send bill via</span>
               {(["sms", "whatsapp"] as const).map((ch) => (
                 <button key={ch} onClick={() => setReceipt(ch)}
@@ -1200,6 +1211,7 @@ function FinalBillModal({
           )}
         </div>
 
+        <div className="pt-3 border-t border-hairline">
         {cashMode ? (
           <div>
             <label className="text-xs font-semibold text-muted">Cash received</label>
@@ -1233,6 +1245,7 @@ function FinalBillModal({
             <button className="btn-ghost w-full" disabled={busy} onClick={onCancel}>Cancel</button>
           </>
         )}
+        </div>
       </div>
     </div>
   );
