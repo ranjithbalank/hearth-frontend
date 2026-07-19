@@ -258,17 +258,21 @@ export function Pos() {
 
   // One-tap close: print the final bill, settle the payment, free the table.
   const finalBill = useMutation({
-    mutationFn: async ({ tender, cust }: { tender: string; cust?: { name: string; mobile: string } }) => {
+    mutationFn: async ({ tender, cust, receipt }: {
+      tender: string;
+      cust?: { name: string; mobile: string; country: string };
+      receipt?: "sms" | "whatsapp";
+    }) => {
       const id = orderId!;
       // Name and number on the bill first, so the CRM profile exists when the
-      // settle sends the receipt SMS and accrues loyalty.
+      // settle sends the receipt (SMS or WhatsApp) and accrues loyalty.
       if (cust?.mobile) await api.post(`/pos/orders/${id}/attach_customer/`, cust);
       if (order?.status !== "billed") {
         await api.post(`/pos/orders/${id}/bill/`);
         downloadBillPdf(id);
       }
       return (await api.post(`/pos/orders/${id}/settle/`, {
-        tender, token: tender === "Gateway" ? "tok_demo_card" : undefined,
+        tender, receipt, token: tender === "Gateway" ? "tok_demo_card" : undefined,
       })).data;
     },
     onSuccess: (_d, { tender }) => {
@@ -1036,7 +1040,7 @@ export function Pos() {
             ? { name: order.customer_name ?? "", mobile: order.customer_mobile }
             : null}
           onCancel={() => setShowFinal(false)}
-          onConfirm={(tender, cust) => finalBill.mutate({ tender, cust })}
+          onConfirm={(tender, cust, receipt) => finalBill.mutate({ tender, cust, receipt })}
         />
       )}
     </div>
@@ -1052,26 +1056,34 @@ function FinalBillModal({
   busy: boolean;
   initialCustomer: { name: string; mobile: string } | null;
   onCancel: () => void;
-  onConfirm: (tender: string, cust?: { name: string; mobile: string }) => void;
+  onConfirm: (tender: string, cust?: { name: string; mobile: string; country: string },
+    receipt?: "sms" | "whatsapp") => void;
 }) {
   // Cash is settled through a change calculator; other tenders settle on one tap.
   const [cashMode, setCashMode] = useState(false);
   const [received, setReceived] = useState("");
   // Name and number for the bill — saved to Guest CRM on settle. A known
   // mobile auto-fills the name and shows the guest's loyalty balance.
+  // Foreign guests keep their country code (stored as "+44 7700123456").
+  const savedCc = (initialCustomer?.mobile ?? "").match(/^(\+\d{1,4})\s*(.*)$/);
+  const [cc, setCc] = useState(savedCc?.[1] ?? "+91");
   const [custName, setCustName] = useState(initialCustomer?.name ?? "");
-  const [custMobile, setCustMobile] = useState(initialCustomer?.mobile ?? "");
+  const [custMobile, setCustMobile] = useState(
+    digits(savedCc ? savedCc[2] : initialCustomer?.mobile ?? "", 12));
+  const validMobile = cc === "+91" ? custMobile.length === 10 : custMobile.length >= 6;
+  const fullMobile = cc === "+91" ? custMobile : `${cc} ${custMobile}`;
+  const [receipt, setReceipt] = useState<"sms" | "whatsapp">("sms");
   const { data: known } = useQuery({
-    queryKey: ["cust-lookup", custMobile],
+    queryKey: ["cust-lookup", fullMobile],
     queryFn: async () => (await api.get<{ found: boolean; customer?: { name: string; loyalty_points: number } }>(
-      `/customers/lookup/?mobile=${custMobile}`)).data,
-    enabled: custMobile.length === 10,
+      `/customers/lookup/?mobile=${encodeURIComponent(fullMobile)}`)).data,
+    enabled: validMobile,
   });
   useEffect(() => {
     if (known?.found && known.customer && !custName) setCustName(known.customer.name);
   }, [known]);  // eslint-disable-line react-hooks/exhaustive-deps
-  const cust = custMobile.length === 10
-    ? { name: personName(custName), mobile: custMobile }
+  const cust = validMobile
+    ? { name: personName(custName), mobile: custMobile, country: cc }
     : undefined;
   const totalNum = Number(total) || 0;
   const recvNum = Number(received) || 0;
@@ -1087,7 +1099,7 @@ function FinalBillModal({
 
   function tap(tn: string) {
     if (tn === "Cash") { setCashMode(true); setReceived(String(Math.ceil(totalNum))); }
-    else onConfirm(tn, cust);
+    else onConfirm(tn, cust, receipt);
   }
 
   return (
@@ -1104,9 +1116,16 @@ function FinalBillModal({
 
         <div className="mb-4">
           <label className="text-xs font-semibold text-muted">Customer name &amp; number — for the bill &amp; loyalty</label>
-          <div className="grid grid-cols-2 gap-2 mt-1">
+          <div className="grid grid-cols-[4.5rem_1fr_1fr] gap-2 mt-1">
+            <select className="input py-1.5 text-sm px-1" value={cc} aria-label="Country code"
+              onChange={(e) => setCc(e.target.value)}>
+              {["+91", "+44", "+1", "+971", "+65", "+61", "+86", "+49"].map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
             <input className="input py-1.5 text-sm" placeholder="Mobile" inputMode="numeric"
-              value={custMobile} onChange={(e) => setCustMobile(digits(e.target.value, 10))} />
+              value={custMobile}
+              onChange={(e) => setCustMobile(digits(e.target.value, cc === "+91" ? 10 : 12))} />
             <input className="input py-1.5 text-sm" placeholder="Name"
               value={custName} onChange={(e) => setCustName(personName(e.target.value))} />
           </div>
@@ -1115,8 +1134,22 @@ function FinalBillModal({
               ↩ Returning guest · {known.customer.name} · {known.customer.loyalty_points} pts
             </div>
           )}
-          {custMobile.length > 0 && custMobile.length < 10 && (
-            <div className="text-xs text-muted mt-1">10 digits to save this guest to CRM — or clear to skip</div>
+          {custMobile.length > 0 && !validMobile && (
+            <div className="text-xs text-muted mt-1">
+              {cc === "+91" ? "10 digits to save this guest to CRM — or clear to skip"
+                : "full number to save this guest to CRM — or clear to skip"}
+            </div>
+          )}
+          {validMobile && (
+            <div className="flex items-center gap-1.5 mt-2 text-xs">
+              <span className="text-muted">Send bill via</span>
+              {(["sms", "whatsapp"] as const).map((ch) => (
+                <button key={ch} onClick={() => setReceipt(ch)}
+                  className={`pill ${receipt === ch ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+                  {ch === "sms" ? "SMS" : "💬 WhatsApp"}
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
@@ -1136,7 +1169,7 @@ function FinalBillModal({
               <span>{money(Math.abs(change))}</span>
             </div>
             <button className="btn-primary w-full mt-3" disabled={busy || recvNum < totalNum}
-              onClick={() => onConfirm("Cash", cust)}>
+              onClick={() => onConfirm("Cash", cust, receipt)}>
               {busy ? "Settling…" : `Settle · give change ${money(Math.max(change, 0))}`}
             </button>
             <button className="btn-ghost w-full mt-1" disabled={busy} onClick={() => setCashMode(false)}>← Other tender</button>
