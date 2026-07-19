@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -21,10 +22,30 @@ const SOURCE_TONE: Record<string, "pine" | "clay" | "amber" | "info"> = {
 
 export function FrontDesk() {
   const nav = useNavigate();
+  const qc = useQueryClient();
+  const ask = usePrompt();
+  const toast = useToast();
   const { property } = useApp();
   const [walkin, setWalkin] = useState(false);
   const [hkPick, setHkPick] = useState(false);
   const [roomService, setRoomService] = useState(false);
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["arrivals"] });
+    qc.invalidateQueries({ queryKey: ["reservations"] });
+    qc.invalidateQueries({ queryKey: ["availability"] });
+  };
+  const noShow = useMutation({
+    mutationFn: async (id: number) => (await api.post(`/reservations/${id}/no_show/`)).data,
+    onSuccess: () => { toast("Marked as no-show — the held room is released"); refresh(); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not mark no-show", "error"),
+  });
+  const extend = useMutation({
+    mutationFn: async ({ id, nights }: { id: number; nights: number }) =>
+      (await api.post(`/reservations/${id}/extend/`, { nights })).data as Reservation,
+    onSuccess: (r) => { toast(`Stay extended — now checking out ${fmtDate(r.checkout_date)}`); refresh(); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not extend the stay", "error"),
+  });
 
   const { data: arrivals, isLoading } = useQuery({
     queryKey: ["arrivals"],
@@ -97,6 +118,17 @@ export function FrontDesk() {
                   </div>
                 </div>
                 {d.checkout_date < today && <Badge tone="clay">Overstay</Badge>}
+                <button className="btn-ghost text-xs py-1" disabled={extend.isPending}
+                  title="Guest is staying on — push the checkout date"
+                  onClick={async () => {
+                    const n = await ask({ title: `Extend stay — ${d.guest_name}`,
+                      label: `Room ${d.room_number ?? "—"} · currently out ${fmtDate(d.checkout_date)}`,
+                      defaultValue: "1", placeholder: "Nights to add" });
+                    const nights = Number(n);
+                    if (nights >= 1) extend.mutate({ id: d.id, nights });
+                  }}>
+                  Extend stay
+                </button>
                 <button className="btn-outline" onClick={() => nav("/checkout")}>
                   Check out →
                 </button>
@@ -127,6 +159,17 @@ export function FrontDesk() {
                 {a.prepaid && <Badge tone="amber">Prepaid {money(a.deposit)}</Badge>}
                 {a.precheckin_done && (
                   <Badge tone="pine">✓ Pre-checked-in{a.precheckin?.eta ? ` · ETA ${a.precheckin.eta}` : ""}</Badge>
+                )}
+                {a.checkin_date < today && (
+                  <button className="btn-ghost text-xs py-1 text-amber-600" disabled={noShow.isPending}
+                    onClick={async () => {
+                      const ok = await ask({ title: "Mark no-show", confirm: true, danger: true,
+                        confirmLabel: "Mark no-show",
+                        message: `${a.guest_name} was due ${fmtDate(a.checkin_date)} and never arrived? This releases the held room.` });
+                      if (ok) noShow.mutate(a.id);
+                    }}>
+                    No-show
+                  </button>
                 )}
                 <button className="btn-primary" onClick={() => nav(`/checkin?reservation=${a.id}`)}>
                   Check in
