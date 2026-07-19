@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { fmtDate } from "../../lib/date";
 import { money } from "../../lib/money";
 import { useApp } from "../../lib/app-context";
 import type { Reservation, Room } from "../../lib/types";
@@ -29,8 +30,24 @@ export function FrontDesk() {
     queryKey: ["arrivals"],
     queryFn: async () => (await api.get<Reservation[]>("/reservations/arrivals/")).data,
   });
+  // Departures: in-house stays whose checkout date has arrived.
+  const { data: allRes } = useQuery({
+    queryKey: ["reservations"],
+    queryFn: async () => (await api.get<Reservation[]>("/reservations/")).data,
+  });
 
   if (isLoading) return <Spinner />;
+
+  const today = property?.business_date ?? new Date().toISOString().slice(0, 10);
+  const dueOut = (allRes ?? []).filter(
+    (r) => r.status === "in_house" && r.checkout_date <= today);
+  // The desk works today's list first: overdue, then today, then the future.
+  const sorted = [...(arrivals ?? [])].sort((a, b) =>
+    a.checkin_date.localeCompare(b.checkin_date));
+  const whenBadge = (d: string) =>
+    d < today ? { tone: "clay" as const, label: `Overdue · ${fmtDate(d)}` }
+      : d === today ? { tone: "pine" as const, label: "Today" }
+        : { tone: "muted" as const, label: fmtDate(d) };
 
   return (
     <div>
@@ -64,30 +81,59 @@ export function FrontDesk() {
         <button className="btn-primary" onClick={() => setWalkin(true)}>Start walk-in check-in</button>
       </div>
 
+      {dueOut.length > 0 && (
+        <>
+          <div className="text-xs uppercase tracking-wide text-muted mb-2">
+            Departures — due out ({dueOut.length})
+          </div>
+          <div className="space-y-3 mb-6">
+            {dueOut.map((d) => (
+              <Card key={d.id} className="flex items-center gap-4 border-l-4 border-amber">
+                <div className="flex-1">
+                  <div className="font-semibold text-ink">{d.guest_name}</div>
+                  <div className="text-sm text-muted">
+                    Room {d.room_number ?? "—"} · {d.room_type_name || d.room_type_code} ·
+                    out {fmtDate(d.checkout_date)}
+                  </div>
+                </div>
+                {d.checkout_date < today && <Badge tone="clay">Overstay</Badge>}
+                <button className="btn-outline" onClick={() => nav("/checkout")}>
+                  Check out →
+                </button>
+              </Card>
+            ))}
+          </div>
+        </>
+      )}
+
       <div className="text-xs uppercase tracking-wide text-muted mb-2">Expected arrivals</div>
-      {!arrivals?.length ? (
+      {!sorted.length ? (
         <EmptyState title="No pending arrivals" hint="Use the walk-in area above for guests without a booking." />
       ) : (
         <div className="space-y-3">
-          {arrivals.map((a) => (
-            <Card key={a.id} className="flex items-center gap-4">
-              <div className="flex-1">
-                <div className="font-semibold text-ink">{a.guest_name}</div>
-                <div className="text-sm text-muted">
-                  {a.room_type_code} · {a.nights} night{a.nights > 1 ? "s" : ""} ·{" "}
-                  {money(a.rate)}/night
+          {sorted.map((a) => {
+            const when = whenBadge(a.checkin_date);
+            return (
+              <Card key={a.id} className="flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="font-semibold text-ink">{a.guest_name}</div>
+                  <div className="text-sm text-muted">
+                    {a.room_type_name || a.room_type_code} · {fmtDate(a.checkin_date)} → {fmtDate(a.checkout_date)}
+                    {" "}· {a.nights} night{a.nights > 1 ? "s" : ""} · {money(a.rate)}/night
+                  </div>
                 </div>
-              </div>
-              <Badge tone={SOURCE_TONE[a.source] ?? "muted"}>{a.source_label}</Badge>
-              {a.prepaid && <Badge tone="amber">Prepaid {money(a.deposit)}</Badge>}
-              {a.precheckin_done && (
-                <Badge tone="pine">✓ Pre-checked-in{a.precheckin?.eta ? ` · ETA ${a.precheckin.eta}` : ""}</Badge>
-              )}
-              <button className="btn-primary" onClick={() => nav(`/checkin?reservation=${a.id}`)}>
-                Check in
-              </button>
-            </Card>
-          ))}
+                <Badge tone={when.tone}>{when.label}</Badge>
+                <Badge tone={SOURCE_TONE[a.source] ?? "muted"}>{a.source_label}</Badge>
+                {a.prepaid && <Badge tone="amber">Prepaid {money(a.deposit)}</Badge>}
+                {a.precheckin_done && (
+                  <Badge tone="pine">✓ Pre-checked-in{a.precheckin?.eta ? ` · ETA ${a.precheckin.eta}` : ""}</Badge>
+                )}
+                <button className="btn-primary" onClick={() => nav(`/checkin?reservation=${a.id}`)}>
+                  Check in
+                </button>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
