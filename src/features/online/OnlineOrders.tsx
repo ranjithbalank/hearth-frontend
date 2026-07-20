@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
+import { usePrompt } from "../../design/Prompt";
 import { api } from "../../lib/api";
 import { money } from "../../lib/money";
 import type { MenuItem, Order } from "../../lib/types";
@@ -20,9 +21,33 @@ const PLATFORM_TONE: Record<string, "clay" | "amber" | "info"> = {
   qr: "info",
 };
 
+// Aggregators penalize slow acceptance — a much tighter SLA than a dine-in
+// table, so the thresholds here are minutes, not the floor view's half-hour.
+const AMBER_MIN = 3;
+const RED_MIN = 5;
+function elapsedMins(o: Order): number {
+  return Math.max(0, (Date.now() - new Date(o.created_at).getTime()) / 60000);
+}
+function urgencyOf(mins: number): "on-track" | "approaching" | "delayed" {
+  return mins >= RED_MIN ? "delayed" : mins >= AMBER_MIN ? "approaching" : "on-track";
+}
+const URGENCY_BORDER: Record<string, string> = {
+  "on-track": "border-l-pine", approaching: "border-l-amber", delayed: "border-l-clay",
+};
+const URGENCY_BADGE: Record<string, string> = {
+  "on-track": "bg-pine text-white", approaching: "bg-amber text-white", delayed: "bg-clay text-white",
+};
+
 export function OnlineOrders() {
   const qc = useQueryClient();
+  const ask = usePrompt();
   const [msg, setMsg] = useState<string | null>(null);
+  // Keep the elapsed badges ticking between polls.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 15_000);
+    return () => clearInterval(t);
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ["online-orders"],
@@ -39,6 +64,13 @@ export function OnlineOrders() {
       (await api.post(`/pos/orders/${o.id}/online_status/`, { status })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["online-orders"] }),
     onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Could not update the order"),
+  });
+
+  const reject = useMutation({
+    mutationFn: async ({ o, reason }: { o: Order; reason: string }) =>
+      (await api.post(`/pos/orders/${o.id}/reject/`, { reason })).data,
+    onSuccess: () => { setMsg("Order rejected"); qc.invalidateQueries({ queryKey: ["online-orders"] }); },
+    onError: (e: any) => setMsg(e?.response?.data?.detail ?? "Could not reject the order"),
   });
 
   const simulate = useMutation({
@@ -75,15 +107,27 @@ export function OnlineOrders() {
         <div className="grid grid-cols-3 gap-3">
           {data.map((o) => {
             const next = NEXT[o.online_status];
+            const mins = elapsedMins(o);
+            const urgency = urgencyOf(mins);
             return (
-              <Card key={o.id}>
+              <Card key={o.id} className={`border-l-4 ${URGENCY_BORDER[urgency]}`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="flex items-center gap-1">
                     <Badge tone={PLATFORM_TONE[o.source_platform] ?? "info"}>{o.source_platform}</Badge>
                     {o.brand && <Badge tone="muted">{o.brand}</Badge>}
                   </span>
-                  <span className="text-xs text-muted">{o.kot_no}{o.token_no ? ` · Token ${o.token_no}` : ""}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted">{o.kot_no}{o.token_no ? ` · Token ${o.token_no}` : ""}</span>
+                    <span className={`rounded-pill px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${URGENCY_BADGE[urgency]}`}>
+                      {Math.floor(mins)}m
+                    </span>
+                  </span>
                 </div>
+                {o.customer_name && (
+                  <div className="text-xs text-muted mb-2 truncate">
+                    👤 {o.customer_name}{o.customer_mobile ? ` · ${o.customer_mobile}` : ""}
+                  </div>
+                )}
                 <div className="text-sm space-y-0.5 mb-2">
                   {o.lines.map((l) => (
                     <div key={l.id} className="flex justify-between">
@@ -102,8 +146,17 @@ export function OnlineOrders() {
                       🍳 kitchen cooking…
                     </span>
                   )}
+                  {o.online_status === "received" && (
+                    <button className="btn-ghost text-xs text-clay py-1 ml-auto" disabled={reject.isPending}
+                      onClick={async () => {
+                        const reason = await ask({ title: "Reject order", label: "Reason", placeholder: "e.g. item out of stock" });
+                        if (reason) reject.mutate({ o, reason });
+                      }}>
+                      Reject
+                    </button>
+                  )}
                   {next && (
-                    <button className="btn-primary text-xs py-1 ml-auto"
+                    <button className={`btn-primary text-xs py-1 ${o.online_status === "received" ? "" : "ml-auto"}`}
                       onClick={() => advance.mutate({ o, status: next.status })}>
                       {next.label}
                     </button>
