@@ -76,20 +76,49 @@ const NEXT_LABEL: Record<string, string> = {
 };
 const CAN_ADVANCE = new Set(Object.keys(NEXT_LABEL));
 
+interface HousekeepingTask {
+  id: number; room: number; room_number: string;
+  assigned_to: number | null; assigned_to_name: string | null; assigned_to_on_leave: boolean;
+  status: "assigned" | "in_progress" | "done"; status_label: string;
+  checklist: { label: string; done: boolean }[];
+  linen_issued: Record<string, number>;
+  note: string; created_at: string; started_at: string | null; completed_at: string | null;
+  elapsed_minutes: number | null;
+}
+interface Attendant { id: number; name: string }
+interface LinenItem { id: number; name: string; par_per_room: number; active: boolean }
+
+const TASK_TONE: Record<HousekeepingTask["status"], "amber" | "info" | "pine"> = {
+  assigned: "amber", in_progress: "info", done: "pine",
+};
+
 export function Housekeeping() {
   const qc = useQueryClient();
   const toast = useToast();
   const [minibarRoom, setMinibarRoom] = useState<Room | null>(null);
+  const [onlyMine, setOnlyMine] = useState(false);
+  const [completingTask, setCompletingTask] = useState<HousekeepingTask | null>(null);
   const { data: rooms, isLoading } = useQuery({
     queryKey: ["hk-rooms"],
     queryFn: async () => (await api.get<Room[]>("/housekeeping/")).data,
   });
+  const { data: tasks } = useQuery({
+    queryKey: ["hk-tasks", onlyMine],
+    queryFn: async () => (await api.get<HousekeepingTask[]>(
+      `/housekeeping/tasks/?open=1${onlyMine ? "&mine=1" : ""}`)).data,
+  });
+  const { data: attendants } = useQuery({
+    queryKey: ["hk-attendants"],
+    queryFn: async () => (await api.get<Attendant[]>("/housekeeping/tasks/attendants/")).data,
+  });
+  const taskByRoom = new Map((tasks ?? []).map((t) => [t.room, t]));
 
   const advance = useMutation({
     mutationFn: async (room: Room) => (await api.patch(`/housekeeping/${room.id}/advance/`)).data as Room,
     onSuccess: (updated) => {
       toast(`Room ${updated.number} → ${updated.status_label}`);
       qc.invalidateQueries({ queryKey: ["hk-rooms"] });
+      qc.invalidateQueries({ queryKey: ["hk-tasks"] });
       qc.invalidateQueries({ queryKey: ["rooms"] });
     },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not update room", "error"),
@@ -102,6 +131,45 @@ export function Housekeeping() {
     onError: () => toast("No open folio for this room", "error"),
   });
 
+  const assignTask = useMutation({
+    mutationFn: async ({ room, attendant }: { room: Room; attendant: number }) =>
+      (await api.post("/housekeeping/tasks/", { room: room.id, assigned_to: attendant })).data,
+    onSuccess: () => { toast("Task assigned"); qc.invalidateQueries({ queryKey: ["hk-tasks"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not assign", "error"),
+  });
+  const reassignTask = useMutation({
+    mutationFn: async ({ task, attendant }: { task: HousekeepingTask; attendant: number }) =>
+      (await api.post(`/housekeeping/tasks/${task.id}/reassign/`, { assigned_to: attendant })).data,
+    onSuccess: () => { toast("Task reassigned"); qc.invalidateQueries({ queryKey: ["hk-tasks"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not reassign", "error"),
+  });
+  const startTask = useMutation({
+    mutationFn: async (task: HousekeepingTask) => (await api.post(`/housekeeping/tasks/${task.id}/start/`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hk-tasks"] });
+      qc.invalidateQueries({ queryKey: ["hk-rooms"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not start", "error"),
+  });
+  const toggleItem = useMutation({
+    mutationFn: async ({ task, index }: { task: HousekeepingTask; index: number }) =>
+      (await api.post(`/housekeeping/tasks/${task.id}/toggle_item/`, { index })).data as HousekeepingTask,
+    onSuccess: (updated) => {
+      qc.setQueriesData({ queryKey: ["hk-tasks"] }, (old: HousekeepingTask[] | undefined) =>
+        old?.map((t) => (t.id === updated.id ? updated : t)));
+    },
+  });
+  const completeTask = useMutation({
+    mutationFn: async ({ task, linen_issued, note }: { task: HousekeepingTask; linen_issued: Record<string, number>; note: string }) =>
+      (await api.post(`/housekeeping/tasks/${task.id}/complete/`, { linen_issued, note })).data,
+    onSuccess: () => {
+      toast("Task completed");
+      qc.invalidateQueries({ queryKey: ["hk-tasks"] });
+      qc.invalidateQueries({ queryKey: ["hk-rooms"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not complete", "error"),
+  });
+
   if (isLoading || !rooms) return <Spinner />;
 
   const n = (...st: string[]) => rooms.filter((r) => st.includes(r.status)).length;
@@ -111,15 +179,22 @@ export function Housekeeping() {
   const PRIORITY: Record<string, number> = {
     vacant_dirty: 0, cleaning: 1, inspected: 2, vacant_clean: 3, occupied: 4, ooo: 5,
   };
-  const ordered = [...rooms].sort(
-    (a, b) => Number(b.cleaning_requested) - Number(a.cleaning_requested)
-      || (PRIORITY[a.status] ?? 9) - (PRIORITY[b.status] ?? 9)
-      || a.number.localeCompare(b.number),
-  );
+  const ordered = [...rooms]
+    .filter((r) => !onlyMine || taskByRoom.has(r.id))
+    .sort(
+      (a, b) => Number(b.cleaning_requested) - Number(a.cleaning_requested)
+        || (PRIORITY[a.status] ?? 9) - (PRIORITY[b.status] ?? 9)
+        || a.number.localeCompare(b.number),
+    );
 
   return (
     <div>
       <PageHeader title="Housekeeping" subtitle="Dirty → Cleaning → Clean → Inspected" />
+
+      <label className="text-sm flex items-center gap-2 mb-3">
+        <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} />
+        Only my assigned rooms
+      </label>
 
       {/* Housekeeping dashboard — what needs attention right now. */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
@@ -159,6 +234,60 @@ export function Housekeeping() {
                 🔔 Requested{r.cleaning_note ? ` — ${r.cleaning_note}` : ""}
               </div>
             )}
+            {(() => {
+              const task = taskByRoom.get(r.id);
+              if (!task) {
+                if (r.status !== "vacant_dirty" || !attendants?.length) return null;
+                return (
+                  <select className="input w-full mt-3 text-xs py-1.5" defaultValue=""
+                    onChange={(e) => e.target.value && assignTask.mutate({ room: r, attendant: Number(e.target.value) })}>
+                    <option value="" disabled>Assign attendant…</option>
+                    {attendants.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                );
+              }
+              return (
+                <div className="mt-3 border-t border-line pt-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium">{task.assigned_to_name}</span>
+                    <Badge tone={TASK_TONE[task.status]}>{task.status_label}</Badge>
+                  </div>
+                  {task.assigned_to_on_leave && (
+                    <div className="text-xs text-clay mt-1">On leave today — reassign below</div>
+                  )}
+                  {task.status !== "done" && task.elapsed_minutes != null && (
+                    <div className="text-xs text-muted mt-1">{task.elapsed_minutes} min elapsed</div>
+                  )}
+                  {task.status === "assigned" && (
+                    <button className="btn-outline w-full mt-2 text-xs py-1" onClick={() => startTask.mutate(task)}>
+                      Start cleaning
+                    </button>
+                  )}
+                  {task.status === "in_progress" && (
+                    <>
+                      <div className="mt-2 space-y-1">
+                        {task.checklist.map((c, i) => (
+                          <label key={i} className="flex items-center gap-1.5 text-xs">
+                            <input type="checkbox" checked={c.done}
+                              onChange={() => toggleItem.mutate({ task, index: i })} />
+                            <span className={c.done ? "line-through text-muted" : ""}>{c.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <button className="btn-primary w-full mt-2 text-xs py-1" onClick={() => setCompletingTask(task)}>
+                        Complete
+                      </button>
+                    </>
+                  )}
+                  {attendants && attendants.length > 1 && (
+                    <select className="input w-full mt-2 text-xs py-1" value={task.assigned_to ?? ""}
+                      onChange={(e) => e.target.value && reassignTask.mutate({ task, attendant: Number(e.target.value) })}>
+                      {attendants.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  )}
+                </div>
+              );
+            })()}
             {r.status === "occupied" && r.cleaning_requested && (
               <button
                 className="btn-primary w-full mt-3 text-xs py-1.5"
@@ -168,7 +297,7 @@ export function Housekeeping() {
                 Mark serviced
               </button>
             )}
-            {CAN_ADVANCE.has(r.status) && (
+            {CAN_ADVANCE.has(r.status) && !taskByRoom.has(r.id) && (
               <button
                 className="btn-outline w-full mt-3 text-xs py-1.5"
                 disabled={advance.isPending && advance.variables?.id === r.id}
@@ -211,6 +340,69 @@ export function Housekeeping() {
           }}
         />
       )}
+
+      {completingTask && (
+        <CompleteTaskModal
+          task={completingTask}
+          onCancel={() => setCompletingTask(null)}
+          onSubmit={(linen_issued, note) => {
+            completeTask.mutate({ task: completingTask, linen_issued, note });
+            setCompletingTask(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Quick linen-issued entry (defaults to each item's par level) + a note,
+ *  submitted alongside the task's completion. */
+function CompleteTaskModal({ task, onCancel, onSubmit }: {
+  task: HousekeepingTask;
+  onCancel: () => void;
+  onSubmit: (linenIssued: Record<string, number>, note: string) => void;
+}) {
+  const { data: linenItems } = useQuery({
+    queryKey: ["hk-linen-items"],
+    queryFn: async () => (await api.get<LinenItem[]>("/housekeeping/linen-items/")).data,
+  });
+  const active = (linenItems ?? []).filter((l) => l.active);
+  // Only overrides live in state — the par level is the displayed default
+  // until the guest edits it, so it isn't lost to the query resolving after
+  // this component's first render (a plain useState initializer would).
+  const [qty, setQty] = useState<Record<string, number>>({});
+  const [note, setNote] = useState("");
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-[70]" onClick={onCancel}>
+      <div className="card p-5 w-[360px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-lg mb-1">Complete — room {task.room_number}</div>
+        <div className="text-xs text-muted mb-3">Linen issued for this turn (0 to skip an item):</div>
+        <div className="space-y-2 mb-3">
+          {active.map((l) => (
+            <div key={l.id} className="flex items-center justify-between text-sm">
+              <span>{l.name}</span>
+              <input type="number" min={0} className="input w-16 py-1 text-right"
+                value={qty[l.name] ?? l.par_per_room}
+                onChange={(e) => setQty((q) => ({ ...q, [l.name]: Number(e.target.value) }))} />
+            </div>
+          ))}
+        </div>
+        <textarea className="input w-full mb-3" rows={2} placeholder="Note (optional)"
+          value={note} onChange={(e) => setNote(e.target.value)} />
+        <div className="flex gap-2">
+          <button className="btn-ghost flex-1" onClick={onCancel}>Cancel</button>
+          <button className="btn-primary flex-1" onClick={() => {
+            const issued = Object.fromEntries(
+              active
+                .map((l): [string, number] => [l.name, qty[l.name] ?? l.par_per_room])
+                .filter(([, v]) => v > 0));
+            onSubmit(issued, note.trim());
+          }}>
+            Complete
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

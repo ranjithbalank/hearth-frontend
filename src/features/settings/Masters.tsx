@@ -328,3 +328,159 @@ export function KitchenStationsPanel() {
     </Card>
   );
 }
+
+interface ChecklistMasterItem { id: number; label: string; sort_order: number; active: boolean }
+
+export function ChecklistItemsPanel() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [f, setF] = useState({ label: "", sort_order: "0" });
+  const { data: items } = useQuery({
+    queryKey: ["hk-checklist-items"],
+    queryFn: async () => (await api.get<ChecklistMasterItem[]>("/housekeeping/checklist-items/")).data,
+  });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["hk-checklist-items"] });
+  const checklistError = (e: any, fallback: string) =>
+    e?.response?.data?.detail ?? e?.response?.data?.label?.[0] ?? fallback;
+  const create = useMutation({
+    mutationFn: async () => (await api.post("/housekeeping/checklist-items/", {
+      label: f.label.trim(), sort_order: Number(f.sort_order) || 0,
+    })).data,
+    onSuccess: () => { setF({ label: "", sort_order: "0" }); toast("Checklist item added"); invalidate(); },
+    onError: (e: any) => toast(checklistError(e, "Could not add"), "error"),
+  });
+  const patch = useMutation({
+    mutationFn: async ({ id, ...body }: { id: number } & Partial<ChecklistMasterItem>) =>
+      (await api.patch(`/housekeeping/checklist-items/${id}/`, body)).data,
+    onSuccess: invalidate,
+    onError: (e: any) => toast(checklistError(e, "Could not update"), "error"),
+  });
+  const remove = useMutation({
+    mutationFn: async (c: ChecklistMasterItem) => (await api.delete(`/housekeeping/checklist-items/${c.id}/`)).data,
+    onSuccess: () => { toast("Removed"); invalidate(); },
+    onError: (e: any) => toast(checklistError(e, "Could not remove"), "error"),
+  });
+
+  return (
+    <Card>
+      <div className="font-semibold mb-1">Cleaning checklist</div>
+      <div className="text-sm text-muted mb-3">
+        The default room-cleaning checklist — snapshotted onto every housekeeping task when it's
+        assigned, so editing this list later never rewrites a task already in progress.
+      </div>
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <input className="input w-64" placeholder="e.g. Restock amenities" value={f.label}
+          onChange={(e) => setF({ ...f, label: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && f.label.trim() && create.mutate()} />
+        <input className="input w-24" type="number" min={0} placeholder="Order" value={f.sort_order}
+          onChange={(e) => setF({ ...f, sort_order: e.target.value })} />
+        <button className="btn-primary" disabled={!f.label.trim() || create.isPending}
+          onClick={() => create.mutate()}>Add</button>
+      </div>
+      <table className="w-full text-sm">
+        <thead className="text-muted text-xs uppercase">
+          <tr>
+            <th className="text-left py-2">Checklist item</th>
+            <th className="text-right py-2">Order</th>
+            <th className="text-right py-2">Status</th>
+            <th className="w-16" />
+          </tr>
+        </thead>
+        <tbody>
+          {items?.map((c) => (
+            <tr key={c.id} className="border-t border-line">
+              <td className={`py-2 font-medium ${c.active ? "" : "text-muted line-through"}`}>{c.label}</td>
+              <td className="py-2 text-right">{c.sort_order}</td>
+              <td className="py-2 text-right">
+                <button className={`pill ${c.active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
+                  onClick={() => patch.mutate({ id: c.id, active: !c.active })}>
+                  {c.active ? "Active" : "Inactive"}
+                </button>
+              </td>
+              <td className="py-2 text-right">
+                <button className="btn-ghost text-xs text-clay" onClick={() => remove.mutate(c)}>Remove</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
+interface LinenMasterItem { id: number; name: string; par_per_room: number; active: boolean }
+
+export function LinenItemsPanel() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [f, setF] = useState({ name: "", par_per_room: "1" });
+  const { data: items } = useQuery({
+    queryKey: ["hk-linen-items"],
+    queryFn: async () => (await api.get<LinenMasterItem[]>("/housekeeping/linen-items/")).data,
+  });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["hk-linen-items"] });
+  const create = useMutation({
+    mutationFn: async () => (await api.post("/housekeeping/linen-items/", {
+      name: f.name.trim(), par_per_room: Number(f.par_per_room) || 1,
+    })).data,
+    onSuccess: () => { setF({ name: "", par_per_room: "1" }); toast("Linen item added"); invalidate(); },
+    onError: (e: any) => toast(apiError(e, "Could not add"), "error"),
+  });
+  const patch = useMutation({
+    mutationFn: async ({ id, ...body }: { id: number } & Partial<LinenMasterItem>) =>
+      (await api.patch(`/housekeeping/linen-items/${id}/`, body)).data,
+    onSuccess: invalidate,
+    onError: (e: any) => toast(apiError(e, "Could not update"), "error"),
+  });
+  const remove = useMutation({
+    mutationFn: async (l: LinenMasterItem) => (await api.delete(`/housekeeping/linen-items/${l.id}/`)).data,
+    onSuccess: () => { toast("Removed"); invalidate(); },
+    onError: (e: any) => toast(apiError(e, "Could not remove"), "error"),
+  });
+
+  return (
+    <Card>
+      <div className="font-semibold mb-1">Linen items</div>
+      <div className="text-sm text-muted mb-3">
+        Par quantity per room turn — shown as the default count when an attendant logs linen
+        issued while completing a housekeeping task. This is a log, not a live stock ledger.
+      </div>
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <input className="input w-44" placeholder="e.g. Bath towel" value={f.name}
+          onChange={(e) => setF({ ...f, name: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && f.name.trim() && create.mutate()} />
+        <input className="input w-24" type="number" min={0} placeholder="Par/room" value={f.par_per_room}
+          onChange={(e) => setF({ ...f, par_per_room: e.target.value })} />
+        <button className="btn-primary" disabled={!f.name.trim() || create.isPending}
+          onClick={() => create.mutate()}>Add</button>
+      </div>
+      <table className="w-full text-sm">
+        <thead className="text-muted text-xs uppercase">
+          <tr>
+            <th className="text-left py-2">Linen item</th>
+            <th className="text-right py-2">Par / room</th>
+            <th className="text-right py-2">Status</th>
+            <th className="w-16" />
+          </tr>
+        </thead>
+        <tbody>
+          {items?.map((l) => (
+            <tr key={l.id} className="border-t border-line">
+              <td className={`py-2 font-medium ${l.active ? "" : "text-muted line-through"}`}>{l.name}</td>
+              <td className="py-2 text-right">{l.par_per_room}</td>
+              <td className="py-2 text-right">
+                <button className={`pill ${l.active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
+                  onClick={() => patch.mutate({ id: l.id, active: !l.active })}>
+                  {l.active ? "Active" : "Inactive"}
+                </button>
+              </td>
+              <td className="py-2 text-right">
+                <button className="btn-ghost text-xs text-clay" onClick={() => remove.mutate(l)}>Remove</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}

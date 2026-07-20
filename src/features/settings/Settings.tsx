@@ -11,7 +11,10 @@ import { amount, digits, gstin as gstinFilter, personName } from "../../lib/inpu
 import { currencySymbol } from "../../lib/money";
 import { useApp } from "../../lib/app-context";
 import { AuditLogPanel } from "./AuditLog";
-import { CurrencyPanel, DepartmentsPanel, DesignationsPanel, KitchenStationsPanel, PaymentMethodsPanel } from "./Masters";
+import {
+  ChecklistItemsPanel, CurrencyPanel, DepartmentsPanel, DesignationsPanel, KitchenStationsPanel,
+  LinenItemsPanel, PaymentMethodsPanel,
+} from "./Masters";
 import type { Branch, BranchAccess, Entitlement, Role, User } from "../../lib/types";
 
 const PROTECTED_ROLES: Role[] = ["Super Admin", "Managing Director", "General Manager"];
@@ -696,6 +699,8 @@ const SECTIONS = [
   { key: "designations", label: "Designations", group: "Masters" },
   { key: "tenders", label: "Payment Methods", group: "Masters" },
   { key: "kitchenstations", label: "Kitchen Stations", group: "Masters" },
+  { key: "checklistitems", label: "Cleaning Checklist", group: "Masters" },
+  { key: "linenitems", label: "Linen Items", group: "Masters" },
 ] as const;
 type SectionKey = (typeof SECTIONS)[number]["key"];
 
@@ -898,6 +903,8 @@ export function Settings() {
           {activeSection === "designations" && <DesignationsPanel />}
           {activeSection === "tenders" && <PaymentMethodsPanel />}
           {activeSection === "kitchenstations" && <KitchenStationsPanel />}
+          {activeSection === "checklistitems" && <ChecklistItemsPanel />}
+          {activeSection === "linenitems" && <LinenItemsPanel />}
         </div>
       </div>
     </div>
