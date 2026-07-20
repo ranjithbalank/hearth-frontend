@@ -5,13 +5,23 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { CsvImport } from "../../design/CsvImport";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
-import { api } from "../../lib/api";
+import { api, getAccess } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { amount } from "../../lib/inputs";
 import { money } from "../../lib/money";
 import type { KitchenStation, MenuItem } from "../../lib/types";
 
 interface Category { id: number; name: string }
+
+async function download(path: string, filename: string) {
+  const res = await fetch(`/api${path}`, { headers: { Authorization: `Bearer ${getAccess()}` } });
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function MenuMaster() {
   const qc = useQueryClient();
@@ -125,6 +135,20 @@ export function MenuMaster() {
       <CsvImport path="/pos/menu-items/import/" templateFilename="menu-template.csv"
         noun="dish" invalidate={["menu", "cats"]}
         hint="Onboarding a whole menu? Download the format, fill it in Excel (name, category, price, GST, veg/nonveg, and one of your configured kitchen stations), and upload once — categories are created for you." />
+      <div className="flex gap-2 mb-4">
+        <button className="btn-outline text-xs py-1" onClick={() => download("/pos/menu-items/export/?fmt=xlsx", "menu-items.xlsx")}>Export XLSX</button>
+        <button className="btn-ghost text-xs py-1" onClick={() => download("/pos/menu-items/export/?fmt=csv", "menu-items.csv")}>CSV</button>
+      </div>
+
+      <div className="font-semibold mb-2">Categories</div>
+      <CsvImport path="/pos/categories/import/" templateFilename="category-template.csv"
+        noun="category" invalidate={["cats"]}
+        hint="Setting up the menu structure? Download the format, fill it in Excel (name, sort order, and whether it's a bar category), and upload once." />
+      <div className="flex gap-2 mb-4">
+        <button className="btn-outline text-xs py-1" onClick={() => download("/pos/categories/export/?fmt=xlsx", "categories.xlsx")}>Export XLSX</button>
+        <button className="btn-ghost text-xs py-1" onClick={() => download("/pos/categories/export/?fmt=csv", "categories.csv")}>CSV</button>
+      </div>
+
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add menu item</div>
         <div className="grid gap-2 grid-cols-6">
