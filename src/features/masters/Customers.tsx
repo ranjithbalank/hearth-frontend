@@ -113,13 +113,15 @@ export function Customers() {
   return (
     <div>
       <PageHeader title="Customers" subtitle="Guest, corporate & travel-agent master" />
-      <div className="flex items-center gap-2 mb-4">
-        {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`pill ${tab === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
-            {t.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex gap-1 rounded-pill bg-hairline p-1">
+          {TABS.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`pill ${tab === t.key ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
         <input className="input ml-auto w-56" placeholder="Search name or mobile…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       <Card className="overflow-hidden p-0">
