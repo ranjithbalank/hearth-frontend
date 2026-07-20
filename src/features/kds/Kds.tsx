@@ -16,6 +16,7 @@ interface Ticket {
   kot_no: string;
   kitchen_status: string;
   table: string;
+  station?: string; // blank on legacy tickets fired before per-station splitting
   created_at: string; // KOT fire time (for BEO tickets it's the event date — no timer)
   items: { line?: number; name: string; qty: number; station: string; ready?: boolean }[];
 }
@@ -116,7 +117,10 @@ export function Kds() {
               } ${urgency === "late" ? "border-l-4 border-l-clay" : urgency === "warn" ? "border-l-4 border-l-amber" : ""}`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="font-display text-lg">{t.kot_no}</span>
+                <span className="font-display text-lg flex items-center gap-1.5">
+                  {t.kot_no}
+                  {t.station && <Badge tone="info">{t.station}</Badge>}
+                </span>
                 <span className="flex items-center gap-1.5">
                   {urgency === "late" && (
                     <span className="relative flex h-2 w-2">

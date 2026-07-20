@@ -11,7 +11,7 @@ import { useToast } from "../../design/Toast";
 import { cacheMenu, enqueue, getCachedMenu, uuid, type OfflineBill } from "../../lib/offline";
 import { useTenders } from "../../lib/tenders";
 import { useOnline } from "../../lib/useOnline";
-import type { MenuItem, Order, Table } from "../../lib/types";
+import type { FireKotTicket, MenuItem, Order, Table } from "../../lib/types";
 import { downloadBillPdf, printKot } from "../print/documents";
 
 type Mode = "dinein" | "takeaway" | "delivery" | "room";
@@ -264,14 +264,22 @@ export function Pos() {
   });
 
   const fireKot = useMutation({
-    mutationFn: async () => (await api.post(`/pos/orders/${orderId}/fire_kot/`)).data,
-    onSuccess: (o: Order) => {
+    mutationFn: async () => (await api.post(`/pos/orders/${orderId}/fire_kot/`)).data as Order & { tickets: FireKotTicket[] },
+    onSuccess: (o) => {
       toast(`KOT fired · ${o.kot_no}${o.token_no ? ` · Token ${o.token_no}` : ""}`);
       // Dine-in: kitchen display only. Takeaway: also print the token slip.
       // Delivery: go straight to the final bill — payment is collected up
       // front and the printed bill carries the pickup token.
       if (o.mode === "takeaway") printKot(o, property?.name ?? "Hearth");
       if (o.mode === "delivery") setShowFinal(true);
+      // Print-only stations (Settings > Kitchen Display) have no on-screen
+      // lifecycle — their ticket prints right here, regardless of order mode.
+      for (const ticket of o.tickets) {
+        if (ticket.mode === "print") {
+          printKot(o, property?.name ?? "Hearth",
+            { kotNo: ticket.kot_no, station: ticket.station, lines: ticket.lines });
+        }
+      }
       qc.invalidateQueries({ queryKey: ["order", orderId] });
     },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "KOT failed", "error"),

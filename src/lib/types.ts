@@ -209,6 +209,25 @@ export interface MenuItem {
   addon_groups?: AddOnGroup[];
 }
 
+export interface KitchenStation {
+  id: number;
+  name: string;
+  mode: "kds" | "print";
+  is_bar: boolean;
+  active: boolean;
+}
+
+/** One physical ticket produced by a "Fire KOT" — a fire can split into
+ *  several of these, one per kitchen station represented among the newly
+ *  fired lines. A "print" ticket has no on-screen lifecycle: it's already
+ *  served the instant it's created, and the frontend prints it right away. */
+export interface FireKotTicket {
+  kot_no: string;
+  station: string;
+  mode: "kds" | "print";
+  lines: { name: string; qty: number; note: string }[];
+}
+
 export interface Table {
   id: number;
   name: string;

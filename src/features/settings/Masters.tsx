@@ -6,6 +6,7 @@ import { Card } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { CURRENCIES } from "../../lib/money";
+import type { KitchenStation } from "../../lib/types";
 
 type MasterItem = { id: number; name: string; active: boolean };
 type PaymentMethod = MasterItem & {
@@ -227,6 +228,97 @@ export function PaymentMethodsPanel() {
               <td className="py-2 text-right">
                 {!m.builtin && (
                   <button className="btn-ghost text-xs text-clay" onClick={() => remove.mutate(m)}>Remove</button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
+export function KitchenStationsPanel() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [f, setF] = useState({ name: "", mode: "kds" as "kds" | "print" });
+  const { data: stations } = useQuery({
+    queryKey: ["master-kitchen-stations"],
+    queryFn: async () => (await api.get<KitchenStation[]>("/masters/kitchen-stations/")).data,
+  });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["master-kitchen-stations"] });
+  const create = useMutation({
+    mutationFn: async () => (await api.post("/masters/kitchen-stations/", { ...f, name: f.name.trim() })).data,
+    onSuccess: () => { setF({ name: "", mode: "kds" }); toast("Station added"); invalidate(); },
+    onError: (e: any) => toast(apiError(e, "Could not add"), "error"),
+  });
+  const patch = useMutation({
+    mutationFn: async ({ id, ...body }: { id: number } & Partial<KitchenStation>) =>
+      (await api.patch(`/masters/kitchen-stations/${id}/`, body)).data,
+    onSuccess: invalidate,
+    onError: (e: any) => toast(apiError(e, "Could not update"), "error"),
+  });
+  const remove = useMutation({
+    mutationFn: async (s: KitchenStation) => (await api.delete(`/masters/kitchen-stations/${s.id}/`)).data,
+    onSuccess: () => { toast("Removed"); invalidate(); },
+    onError: (e: any) => toast(apiError(e, "Could not remove"), "error"),
+  });
+
+  return (
+    <Card>
+      <div className="font-semibold mb-1">Kitchen stations</div>
+      <div className="text-sm text-muted mb-3">
+        Which section a menu item cooks in — Grill, Chinese, Indian, Tandoor, the Bar, however
+        many an outlet needs. <b>Kitchen Display</b> puts the ticket on the live KDS board same as
+        today. <b>Print only</b> is for a section that doesn't use a screen at all — its ticket
+        prints automatically the moment it's fired and never appears on the KDS or the floor's
+        ready strip. The Bar station is built in (it's what feeds Bar POS's own menu) and can't be
+        renamed or removed, only deactivated.
+      </div>
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <input className="input w-44" placeholder="e.g. Grill" value={f.name}
+          onChange={(e) => setF({ ...f, name: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && f.name.trim() && create.mutate()} />
+        <select className="input w-44" value={f.mode}
+          onChange={(e) => setF({ ...f, mode: e.target.value as "kds" | "print" })}>
+          <option value="kds">Kitchen Display</option>
+          <option value="print">Print only</option>
+        </select>
+        <button className="btn-primary" disabled={!f.name.trim() || create.isPending}
+          onClick={() => create.mutate()}>Add</button>
+      </div>
+      <table className="w-full text-sm">
+        <thead className="text-muted text-xs uppercase">
+          <tr>
+            <th className="text-left py-2">Station</th>
+            <th className="text-left py-2">Mode</th>
+            <th className="text-right py-2">Status</th>
+            <th className="w-16" />
+          </tr>
+        </thead>
+        <tbody>
+          {stations?.map((s) => (
+            <tr key={s.id} className="border-t border-line">
+              <td className={`py-2 font-medium ${s.active ? "" : "text-muted line-through"}`}>
+                {s.name}
+                {s.is_bar && <span className="pill bg-hairline text-muted ml-2 text-[10px]">bar · built-in</span>}
+              </td>
+              <td className="py-2">
+                <select className="input py-1 text-xs !w-36" value={s.mode}
+                  onChange={(e) => patch.mutate({ id: s.id, mode: e.target.value as "kds" | "print" })}>
+                  <option value="kds">Kitchen Display</option>
+                  <option value="print">Print only</option>
+                </select>
+              </td>
+              <td className="py-2 text-right">
+                <button className={`pill ${s.active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
+                  onClick={() => patch.mutate({ id: s.id, active: !s.active })}>
+                  {s.active ? "Active" : "Inactive"}
+                </button>
+              </td>
+              <td className="py-2 text-right">
+                {!s.is_bar && (
+                  <button className="btn-ghost text-xs text-clay" onClick={() => remove.mutate(s)}>Remove</button>
                 )}
               </td>
             </tr>

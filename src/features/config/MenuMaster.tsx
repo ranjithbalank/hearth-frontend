@@ -9,7 +9,7 @@ import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { amount } from "../../lib/inputs";
 import { money } from "../../lib/money";
-import type { MenuItem } from "../../lib/types";
+import type { KitchenStation, MenuItem } from "../../lib/types";
 
 interface Category { id: number; name: string }
 
@@ -19,8 +19,8 @@ export function MenuMaster() {
   const ask = usePrompt();
   const { property } = useApp();
   // Combined mode: no separate Bar Menu Master, so beverages are managed
-  // right here too — station picker appears, and bar categories show up
-  // alongside the restaurant's own.
+  // right here too — the bar station shows up in the picker below, and bar
+  // categories show up alongside the restaurant's own.
   const barCombined = property?.entitlement.bar_mode === "combined";
   const empty = { name: "", category: "", price: "", gst_rate: "5", diet: "veg", station: "kitchen" };
   const [form, setForm] = useState(empty);
@@ -33,13 +33,21 @@ export function MenuMaster() {
     queryFn: async () => (await api.get<Category[]>(`/pos/categories/${barCombined ? "" : "?is_bar=0"}`)).data,
   });
   const { data: items, isLoading } = useQuery({ queryKey: ["menu"], queryFn: async () => (await api.get<MenuItem[]>("/pos/menu-items/")).data });
+  // Whichever stations Settings > Masters has configured (Grill, Chinese,
+  // Indian, Tandoor, Bar…) — separate mode hides the bar station here since
+  // those items belong in Bar Menu Master instead.
+  const { data: stations } = useQuery({
+    queryKey: ["master-kitchen-stations"],
+    queryFn: async () => (await api.get<KitchenStation[]>("/masters/kitchen-stations/")).data,
+  });
+  const stationOptions = (stations ?? []).filter((s) => s.active && (barCombined || !s.is_bar));
+  const barStationNames = new Set((stations ?? []).filter((s) => s.is_bar).map((s) => s.name));
 
   const create = useMutation({
     mutationFn: async () =>
       (await api.post("/pos/menu-items/", {
         name: form.name, category: Number(form.category), price: form.price,
-        gst_rate: form.gst_rate, diet: form.diet,
-        ...(barCombined ? { station: form.station } : {}),
+        gst_rate: form.gst_rate, diet: form.diet, station: form.station,
       })).data,
     onSuccess: () => { setForm({ ...empty, category: form.category, station: form.station }); toast("Menu item added"); qc.invalidateQueries({ queryKey: ["menu"] }); },
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not add item — check the values and try again", "error"),
@@ -105,7 +113,7 @@ export function MenuMaster() {
 
   // Separate mode: the bar runs its own menu (see Bar Menu Master) — keep it
   // out of the restaurant's own item list. Combined: show everything.
-  const shown = barCombined ? items : items.filter((m) => m.station !== "bar");
+  const shown = barCombined ? items : items.filter((m) => !barStationNames.has(m.station));
 
   return (
     <div>
@@ -116,10 +124,10 @@ export function MenuMaster() {
       />
       <CsvImport path="/pos/menu-items/import/" templateFilename="menu-template.csv"
         noun="dish" invalidate={["menu", "cats"]}
-        hint="Onboarding a whole menu? Download the format, fill it in Excel (name, category, price, GST, veg/nonveg, kitchen/bar), and upload once — categories are created for you." />
+        hint="Onboarding a whole menu? Download the format, fill it in Excel (name, category, price, GST, veg/nonveg, and one of your configured kitchen stations), and upload once — categories are created for you." />
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add menu item</div>
-        <div className={`grid gap-2 ${barCombined ? "grid-cols-6" : "grid-cols-5"}`}>
+        <div className="grid gap-2 grid-cols-6">
           <input className="input" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             <option value="">Category…</option>
@@ -131,12 +139,11 @@ export function MenuMaster() {
             <option value="12">12% GST</option>
             <option value="18">18% GST</option>
           </select>
-          {barCombined && (
-            <select className="input" value={form.station} onChange={(e) => setForm({ ...form, station: e.target.value })}>
-              <option value="kitchen">Kitchen dish</option>
-              <option value="bar">Beverage (bar)</option>
-            </select>
-          )}
+          <select className="input" value={form.station} onChange={(e) => setForm({ ...form, station: e.target.value })}>
+            {stationOptions.map((s) => (
+              <option key={s.id} value={s.name}>{s.is_bar ? "Beverage (bar)" : s.name}</option>
+            ))}
+          </select>
           <select className="input" value={form.diet} onChange={(e) => setForm({ ...form, diet: e.target.value })}>
             <option value="veg">Veg</option>
             <option value="nonveg">Non-veg</option>
@@ -175,7 +182,7 @@ export function MenuMaster() {
                   </td>
                   <td className="px-4 py-3 font-medium">
                     {m.name}
-                    {barCombined && m.station === "bar" && <Badge tone="amber">bar</Badge>}
+                    {m.station && m.station !== "kitchen" && <Badge tone="amber">{m.station}</Badge>}
                   </td>
                   <td className="px-4 py-3 text-muted">
                     {editing ? (

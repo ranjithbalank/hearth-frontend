@@ -106,13 +106,31 @@ export function printInvoice(folio: Folio, propertyName: string, gstin: string) 
   openAndPrint(html);
 }
 
-export function printKot(order: Order, propertyName: string) {
-  // Print only the latest fired round — earlier rounds already went to the kitchen.
-  const latest = order.lines.filter((l) => l.kot_fired && l.kot_no === order.kot_no);
-  const fired = latest.length ? latest : order.lines.filter((l) => l.kot_fired);
-  const lines = (fired.length ? fired : order.lines).map((l) =>
+/** A single kitchen-station ticket (see `fire_kot`'s `tickets` response) —
+ *  used to print just one station's lines under its own ticket number,
+ *  instead of deriving "the order's latest round" from `order.kot_no`
+ *  (which can't represent more than one ticket when a fire splits across
+ *  several stations). */
+export interface KotOverride {
+  kotNo: string;
+  station?: string;
+  lines: { name: string; qty: number; note?: string }[];
+}
+
+export function printKot(order: Order, propertyName: string, override?: KotOverride) {
+  const kotNo = override?.kotNo ?? order.kot_no;
+  let printLines: { name: string; qty: number; note?: string }[];
+  if (override) {
+    printLines = override.lines;
+  } else {
+    // Print only the latest fired round — earlier rounds already went to the kitchen.
+    const latest = order.lines.filter((l) => l.kot_fired && l.kot_no === order.kot_no);
+    const fired = latest.length ? latest : order.lines.filter((l) => l.kot_fired);
+    printLines = fired.length ? fired : order.lines;
+  }
+  const lines = printLines.map((l) =>
     `<tr><td class="r" style="width:34px">${l.qty}</td><td>${esc(l.name)}${l.note ? ` <i>(${esc(l.note)})</i>` : ""}</td></tr>`).join("");
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(order.kot_no) || "KOT"}</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(kotNo) || "KOT"}</title>
   <style>${BASE_CSS}
     body { width: 300px; }
     .kt { font-family: 'JetBrains Mono', monospace; }
@@ -120,9 +138,9 @@ export function printKot(order: Order, propertyName: string) {
     td { font-size:14px; padding:6px 6px; border-bottom:1px dashed #CBD5E1; }
   </style></head><body>
     <div style="text-align:center; border-bottom:2px dashed #0F1E33; padding-bottom:8px;">
-      <h1>KITCHEN ORDER · KOT</h1>
+      <h1>KITCHEN ORDER · KOT${override?.station ? ` · ${esc(override.station.toUpperCase())}` : ""}</h1>
       ${order.token_no ? `<div class="kt" style="font-size:26px; font-weight:bold; margin:4px 0;">TOKEN ${esc(order.token_no)}</div>` : ""}
-      <div class="muted kt">${esc(order.kot_no) || "#" + order.id} · ${order.table_name ? "Table " + esc(order.table_name) : esc(order.mode || "")}</div>
+      <div class="muted kt">${esc(kotNo) || "#" + order.id} · ${order.table_name ? "Table " + esc(order.table_name) : esc(order.mode || "")}</div>
       <div class="muted kt">${new Date().toLocaleString("en-IN")}</div>
     </div>
     <table class="kt"><tbody>${lines}</tbody></table>
