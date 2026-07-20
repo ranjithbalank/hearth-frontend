@@ -287,15 +287,19 @@ export function Pos() {
 
   // One-tap close: print the final bill, settle the payment, free the table.
   const finalBill = useMutation({
-    mutationFn: async ({ tender, cust, receipt }: {
+    mutationFn: async ({ tender, cust, receipt, redeem }: {
       tender: string;
       cust?: { name: string; mobile: string; country: string };
       receipt?: "sms" | "whatsapp";
+      redeem?: { reward_id?: number; points?: number };
     }) => {
       const id = orderId!;
       // Name and number on the bill first, so the CRM profile exists when the
       // settle sends the receipt (SMS or WhatsApp) and accrues loyalty.
       if (cust?.mobile) await api.post(`/pos/orders/${id}/attach_customer/`, cust);
+      if (redeem && (redeem.reward_id || redeem.points)) {
+        await api.post(`/pos/orders/${id}/redeem_loyalty/`, redeem);
+      }
       if (order?.status !== "billed") {
         await api.post(`/pos/orders/${id}/bill/`);
         downloadBillPdf(id);
@@ -1099,12 +1103,14 @@ export function Pos() {
             ? { name: order.customer_name ?? "", mobile: order.customer_mobile }
             : null}
           onCancel={() => setShowFinal(false)}
-          onConfirm={(tender, cust, receipt) => finalBill.mutate({ tender, cust, receipt })}
+          onConfirm={(tender, cust, receipt, redeem) => finalBill.mutate({ tender, cust, receipt, redeem })}
         />
       )}
     </div>
   );
 }
+
+interface LoyaltyReward { id: number; name: string; points_cost: number; kind: "percent" | "fixed"; value: string }
 
 function FinalBillModal({
   total, tableName, tenders, busy, initialCustomer, onCancel, onConfirm,
@@ -1116,7 +1122,7 @@ function FinalBillModal({
   initialCustomer: { name: string; mobile: string } | null;
   onCancel: () => void;
   onConfirm: (tender: string, cust?: { name: string; mobile: string; country: string },
-    receipt?: "sms" | "whatsapp") => void;
+    receipt?: "sms" | "whatsapp", redeem?: { reward_id?: number; points?: number }) => void;
 }) {
   // Cash is settled through a change calculator; other tenders settle on one tap.
   const [cashMode, setCashMode] = useState(false);
@@ -1156,9 +1162,25 @@ function FinalBillModal({
     Math.ceil(totalNum / 2000) * 2000,
   ])).filter((n) => n >= totalNum);
 
+  // Loyalty redemption: a rewards-catalogue pick (affordable ones only) or a
+  // raw points amount — only shown once a returning guest with a balance is found.
+  const hasBalance = !!(known?.found && known.customer && known.customer.loyalty_points > 0);
+  const [redeemChoice, setRedeemChoice] = useState("none");
+  const [customPoints, setCustomPoints] = useState("");
+  const { data: rewards } = useQuery({
+    queryKey: ["loyalty-rewards-active"],
+    queryFn: async () => (await api.get<LoyaltyReward[]>("/crm/loyalty-rewards/?active=1")).data,
+    enabled: hasBalance,
+  });
+  const affordableRewards = (rewards ?? []).filter((r) => (known?.customer?.loyalty_points ?? 0) >= r.points_cost);
+  const redeem: { reward_id?: number; points?: number } | undefined =
+    redeemChoice === "none" ? undefined
+    : redeemChoice === "points" ? (Number(customPoints) > 0 ? { points: Number(customPoints) } : undefined)
+    : { reward_id: Number(redeemChoice) };
+
   function tap(tn: string) {
     if (tn === "Cash") { setCashMode(true); setReceived(String(Math.ceil(totalNum))); }
-    else onConfirm(tn, cust, receipt);
+    else onConfirm(tn, cust, receipt, redeem);
   }
 
   return (
@@ -1191,6 +1213,26 @@ function FinalBillModal({
           {known?.found && known.customer && (
             <div className="text-xs text-pine mt-1">
               ↩ Returning guest · {known.customer.name} · {known.customer.loyalty_points} pts
+            </div>
+          )}
+          {hasBalance && (
+            <div className="mt-2">
+              <label className="text-xs font-semibold text-muted">Redeem loyalty points (optional)</label>
+              <select className="input py-1.5 text-sm mt-1 w-full" value={redeemChoice}
+                onChange={(e) => setRedeemChoice(e.target.value)}>
+                <option value="none">Don't redeem</option>
+                {affordableRewards.map((r) => (
+                  <option key={r.id} value={String(r.id)}>
+                    {r.name} — {r.points_cost} pts
+                  </option>
+                ))}
+                <option value="points">Custom points amount…</option>
+              </select>
+              {redeemChoice === "points" && (
+                <input className="input py-1.5 text-sm mt-1 w-full" type="number" min={1}
+                  max={known!.customer!.loyalty_points} placeholder={`Up to ${known!.customer!.loyalty_points} pts`}
+                  value={customPoints} onChange={(e) => setCustomPoints(e.target.value)} />
+              )}
             </div>
           )}
           {custMobile.length > 0 && !validMobile && (
@@ -1229,7 +1271,7 @@ function FinalBillModal({
               <span>{money(Math.abs(change))}</span>
             </div>
             <button className="btn-primary w-full mt-3" disabled={busy || recvNum < totalNum}
-              onClick={() => onConfirm("Cash", cust, receipt)}>
+              onClick={() => onConfirm("Cash", cust, receipt, redeem)}>
               {busy ? "Settling…" : `Settle · give change ${money(Math.max(change, 0))}`}
             </button>
             <button className="btn-ghost w-full mt-1" disabled={busy} onClick={() => setCashMode(false)}>← Other tender</button>

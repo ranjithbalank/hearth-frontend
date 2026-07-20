@@ -9,6 +9,7 @@ import { money } from "../../lib/money";
 interface Customer {
   id: number; name: string; mobile: string; customer_type: string; type_label: string;
   gstin: string; btc_enabled: boolean; outstanding: string; loyalty_points: number;
+  tier_name?: string | null;
 }
 interface GuestDetail {
   profile: Customer & { email: string; address: string; marketing_consent: boolean };
@@ -42,7 +43,12 @@ function GuestModal({ id, onClose }: { id: number; onClose: () => void }) {
                 <div className="font-display text-2xl">{data.profile.name}</div>
                 <div className="text-sm text-muted">{data.profile.mobile} · {data.profile.type_label}</div>
               </div>
-              <Badge tone="info">{data.profile.loyalty_points} pts</Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge tone="info">{data.profile.loyalty_points} pts</Badge>
+                {data.profile.tier_name && data.profile.tier_name !== "Base" && (
+                  <Badge tone="amber">{data.profile.tier_name}</Badge>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm mb-4">
               <Field label="Email" value={data.profile.email || "—"} />

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
+import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { amount as amtFilter } from "../../lib/inputs";
@@ -11,7 +12,24 @@ interface Customer {
   id: number; name: string; mobile: string; type_label: string; customer_type: string;
   gstin: string; outstanding: string; loyalty_points: number; btc_enabled: boolean;
   stay_count: number; order_count: number;
+  lifetime_points: number; tier_name: string | null; earn_multiplier: string;
+  date_of_birth: string | null; anniversary_date: string | null;
 }
+
+interface LoyaltyTier {
+  id: number; name: string; min_lifetime_points: number; earn_multiplier: string; active: boolean;
+}
+interface LoyaltyReward {
+  id: number; name: string; points_cost: number; kind: "percent" | "fixed"; value: string;
+  active: boolean; redeemed_count: number;
+}
+interface LedgerEntry {
+  id: number; kind: string; kind_label: string; points: number; balance_after: number;
+  note: string; created_at: string;
+}
+
+const apiError = (e: any, fallback: string) =>
+  e?.response?.data?.detail ?? e?.response?.data?.name?.[0] ?? fallback;
 
 interface FeedbackSummary {
   count: number; avg_rating: number; nps: number; pending: number;
@@ -33,6 +51,7 @@ export function Crm() {
   const [side, setSide] = useState<"all" | "hotel" | "restaurant" | "new">("all");
   const [profileOf, setProfileOf] = useState<Customer | null>(null);
   const [showCampaign, setShowCampaign] = useState(false);
+  const [showLoyaltyConfig, setShowLoyaltyConfig] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => (await api.get<Customer[]>("/customers/")).data,
@@ -101,7 +120,12 @@ export function Crm() {
       <PageHeader
         title="Guest CRM &amp; Loyalty"
         subtitle="Unified customer profiles"
-        action={<button className="btn-primary text-sm" onClick={() => setShowCampaign(true)}>📣 New campaign</button>}
+        action={
+          <div className="flex gap-2">
+            <button className="btn-outline text-sm" onClick={() => setShowLoyaltyConfig(true)}>🏆 Tiers &amp; rewards</button>
+            <button className="btn-primary text-sm" onClick={() => setShowCampaign(true)}>📣 New campaign</button>
+          </div>
+        }
       />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
       <div className="grid grid-cols-3 gap-4 mb-5">
@@ -121,6 +145,8 @@ export function Crm() {
           onCancel={() => setShowCampaign(false)}
         />
       )}
+
+      {showLoyaltyConfig && <LoyaltyConfigModal onClose={() => setShowLoyaltyConfig(false)} />}
 
       {/* Guest feedback — collected from the QR/link printed on POS bills. */}
       {fb && fb.count > 0 && (
@@ -199,7 +225,12 @@ export function Crm() {
                 <td className="px-4 py-3 font-mono text-xs">{c.mobile}</td>
                 <td className="px-4 py-3"><Badge tone={TONE[c.customer_type] ?? "pine"}>{c.type_label}</Badge></td>
                 <td className="px-4 py-3 text-muted">{c.gstin || "—"}</td>
-                <td className="px-4 py-3 text-right">{c.loyalty_points}</td>
+                <td className="px-4 py-3 text-right">
+                  {c.loyalty_points}
+                  {c.tier_name && c.tier_name !== "Base" && (
+                    <Badge tone="amber">{c.tier_name}</Badge>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right">
                   <span className={Number(c.outstanding) > 0 ? "text-clay font-medium" : ""}>{money(c.outstanding)}</span>
                 </td>
@@ -240,15 +271,32 @@ interface History {
     room: string | null; room_type: string; status: string; rate: string }[];
   orders: { id: number; created_at: string; mode: string; status: string; total: string }[];
   city_ledger: { folio: number; guest: string; invoice_no: string; amount: string; settled_at: string | null }[];
+  loyalty_ledger: LedgerEntry[];
 }
 
 /** The customer's full story: lifetime numbers, stays, F&B orders and
  *  bill-to-company folios — the "who is this guest" view for the desk. */
 function ProfileDrawer({ customer, onClose }: { customer: Customer; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
   const { data, isLoading } = useQuery({
     queryKey: ["customer-history", customer.id],
     queryFn: async () => (await api.get<History>(`/customers/${customer.id}/history/`)).data,
   });
+  const [dob, setDob] = useState(customer.date_of_birth ?? "");
+  const [anniv, setAnniv] = useState(customer.anniversary_date ?? "");
+  const saveDates = useMutation({
+    mutationFn: async () => (await api.patch(`/customers/${customer.id}/`, {
+      date_of_birth: dob || null, anniversary_date: anniv || null,
+    })).data,
+    onSuccess: () => {
+      toast("Saved");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["customer-history", customer.id] });
+    },
+    onError: (e: any) => toast(apiError(e, "Could not save"), "error"),
+  });
+  const datesDirty = dob !== (customer.date_of_birth ?? "") || anniv !== (customer.anniversary_date ?? "");
   return (
     <div className="fixed inset-0 bg-ink/40 flex justify-end z-50" onClick={onClose}>
       <div className="bg-surface h-full w-[560px] max-w-full overflow-y-auto p-6 shadow-pop"
@@ -279,9 +327,55 @@ function ProfileDrawer({ customer, onClose }: { customer: Customer; onClose: () 
               </div>
               <div className="card p-3 text-center">
                 <div className="stat-num text-xl">{customer.loyalty_points}</div>
-                <div className="text-[11px] text-muted">Loyalty pts</div>
+                <div className="text-[11px] text-muted">
+                  Loyalty pts{customer.tier_name && customer.tier_name !== "Base" ? ` · ${customer.tier_name}` : ""}
+                </div>
               </div>
             </div>
+            <div className="text-xs text-muted mb-4">
+              Lifetime points earned: {customer.lifetime_points} · earn rate {customer.earn_multiplier}×
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div>
+                <label className="text-xs font-semibold text-muted">Date of birth</label>
+                <input type="date" className="input w-full mt-1" value={dob}
+                  onChange={(e) => setDob(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted">Anniversary</label>
+                <input type="date" className="input w-full mt-1" value={anniv}
+                  onChange={(e) => setAnniv(e.target.value)} />
+              </div>
+              {datesDirty && (
+                <button className="btn-primary col-span-2 text-sm py-1.5" disabled={saveDates.isPending}
+                  onClick={() => saveDates.mutate()}>
+                  {saveDates.isPending ? "Saving…" : "Save birthday / anniversary"}
+                </button>
+              )}
+            </div>
+            <div className="text-[11px] text-muted -mt-2 mb-4">
+              Consented guests get a bonus-points greeting on these dates (needs the daily
+              <code className="mx-1">send_loyalty_greetings</code> job scheduled).
+            </div>
+
+            {data.loyalty_ledger.length > 0 && (
+              <>
+                <div className="text-xs uppercase tracking-wide text-muted mb-2">Loyalty history</div>
+                <div className="space-y-1.5 mb-5">
+                  {data.loyalty_ledger.map((l) => (
+                    <div key={l.id} className="flex items-center gap-2 text-sm border-b border-line pb-1.5">
+                      <Badge tone={l.points >= 0 ? "pine" : "clay"}>{l.kind_label}</Badge>
+                      <span className="flex-1 truncate text-muted">{l.note}</span>
+                      <span className="text-xs text-muted">{String(l.created_at).slice(0, 10)}</span>
+                      <span className={`font-medium ${l.points >= 0 ? "text-pine" : "text-clay"}`}>
+                        {l.points >= 0 ? "+" : ""}{l.points}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
             {Number(customer.outstanding) > 0 && (
               <div className="card p-3 mb-4 border-l-4 border-clay text-sm">
                 <span className="font-medium text-clay">{money(customer.outstanding)} outstanding</span>
@@ -387,6 +481,191 @@ function CampaignModal({ onDone, onCancel }: { onDone: (sent: number, skipped: n
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function LoyaltyConfigModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[640px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          <div className="font-display text-xl">Loyalty tiers &amp; rewards</div>
+          <button className="btn-ghost" onClick={onClose}>✕</button>
+        </div>
+        <TiersPanel />
+        <RewardsPanel />
+      </div>
+    </div>
+  );
+}
+
+/** Tiers unlock a faster earn rate once a guest's lifetime points cross a
+ *  threshold — "Base" (0 pts, 1.0×) always exists and can't be removed. */
+function TiersPanel() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const empty = { name: "", min_lifetime_points: "0", earn_multiplier: "1.00" };
+  const [f, setF] = useState(empty);
+  const { data: tiers } = useQuery({
+    queryKey: ["loyalty-tiers"],
+    queryFn: async () => (await api.get<LoyaltyTier[]>("/crm/loyalty-tiers/")).data,
+  });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["loyalty-tiers"] });
+  const create = useMutation({
+    mutationFn: async () => (await api.post("/crm/loyalty-tiers/", {
+      name: f.name.trim(), min_lifetime_points: Number(f.min_lifetime_points) || 0,
+      earn_multiplier: f.earn_multiplier,
+    })).data,
+    onSuccess: () => { setF(empty); toast("Tier added"); invalidate(); },
+    onError: (e: any) => toast(apiError(e, "Could not add tier"), "error"),
+  });
+  const patch = useMutation({
+    mutationFn: async ({ id, ...body }: { id: number } & Partial<LoyaltyTier>) =>
+      (await api.patch(`/crm/loyalty-tiers/${id}/`, body)).data,
+    onSuccess: invalidate,
+    onError: (e: any) => toast(apiError(e, "Could not update"), "error"),
+  });
+  const remove = useMutation({
+    mutationFn: async (t: LoyaltyTier) => (await api.delete(`/crm/loyalty-tiers/${t.id}/`)).data,
+    onSuccess: () => { toast("Removed"); invalidate(); },
+    onError: (e: any) => toast(apiError(e, "Could not remove"), "error"),
+  });
+
+  return (
+    <div className="mb-6">
+      <div className="font-semibold mb-1">Tiers</div>
+      <div className="text-sm text-muted mb-3">
+        Unlocked by lifetime points earned (redemptions never reduce it). "Base" is the
+        default everyone starts at.
+      </div>
+      <div className="flex flex-wrap gap-2 mb-3 items-center">
+        <input className="input w-32" placeholder="e.g. Gold" value={f.name}
+          onChange={(e) => setF({ ...f, name: e.target.value })} />
+        <input className="input w-32" type="number" min={0} placeholder="Min lifetime pts"
+          value={f.min_lifetime_points} onChange={(e) => setF({ ...f, min_lifetime_points: e.target.value })} />
+        <input className="input w-24" type="number" min={0} step="0.1" placeholder="Earn ×"
+          value={f.earn_multiplier} onChange={(e) => setF({ ...f, earn_multiplier: e.target.value })} />
+        <button className="btn-primary" disabled={!f.name.trim() || create.isPending}
+          onClick={() => create.mutate()}>Add</button>
+      </div>
+      <table className="w-full text-sm mb-6">
+        <thead className="text-muted text-xs uppercase">
+          <tr>
+            <th className="text-left py-2">Tier</th>
+            <th className="text-right py-2">Min lifetime pts</th>
+            <th className="text-right py-2">Earn rate</th>
+            <th className="text-right py-2">Status</th>
+            <th className="w-16" />
+          </tr>
+        </thead>
+        <tbody>
+          {tiers?.map((t) => (
+            <tr key={t.id} className="border-t border-line">
+              <td className={`py-2 font-medium ${t.active ? "" : "text-muted line-through"}`}>{t.name}</td>
+              <td className="py-2 text-right">{t.min_lifetime_points}</td>
+              <td className="py-2 text-right">{t.earn_multiplier}×</td>
+              <td className="py-2 text-right">
+                <button className={`pill ${t.active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
+                  onClick={() => patch.mutate({ id: t.id, active: !t.active })}>
+                  {t.active ? "Active" : "Inactive"}
+                </button>
+              </td>
+              <td className="py-2 text-right">
+                {t.name !== "Base" && (
+                  <button className="btn-ghost text-xs text-clay" onClick={() => remove.mutate(t)}>Remove</button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Rewards catalogue: a fixed points-cost a guest can redeem at settle for a
+ *  percent/fixed discount, instead of the cashier typing a raw point amount. */
+function RewardsPanel() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const empty = { name: "", points_cost: "", kind: "fixed" as "fixed" | "percent", value: "" };
+  const [f, setF] = useState(empty);
+  const { data: rewards } = useQuery({
+    queryKey: ["loyalty-rewards"],
+    queryFn: async () => (await api.get<LoyaltyReward[]>("/crm/loyalty-rewards/")).data,
+  });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["loyalty-rewards"] });
+  const create = useMutation({
+    mutationFn: async () => (await api.post("/crm/loyalty-rewards/", {
+      name: f.name.trim(), points_cost: Number(f.points_cost) || 0, kind: f.kind, value: f.value,
+    })).data,
+    onSuccess: () => { setF(empty); toast("Reward added"); invalidate(); },
+    onError: (e: any) => toast(apiError(e, "Could not add reward"), "error"),
+  });
+  const toggle = useMutation({
+    mutationFn: async (r: LoyaltyReward) =>
+      (await api.patch(`/crm/loyalty-rewards/${r.id}/`, { active: !r.active })).data,
+    onSuccess: invalidate,
+  });
+  const remove = useMutation({
+    mutationFn: async (r: LoyaltyReward) => (await api.delete(`/crm/loyalty-rewards/${r.id}/`)).data,
+    onSuccess: () => { toast("Removed"); invalidate(); },
+    onError: (e: any) => toast(apiError(e, "Could not remove"), "error"),
+  });
+
+  return (
+    <div>
+      <div className="font-semibold mb-1">Rewards catalogue</div>
+      <div className="text-sm text-muted mb-3">
+        Shown to the cashier at settle when a guest has enough points to afford one.
+      </div>
+      <div className="flex flex-wrap gap-2 mb-3 items-center">
+        <input className="input w-32" placeholder="e.g. Free dessert" value={f.name}
+          onChange={(e) => setF({ ...f, name: e.target.value })} />
+        <input className="input w-28" type="number" min={0} placeholder="Points cost"
+          value={f.points_cost} onChange={(e) => setF({ ...f, points_cost: e.target.value })} />
+        <select className="input w-28" value={f.kind}
+          onChange={(e) => setF({ ...f, kind: e.target.value as "fixed" | "percent" })}>
+          <option value="fixed">₹ off</option>
+          <option value="percent">% off</option>
+        </select>
+        <input className="input w-24" type="number" min={0} placeholder="Value"
+          value={f.value} onChange={(e) => setF({ ...f, value: e.target.value })} />
+        <button className="btn-primary" disabled={!f.name.trim() || !f.points_cost || !f.value || create.isPending}
+          onClick={() => create.mutate()}>Add</button>
+      </div>
+      <table className="w-full text-sm">
+        <thead className="text-muted text-xs uppercase">
+          <tr>
+            <th className="text-left py-2">Reward</th>
+            <th className="text-right py-2">Points</th>
+            <th className="text-right py-2">Value</th>
+            <th className="text-right py-2">Redeemed</th>
+            <th className="text-right py-2">Status</th>
+            <th className="w-16" />
+          </tr>
+        </thead>
+        <tbody>
+          {rewards?.map((r) => (
+            <tr key={r.id} className="border-t border-line">
+              <td className={`py-2 font-medium ${r.active ? "" : "text-muted line-through"}`}>{r.name}</td>
+              <td className="py-2 text-right">{r.points_cost}</td>
+              <td className="py-2 text-right">{r.kind === "percent" ? `${Number(r.value)}%` : money(r.value)}</td>
+              <td className="py-2 text-right text-muted">{r.redeemed_count}</td>
+              <td className="py-2 text-right">
+                <button className={`pill ${r.active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
+                  onClick={() => toggle.mutate(r)}>
+                  {r.active ? "Active" : "Inactive"}
+                </button>
+              </td>
+              <td className="py-2 text-right">
+                <button className="btn-ghost text-xs text-clay" onClick={() => remove.mutate(r)}>Remove</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
