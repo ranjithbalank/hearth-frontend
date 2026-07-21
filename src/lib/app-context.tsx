@@ -27,6 +27,11 @@ interface AppState {
   /** The branch the switcher has active (null = "all branches" / no filter). */
   activeBranch: number | null;
   setBranch: (id: number | null) => void;
+  /** True for the moment right after a successful login (this session only —
+   *  a page refresh does NOT count as logging in again). AppShell consumes
+   *  this once to greet the person by name, then clears it. */
+  justLoggedIn: boolean;
+  clearJustLoggedIn: () => void;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -36,6 +41,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeBranch, setActiveBranchState] = useState<number | null>(getActiveBranch());
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
 
   function setBranch(id: number | null) {
     setActiveBranch(id);
@@ -77,6 +83,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data } = await api.post("/auth/token/", { username, password, otp });
     setTokens(data.access, data.refresh);
     setUser(data.user);
+    setJustLoggedIn(true);
     await refreshProperty();
     return data.user as User;
   }
@@ -86,6 +93,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setActiveBranch(null);
     setActiveBranchState(null);
     setUser(null);
+    setJustLoggedIn(false);
   }
 
   async function setup(edition: string, name?: string) {
@@ -139,8 +147,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppState>(
     () => ({ user, property, loading, login, logout, refreshProperty, refreshUser, setup, canAccess, landing,
-              activeBranch, setBranch }),
-    [user, property, loading, activeBranch],
+              activeBranch, setBranch, justLoggedIn, clearJustLoggedIn: () => setJustLoggedIn(false) }),
+    [user, property, loading, activeBranch, justLoggedIn],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

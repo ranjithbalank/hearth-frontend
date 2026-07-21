@@ -68,7 +68,7 @@ export function Dashboard() {
         title={title}
         subtitle={`${greeting(firstName)} · ${fmtDate(new Date().toISOString())}${asOf ? ` · as of ${asOf}` : ""}`}
         action={
-          <div className="flex gap-1 rounded-pill bg-hairline p-1">
+          <div data-tour="landing-dashboard" className="flex gap-1 rounded-pill bg-hairline p-1">
             {(["analytical", "data"] as const).map((m) => (
               <button
                 key={m}

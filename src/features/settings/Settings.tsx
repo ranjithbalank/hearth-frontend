@@ -755,7 +755,7 @@ export function Settings() {
       <PageHeader title="Settings" subtitle={`${property?.name} · edition: ${property?.edition}`} />
 
       <div className="flex flex-col md:flex-row gap-4 items-start">
-        <nav className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible md:w-44 md:shrink-0 pb-1 md:pb-0">
+        <nav data-tour="landing-settings" className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible md:w-44 md:shrink-0 pb-1 md:pb-0">
           {visibleSections.map((s, i) => (
             <div key={s.key} className="contents">
               {"group" in s && s.group && (!("group" in (visibleSections[i - 1] ?? {})) ) && (

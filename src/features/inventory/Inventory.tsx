@@ -220,7 +220,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
 
       {/* tabGroup renders a left-side menu (like the app nav, but inside the
           screen); the combined view keeps its horizontal pills. */}
-      <div className={tabGroup ? "grid grid-cols-[220px_1fr] gap-4 items-start" : ""}>
+      <div data-tour="landing-store" className={tabGroup ? "grid grid-cols-[220px_1fr] gap-4 items-start" : ""}>
         {tabGroup ? (
           <div className="card p-2 space-y-1 sticky top-4">
             {visibleTabs.map((t) => (

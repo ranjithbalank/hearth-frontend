@@ -97,6 +97,7 @@ export function Kds() {
           </div>
         ) : undefined}
       />
+      <div data-tour="landing-kds">
       {!data?.length ? (
         <EmptyState title="No active tickets" hint="Fired KOTs appear here." />
       ) : (
@@ -190,6 +191,7 @@ export function Kds() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

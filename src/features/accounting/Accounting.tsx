@@ -46,7 +46,7 @@ export function Accounting() {
       <PageHeader
         title="Accounting"
         subtitle="City ledger &amp; day-end close"
-        action={<button className="btn-primary" onClick={() => runAudit.mutate()} disabled={runAudit.isPending}>Run night audit</button>}
+        action={<button data-tour="landing-accounting" className="btn-primary" onClick={() => runAudit.mutate()} disabled={runAudit.isPending}>Run night audit</button>}
       />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 

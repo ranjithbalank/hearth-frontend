@@ -12,6 +12,7 @@ import { fmtDate } from "../lib/date";
 import { NAV } from "../lib/modules";
 import { NOTIFICATION_ROUTES } from "../lib/notifications";
 import { useOnlineStatus } from "../lib/useOnline";
+import { ProductTour } from "./ProductTour";
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -108,7 +109,13 @@ function NotificationBell() {
   if (!canAccess("notifications")) return null;
   const count = data?.count ?? 0;
   return (
-    <button onClick={() => nav("/notifications")} className="relative p-2 rounded-lg hover:bg-hairline/60 text-body" title="Notifications" aria-label="Notifications">
+    <button
+      data-tour="header-notifications"
+      onClick={() => nav("/notifications")}
+      className="relative p-2 rounded-lg hover:bg-hairline/60 text-body"
+      title="Notifications"
+      aria-label="Notifications"
+    >
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         <path d="M10 19a2 2 0 004 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -123,7 +130,8 @@ function NotificationBell() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, property, canAccess, logout } = useApp();
+  const { user, property, canAccess, logout, justLoggedIn, clearJustLoggedIn } = useApp();
+  const toast = useToast();
   const location = useLocation();
   const [open, setOpen] = useState(true);       // desktop: expanded vs rail
   const [mobileOpen, setMobileOpen] = useState(false); // mobile: drawer open
@@ -131,6 +139,37 @@ export function AppShell({ children }: { children: ReactNode }) {
   const online = useOnlineStatus();
   const navInputRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+
+  // First-login onboarding tour: auto-runs once per username, replayable
+  // anytime via the header "?" button regardless of the seen-flag.
+  const [tourRun, setTourRun] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const seen = JSON.parse(localStorage.getItem(`hearth_tour_seen_${user.username}`) || "null");
+      if (!seen?.finishedAt) setTourRun(true);
+    } catch {
+      setTourRun(true);
+    }
+  }, [user?.username]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Greet whoever just signed in, by name, right on their landing screen —
+  // fires once per login (not on every page refresh, since justLoggedIn only
+  // flips true from an actual login() call). Skipped on someone's very first
+  // login since the onboarding tour above already opens with its own
+  // "Welcome, {role}" step — two welcomes stacking at once would be clutter.
+  useEffect(() => {
+    if (!justLoggedIn || !user) return;
+    let tourAlreadySeen = false;
+    try {
+      tourAlreadySeen = !!JSON.parse(localStorage.getItem(`hearth_tour_seen_${user.username}`) || "null")?.finishedAt;
+    } catch { /* corrupted flag — treat as first login */ }
+    if (tourAlreadySeen) {
+      const firstName = user.name?.split(" ")[0] || user.name;
+      toast(`Welcome, ${firstName}!`, "success");
+    }
+    clearJustLoggedIn();
+  }, [justLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Browser-tab title follows the screen (longest path prefix wins, so
   // /store/materials resolves to "Raw Material Master", not "Store Dashboard").
@@ -275,6 +314,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                   <div className="mb-1.5">
                   <button
+                    data-tour={`navgroup-${g.title}`}
                     onClick={() => toggleGroup(g.title)}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] uppercase tracking-wider font-semibold text-white/50 hover:bg-white/5"
                   >
@@ -373,6 +413,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="pill bg-pine-50 text-pine capitalize hidden sm:inline-flex">{property?.edition} edition</span>
             <BranchSwitcher />
             <NotificationBell />
+            <button
+              data-tour="header-help"
+              onClick={() => setTourRun(true)}
+              className="p-2 rounded-lg hover:bg-hairline/60 text-body"
+              title="Replay tour"
+              aria-label="Replay product tour"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9.5 9a2.5 2.5 0 015 .5c0 1.5-2 2-2.5 3.2M12 17h.01" />
+                <circle cx="12" cy="12" r="9" />
+              </svg>
+            </button>
           </div>
         </header>
         {!online && (
@@ -406,6 +458,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           {hover.label}
         </div>
       )}
+
+      <ProductTour
+        run={tourRun}
+        onDone={() => {
+          setTourRun(false);
+          if (user) {
+            localStorage.setItem(
+              `hearth_tour_seen_${user.username}`,
+              JSON.stringify({ finishedAt: Date.now() }),
+            );
+          }
+        }}
+      />
     </div>
   );
 }

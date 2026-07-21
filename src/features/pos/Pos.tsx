@@ -473,7 +473,7 @@ export function Pos() {
         {readyStrip}
         {/* Primary cluster: start a new order. Secondary cluster: admin/status,
             spatially separated by a divider so they don't compete for attention. */}
-        <div className="flex flex-wrap items-center gap-2 mb-5">
+        <div data-tour="landing-pos" className="flex flex-wrap items-center gap-2 mb-5">
           <div className="flex flex-wrap items-center gap-2">
             {!isCaptain && (
               <>

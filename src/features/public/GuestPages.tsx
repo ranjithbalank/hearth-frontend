@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { Logo, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
 import { currencySymbol } from "../../lib/money";
 import { fmtDate } from "../../lib/date";
 
@@ -373,6 +374,76 @@ export function QrOrderPage() {
           <span className="font-semibold">{busy ? "Sending…" : "Place order →"}</span>
         </button>
       )}
+    </Shell>
+  );
+}
+
+/** Self-onboarding: HR's invite link lands here. The new hire sees who/what
+ *  role they're being invited as, sets their own username + password, and
+ *  is signed straight in — no separate login step. */
+export function InvitePage() {
+  const token = useParam("token");
+  const { login } = useApp();
+  const nav = useNavigate();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["invite", token],
+    queryFn: async () => (await api.get(`/public/invite/?t=${token}`)).data,
+    enabled: !!token,
+    retry: false,
+  });
+
+  if (!token) return <Shell><div className="card p-6 text-center text-muted">Invalid invite link.</div></Shell>;
+  if (isLoading) return <Shell><Spinner /></Shell>;
+  if (!data) {
+    return (
+      <Shell>
+        <div className="card p-6 text-center text-muted">
+          This invite link is invalid or has expired — ask your manager for a new one.
+        </div>
+      </Shell>
+    );
+  }
+
+  async function submit() {
+    setError("");
+    setBusy(true);
+    try {
+      await api.post("/public/invite/", { t: token, username, password });
+      await login(username, password);
+      nav("/"); // "/invite" is matched before the auth gate — leave it now we're signed in
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Could not complete sign-up");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Shell>
+      <div className="card p-6">
+        <div className="font-display text-xl text-center mb-1">
+          Welcome, {data.employee_name.split(" ")[0]}!
+        </div>
+        <div className="text-xs text-muted text-center mb-5">
+          You've been invited as {data.role}{data.branch_name ? ` at ${data.branch_name}` : ""}.
+          Choose your own username and password to get started.
+        </div>
+        <div className="grid gap-2 mb-3">
+          <input className="input" placeholder="Choose a username" value={username}
+            onChange={(e) => setUsername(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+          <input className="input" type="password" placeholder="Choose a password" value={password}
+            onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+        </div>
+        {error && <div className="text-sm text-clay mb-2 text-center">{error}</div>}
+        <button className="btn-primary w-full" disabled={!username || !password || busy} onClick={submit}>
+          {busy ? "Setting up…" : "Create my account"}
+        </button>
+      </div>
     </Shell>
   );
 }

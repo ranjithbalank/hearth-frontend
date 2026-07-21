@@ -93,7 +93,7 @@ export function FrontDesk() {
       {walkin && <WalkInForm onCancel={() => setWalkin(false)} onCreated={(id) => nav(`/checkin?reservation=${id}`)} />}
 
       {/* Dedicated walk-in area — guests arriving without a booking */}
-      <div className="rounded-card border-2 border-dashed border-pine/30 bg-pine-50/40 p-5 mb-6 flex items-center gap-4">
+      <div data-tour="landing-frontdesk" className="rounded-card border-2 border-dashed border-pine/30 bg-pine-50/40 p-5 mb-6 flex items-center gap-4">
         <div className="h-12 w-12 rounded-xl bg-pine flex items-center justify-center text-white text-xl">＋</div>
         <div className="flex-1">
           <div className="font-semibold text-ink">Walk-in guest</div>

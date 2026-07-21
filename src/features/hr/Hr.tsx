@@ -5,6 +5,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
+import { fmtDate } from "../../lib/date";
 import { amount as decimalFilter, digits, personName } from "../../lib/inputs";
 import { money } from "../../lib/money";
 import { downloadPayslipPdf } from "../print/documents";
@@ -13,6 +14,9 @@ interface Employee {
   id: number; name: string; department: string; role: string; shifts: string[]; status: string;
   wage_type: "monthly" | "daily"; monthly_salary: string; daily_rate: string;
   statutory: boolean; has_allowances: boolean; phone: string;
+  /** Linked login account, if this person has system access — null means
+   *  they're roster-only (e.g. kitchen helpers, cleaners) or not invited yet. */
+  user: number | null;
 }
 interface PayrollRow {
   payslip: number | null; id: number; name: string; department: string; role: string;
@@ -93,6 +97,7 @@ export function Hr() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [editing, setEditing] = useState<Employee | null>(null);
+  const [inviting, setInviting] = useState<Employee | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["hr"],
@@ -128,7 +133,7 @@ export function Hr() {
   return (
     <div>
       <PageHeader title="HR & Staff" subtitle="Roster · attendance · payroll & salary" />
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
+      <div data-tour="landing-hr" className="flex items-center gap-2 mb-4 flex-wrap">
         {(["roster", "attendance", "payroll", "advances"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`pill capitalize ${tab === t ? "bg-ink text-white" : "bg-hairline text-body"}`}>
@@ -223,7 +228,10 @@ export function Hr() {
                       : money(e.monthly_salary)}
                     {!e.statutory && <div className="text-[10px] text-muted">no PF/ESI</div>}
                   </td>
-                  <td className="py-2 pl-2 text-right">
+                  <td className="py-2 pl-2 text-right whitespace-nowrap">
+                    {!e.user && (
+                      <button className="btn-ghost text-sm" onClick={() => setInviting(e)}>Invite</button>
+                    )}
                     <button className="btn-ghost text-sm" onClick={() => setEditing(e)}>Edit</button>
                   </td>
                 </tr>
@@ -245,6 +253,10 @@ export function Hr() {
             qc.invalidateQueries({ queryKey: ["hr"] });
           }}
         />
+      )}
+
+      {inviting && (
+        <InviteModal employee={inviting} onClose={() => setInviting(null)} />
       )}
 
       {tab === "attendance" && (
@@ -466,6 +478,79 @@ function AdjustCell({ row, onSaved }: { row: PayrollRow; onSaved: () => void }) 
       <button className="btn-primary text-xs" disabled={save.isPending} onClick={() => save.mutate()}>✓</button>
       <button className="btn-ghost text-xs" onClick={() => setOpen(false)}>✕</button>
     </span>
+  );
+}
+
+// RBAC roles a self-onboarding link may grant — same exclusion Settings'
+// Users & roles panel uses: Super Admin/MD/GM are always full-access and
+// never handed out through a self-service link.
+const INVITE_ROLES = [
+  "Admin", "CEO", "Finance", "Restaurant Manager", "Hotel Manager",
+  "Front Office", "F&B Cashier", "Captain", "Housekeeping", "Chef / Kitchen",
+  "Store Keeper", "Bar Captain", "Bar Cashier", "HR Manager",
+];
+
+function InviteModal({ employee, onClose }: { employee: Employee; onClose: () => void }) {
+  const toast = useToast();
+  const [role, setRole] = useState(INVITE_ROLES[0]);
+  const [link, setLink] = useState<{ url: string; expires_at: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const generate = useMutation({
+    mutationFn: async () => (await api.post<{ token: string; expires_at: string }>(
+      `/hr/${employee.id}/invite/`, { role })).data,
+    onSuccess: (d) => setLink({
+      url: `${window.location.origin}/invite?token=${d.token}`,
+      expires_at: d.expires_at,
+    }),
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not generate an invite", "error"),
+  });
+
+  async function copy() {
+    await navigator.clipboard.writeText(link!.url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
+        <div className="font-display text-xl mb-1">Invite {employee.name}</div>
+        {!link ? (
+          <>
+            <div className="text-sm text-muted mb-4">
+              They'll open the link, set their own username and password, and be signed in
+              straight away — nothing for you to type in here.
+            </div>
+            <label className="block mb-4">
+              <span className="text-xs text-muted uppercase tracking-wide">Role</span>
+              <select className="input mt-1" value={role} onChange={(e) => setRole(e.target.value)}>
+                {INVITE_ROLES.map((r) => <option key={r}>{r}</option>)}
+              </select>
+            </label>
+            <div className="flex gap-2">
+              <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
+              <button className="btn-primary flex-1" disabled={generate.isPending} onClick={() => generate.mutate()}>
+                Generate link
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="text-sm text-muted mb-3">
+              Valid for 7 days (until {fmtDate(link.expires_at)}) or first use, whichever comes first.
+            </div>
+            <div className="input mb-3 text-xs font-mono break-all select-all">{link.url}</div>
+            <div className="flex gap-2">
+              <button className="btn-ghost flex-1" onClick={onClose}>Done</button>
+              <button className="btn-primary flex-1" onClick={copy}>
+                {copied ? "Copied!" : "Copy link"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 

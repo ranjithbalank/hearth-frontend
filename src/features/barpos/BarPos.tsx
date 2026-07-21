@@ -202,7 +202,7 @@ export function BarPos() {
           ) : undefined}
         />
         {readyStrip}
-        <div className="flex items-center justify-between mb-2">
+        <div data-tour="landing-barpos" className="flex items-center justify-between mb-2">
           <div className="text-xs uppercase tracking-wide text-muted">Bar tables</div>
           <div className="flex items-center gap-4 text-xs text-muted">
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-clay" />Delayed</span>

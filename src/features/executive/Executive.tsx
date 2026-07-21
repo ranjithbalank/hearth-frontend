@@ -41,7 +41,7 @@ export function Executive() {
         subtitle={`${greeting(user?.name?.split(" ")[0])} · ${fmtDate(new Date().toISOString())}${asOf}`}
       />
 
-      <div className="flex gap-2 mb-4">
+      <div data-tour="landing-executive" className="flex gap-2 mb-4">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setView(t.key)}
             className={`pill ${view === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>

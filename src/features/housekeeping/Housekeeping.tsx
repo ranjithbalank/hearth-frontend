@@ -197,7 +197,7 @@ export function Housekeeping() {
       </label>
 
       {/* Housekeeping dashboard — what needs attention right now. */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+      <div data-tour="landing-housekeeping" className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
         <Stat tone={toClean > 0 ? "dark" : "default"} label="To clean" value={toClean} sub="Vacated · needs service" />
         <Stat label="Cleaning" value={n("cleaning")} sub="In progress" />
         <Stat label="Ready to sell" value={n("vacant_clean", "inspected")} sub="Clean & inspected" />

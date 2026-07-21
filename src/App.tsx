@@ -49,7 +49,7 @@ import { Login } from "./features/auth/Login";
 import { Pos } from "./features/pos/Pos";
 import { TokenBoard } from "./features/pos/TokenBoard";
 import { Reconciliation } from "./features/pos/Reconciliation";
-import { FeedbackPage, GuestNotFound, OrderStatusPage, PreCheckinPage, QrOrderPage } from "./features/public/GuestPages";
+import { FeedbackPage, GuestNotFound, InvitePage, OrderStatusPage, PreCheckinPage, QrOrderPage } from "./features/public/GuestPages";
 import { Reports } from "./features/reports/Reports";
 import { Reservations } from "./features/reservations/Reservations";
 import { Settings } from "./features/settings/Settings";
@@ -63,13 +63,15 @@ export default function App() {
   // Guest-facing pages (table QR ordering, bill QR links, pre-arrival check-in)
   // — no login, no shell.
   if (pathname.startsWith("/feedback") || pathname.startsWith("/order-status")
-      || pathname.startsWith("/pre-checkin") || pathname.startsWith("/qr")) {
+      || pathname.startsWith("/pre-checkin") || pathname.startsWith("/qr")
+      || pathname.startsWith("/invite")) {
     return (
       <Routes>
         <Route path="/feedback" element={<FeedbackPage />} />
         <Route path="/order-status" element={<OrderStatusPage />} />
         <Route path="/pre-checkin" element={<PreCheckinPage />} />
         <Route path="/qr" element={<QrOrderPage />} />
+        <Route path="/invite" element={<InvitePage />} />
         <Route path="*" element={<GuestNotFound />} />
       </Routes>
     );
