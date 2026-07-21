@@ -49,7 +49,7 @@ import { Login } from "./features/auth/Login";
 import { Pos } from "./features/pos/Pos";
 import { TokenBoard } from "./features/pos/TokenBoard";
 import { Reconciliation } from "./features/pos/Reconciliation";
-import { FeedbackPage, GuestNotFound, InvitePage, OrderStatusPage, PreCheckinPage, QrOrderPage } from "./features/public/GuestPages";
+import { FeedbackPage, ForgotPasswordPage, GuestNotFound, InvitePage, OrderStatusPage, PreCheckinPage, QrOrderPage, ResetPasswordPage } from "./features/public/GuestPages";
 import { Reports } from "./features/reports/Reports";
 import { Reservations } from "./features/reservations/Reservations";
 import { Settings } from "./features/settings/Settings";
@@ -64,7 +64,8 @@ export default function App() {
   // — no login, no shell.
   if (pathname.startsWith("/feedback") || pathname.startsWith("/order-status")
       || pathname.startsWith("/pre-checkin") || pathname.startsWith("/qr")
-      || pathname.startsWith("/invite")) {
+      || pathname.startsWith("/invite") || pathname.startsWith("/forgot-password")
+      || pathname.startsWith("/reset-password")) {
     return (
       <Routes>
         <Route path="/feedback" element={<FeedbackPage />} />
@@ -72,6 +73,8 @@ export default function App() {
         <Route path="/pre-checkin" element={<PreCheckinPage />} />
         <Route path="/qr" element={<QrOrderPage />} />
         <Route path="/invite" element={<InvitePage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<GuestNotFound />} />
       </Routes>
     );

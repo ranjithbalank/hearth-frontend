@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Field, Logo } from "../../design/ui";
 import { useApp } from "../../lib/app-context";
@@ -35,6 +36,7 @@ function EyeIcon({ off }: { off?: boolean }) {
 
 export function Login() {
   const { login, property } = useApp();
+  const nav = useNavigate();
   const [username, setUsername] = useState("gm");
   const [password, setPassword] = useState("hearth123");
   const [showPw, setShowPw] = useState(false);
@@ -149,6 +151,12 @@ export function Login() {
             )}
             <button className="btn-primary w-full" onClick={() => submit()} disabled={busy}>
               {busy ? "Signing in…" : "Sign in"}
+            </button>
+            <button
+              className="text-xs text-muted hover:text-ink w-full text-center mt-3"
+              onClick={() => nav("/forgot-password")}
+            >
+              Forgot password?
             </button>
 
             <div className="mt-5 border-t border-hairline pt-4">

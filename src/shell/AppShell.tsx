@@ -131,11 +131,11 @@ function NotificationBell() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, property, canAccess, logout, justLoggedIn, clearJustLoggedIn } = useApp();
-  const toast = useToast();
   const location = useLocation();
   const [open, setOpen] = useState(true);       // desktop: expanded vs rail
   const [mobileOpen, setMobileOpen] = useState(false); // mobile: drawer open
   const [hover, setHover] = useState<{ label: string; y: number } | null>(null);
+  const [welcomeName, setWelcomeName] = useState<string | null>(null);
   const online = useOnlineStatus();
   const navInputRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -158,6 +158,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   // flips true from an actual login() call). Skipped on someone's very first
   // login since the onboarding tour above already opens with its own
   // "Welcome, {role}" step — two welcomes stacking at once would be clutter.
+  // A top banner (not the bottom auto-dismissing Toast) so it reads as a
+  // proper greeting instead of a passing notification — stays until the
+  // user dismisses it or signs out.
   useEffect(() => {
     if (!justLoggedIn || !user) return;
     let tourAlreadySeen = false;
@@ -165,8 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       tourAlreadySeen = !!JSON.parse(localStorage.getItem(`hearth_tour_seen_${user.username}`) || "null")?.finishedAt;
     } catch { /* corrupted flag — treat as first login */ }
     if (tourAlreadySeen) {
-      const firstName = user.name?.split(" ")[0] || user.name;
-      toast(`Welcome, ${firstName}!`, "success");
+      setWelcomeName(user.name?.split(" ")[0] || user.name);
     }
     clearJustLoggedIn();
   }, [justLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -427,8 +429,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </header>
+        {welcomeName && (
+          <div className="flex items-center justify-center gap-3 bg-pine text-white text-sm font-semibold text-center py-2 sticky top-[57px] z-10">
+            <span>Welcome, {welcomeName}!</span>
+            <button
+              onClick={() => setWelcomeName(null)}
+              aria-label="Dismiss welcome banner"
+              className="opacity-70 hover:opacity-100 text-xs"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {!online && (
-          <div className="bg-amber text-white text-xs font-semibold text-center py-1.5 sticky top-[57px] z-10">
+          <div className={`bg-amber text-white text-xs font-semibold text-center py-1.5 sticky z-10 ${welcomeName ? "top-[94px]" : "top-[57px]"}`}>
             You're offline — changes will sync when you're back online
           </div>
         )}

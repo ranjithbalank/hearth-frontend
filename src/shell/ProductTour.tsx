@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { EVENTS, Joyride, type EventData } from "react-joyride";
+import { ACTIONS, EVENTS, Joyride, type EventData } from "react-joyride";
 
 import { buildTourSteps } from "../lib/tours";
 import { useApp } from "../lib/app-context";
@@ -17,7 +17,15 @@ export function ProductTour({ run, onDone }: { run: boolean; onDone: () => void 
   );
 
   function handleEvent(data: EventData) {
-    if (data.type === EVENTS.TOUR_END) onDone();
+    // Normal finish/skip fires tour:end. But react-joyride's close-button
+    // control (controls.close(), used by the tooltip's X) only sets
+    // lifecycle to COMPLETE — it never moves status to FINISHED/SKIPPED, so
+    // tour:end never fires for it. Without this, closing via the X never
+    // persists the "seen" flag, and the tour (never the welcome banner,
+    // by design) reappears on every subsequent login.
+    if (data.type === EVENTS.TOUR_END || (data.type === EVENTS.STEP_AFTER && data.action === ACTIONS.CLOSE)) {
+      onDone();
+    }
   }
 
   if (!user || !steps.length) return null;

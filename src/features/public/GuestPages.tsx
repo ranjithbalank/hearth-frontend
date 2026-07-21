@@ -447,3 +447,124 @@ export function InvitePage() {
     </Shell>
   );
 }
+
+/** Forgot-password step 1: enter a username, request a reset link. Always
+ *  shows the same confirmation regardless of whether the account exists —
+ *  the backend never reveals that (username enumeration). */
+export function ForgotPasswordPage() {
+  const nav = useNavigate();
+  const [username, setUsername] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    try {
+      await api.post("/auth/password-reset/request/", { username });
+    } finally {
+      setBusy(false);
+      setSent(true);
+    }
+  }
+
+  return (
+    <Shell>
+      <div className="card p-6">
+        <div className="font-display text-xl text-center mb-1">Reset your password</div>
+        {sent ? (
+          <div className="text-sm text-muted text-center py-2">
+            If that account exists, we've sent a reset link to its email. Check your inbox —
+            the link expires in 30 minutes.
+          </div>
+        ) : (
+          <>
+            <div className="text-xs text-muted text-center mb-5">
+              Enter your username and we'll email you a link to set a new password.
+            </div>
+            <input className="input mb-3" placeholder="Username" value={username}
+              onChange={(e) => setUsername(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+            <button className="btn-primary w-full" disabled={!username || busy} onClick={submit}>
+              {busy ? "Sending…" : "Send reset link"}
+            </button>
+          </>
+        )}
+        <button className="text-xs text-muted text-center w-full mt-3 hover:text-ink" onClick={() => nav("/")}>
+          Back to sign in
+        </button>
+      </div>
+    </Shell>
+  );
+}
+
+/** Forgot-password step 2: the emailed link lands here with ?t=<token>. */
+export function ResetPasswordPage() {
+  const token = useParam("t");
+  const nav = useNavigate();
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["password-reset", token],
+    queryFn: async () => (await api.get(`/auth/password-reset/confirm/?t=${token}`)).data,
+    enabled: !!token,
+    retry: false,
+  });
+
+  if (!token) return <Shell><div className="card p-6 text-center text-muted">Invalid reset link.</div></Shell>;
+  if (isLoading) return <Shell><Spinner /></Shell>;
+  if (!data) {
+    return (
+      <Shell>
+        <div className="card p-6 text-center text-muted">
+          This reset link is invalid or has expired — request a new one from the sign-in screen.
+        </div>
+      </Shell>
+    );
+  }
+  if (done) {
+    return (
+      <Shell>
+        <div className="card p-6 text-center">
+          <div className="font-display text-lg mb-1">Password updated</div>
+          <div className="text-sm text-muted mb-4">You can now sign in with your new password.</div>
+          <button className="btn-primary w-full" onClick={() => nav("/")}>Go to sign in</button>
+        </div>
+      </Shell>
+    );
+  }
+
+  async function submit() {
+    setError("");
+    if (password !== confirm) { setError("Passwords don't match"); return; }
+    setBusy(true);
+    try {
+      await api.post("/auth/password-reset/confirm/", { t: token, password });
+      setDone(true);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Could not reset password");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Shell>
+      <div className="card p-6">
+        <div className="font-display text-xl text-center mb-1">Set a new password</div>
+        <div className="grid gap-2 mb-3 mt-4">
+          <input className="input" type="password" placeholder="New password" value={password}
+            onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+          <input className="input" type="password" placeholder="Confirm new password" value={confirm}
+            onChange={(e) => setConfirm(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+        </div>
+        {error && <div className="text-sm text-clay mb-2 text-center">{error}</div>}
+        <button className="btn-primary w-full" disabled={!password || !confirm || busy} onClick={submit}>
+          {busy ? "Saving…" : "Set new password"}
+        </button>
+      </div>
+    </Shell>
+  );
+}
