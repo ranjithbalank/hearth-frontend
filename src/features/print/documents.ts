@@ -43,6 +43,23 @@ const esc = (v: string | number | null | undefined) =>
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[c]!));
 
+/** Letterhead header/footer text (Settings > Bill Template) may contain
+ *  literal <b>/<i> from that editor's formatting buttons — escape
+ *  everything else the same way `esc` does, then re-open exactly those
+ *  four tag sequences, matching Settings.tsx's sanitizeLetterhead(). */
+const ALLOWED_LETTERHEAD_TAGS: Record<string, string> = {
+  "&lt;b&gt;": "<b>", "&lt;/b&gt;": "</b>",
+  "&lt;i&gt;": "<i>", "&lt;/i&gt;": "</i>",
+};
+function letterheadHtml(text: string) {
+  return esc(text).replace(/&lt;\/?[bi]&gt;/g, (tag) => ALLOWED_LETTERHEAD_TAGS[tag] ?? tag);
+}
+function letterheadBlock(text: string, align: "left" | "center" | "right", className = "") {
+  const lines = text.split("\n").filter((l) => l.trim());
+  if (!lines.length) return "";
+  return `<div class="${className}" style="text-align:${align};">${lines.map(letterheadHtml).join("<br>")}</div>`;
+}
+
 function openAndPrint(html: string, width = 800) {
   const w = window.open("", "_blank", `width=${width},height=1000`);
   if (!w) return;
@@ -70,19 +87,34 @@ const BASE_CSS = `
   .foot { margin-top:24px; font-size:10.5px; color:#94A3B8; text-align:center; }
 `;
 
-export function printInvoice(folio: Folio, propertyName: string, gstin: string) {
+/** columns: optional extra line-item columns from Settings > Bill Template
+ *  (⊆ "type", "gst_rate"); docHeader/docFooter/aligns: the same section's
+ *  letterhead text — additive only, kept in sync with the server's
+ *  invoice_pdf.py so the Print and Download PDF buttons never disagree. */
+export function printInvoice(
+  folio: Folio, propertyName: string, gstin: string, columns: string[] = [],
+  docHeader = "", docFooter = "",
+  docHeaderAlign: "left" | "center" | "right" = "left",
+  docFooterAlign: "left" | "center" | "right" = "center",
+) {
+  const showType = columns.includes("type");
+  const showRate = columns.includes("gst_rate");
   const rows = folio.lines.map((l) => `
     <tr><td>${esc(l.description)}</td>
+        ${showType ? `<td>${esc(l.kind_label)}</td>` : ""}
+        ${showRate ? `<td class="r">${esc(l.gst_rate)}%</td>` : ""}
         <td class="r">${money(l.taxable)}</td>
         <td class="r">${money(l.cgst)}</td>
         <td class="r">${money(l.sgst)}</td>
         <td class="r">${money(l.total)}</td></tr>`).join("");
   const cgst = folio.lines.reduce((s, l) => s + Number(l.cgst), 0);
   const sgst = folio.lines.reduce((s, l) => s + Number(l.sgst), 0);
+  const colCount = 5 + (showType ? 1 : 0) + (showRate ? 1 : 0);
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${esc(folio.invoice_no || folio.id)}</title>
   <style>${BASE_CSS}</style></head><body>
     <div class="head">
-      <div><div class="brand">${esc(propertyName)}</div><div class="muted">${gstin ? "GSTIN: " + esc(gstin) : ""}</div></div>
+      <div><div class="brand">${esc(propertyName)}</div><div class="muted">${gstin ? "GSTIN: " + esc(gstin) : ""}</div>
+        ${letterheadBlock(docHeader, docHeaderAlign, "muted")}</div>
       <div class="doc"><h1>TAX INVOICE</h1>
         <div class="muted">No. ${esc(folio.invoice_no) || "—"}<br>${new Date().toLocaleDateString("en-IN")}</div></div>
     </div>
@@ -90,8 +122,8 @@ export function printInvoice(folio: Folio, propertyName: string, gstin: string) 
       <b>Bill to:</b> ${esc(folio.guest_name)}${folio.room_number ? ` &nbsp;·&nbsp; Room ${esc(folio.room_number)}` : ""}
     </div>
     <table>
-      <thead><tr><th>Description</th><th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th><th class="r">Amount</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="5">No charges</td></tr>'}</tbody>
+      <thead><tr><th>Description</th>${showType ? "<th>Type</th>" : ""}${showRate ? '<th class="r">GST %</th>' : ""}<th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th><th class="r">Amount</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="${colCount}">No charges</td></tr>`}</tbody>
     </table>
     <div class="tot">
       <div><span>Taxable</span><span>${money(Number(folio.charges_total) - cgst - sgst)}</span></div>
@@ -101,6 +133,7 @@ export function printInvoice(folio: Folio, propertyName: string, gstin: string) 
       <div><span>Paid</span><span>${money(folio.paid_total)}</span></div>
       <div><span>Balance</span><span>${money(folio.balance)}</span></div>
     </div>
+    ${letterheadBlock(docFooter, docFooterAlign, "muted")}
     <div class="foot">${esc(propertyName)} · GST-compliant tax invoice · computer-generated, no signature required</div>
   </body></html>`;
   openAndPrint(html);

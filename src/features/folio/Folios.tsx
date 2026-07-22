@@ -342,7 +342,11 @@ export function Folios() {
                 </button>
                 <button
                   className="btn-ghost text-xs py-1"
-                  onClick={() => printInvoice(sel, property?.name ?? "Hearth", property?.gstin ?? "")}
+                  onClick={() => printInvoice(
+                    sel, property?.name ?? "Hearth", property?.gstin ?? "", property?.invoice_columns ?? [],
+                    property?.doc_header ?? "", property?.doc_footer ?? "",
+                    property?.doc_header_align ?? "left", property?.doc_footer_align ?? "center",
+                  )}
                   title="Open print preview"
                 >
                   Print

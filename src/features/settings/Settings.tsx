@@ -390,23 +390,54 @@ function AlignPicker({ value, onChange }: { value: Align; onChange: (a: Align) =
   );
 }
 
-function LetterheadPanel() {
+// Mini editor: wrap the selected text of a textarea in a tag.
+function wrapSelection(id: string, tag: string, value: string, set: (v: string) => void) {
+  const el = document.getElementById(id) as HTMLTextAreaElement | null;
+  if (!el) return;
+  const { selectionStart: s, selectionEnd: e } = el;
+  set(value.slice(0, s) + `<${tag}>` + value.slice(s, e) + `</${tag}>` + value.slice(e));
+  el.focus();
+}
+
+// The only markup the header/footer editors ever insert is <b>/<i> via
+// wrapSelection() above — escape everything, then re-open exactly those
+// four literal tag sequences. Anything else typed directly (e.g.
+// <img onerror=...>) stays inert text instead of executing (security
+// review 2026-07, finding F2). Normal text and real bold/italic render
+// exactly as before.
+const LETTERHEAD_ALLOWED_TAGS: Record<string, string> = {
+  "&lt;b&gt;": "<b>", "&lt;/b&gt;": "</b>",
+  "&lt;i&gt;": "<i>", "&lt;/i&gt;": "</i>",
+};
+function sanitizeLetterhead(raw: string) {
+  const escaped = raw.replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]!));
+  return escaped.replace(/&lt;\/?[bi]&gt;/g, (tag) => LETTERHEAD_ALLOWED_TAGS[tag] ?? tag);
+}
+function letterheadPreviewLines(text: string) {
+  return text.split("\n").filter((l) => l.trim()).map((l, i) => (
+    <div key={i} dangerouslySetInnerHTML={{ __html: sanitizeLetterhead(l) }} />
+  ));
+}
+
+/** Guest invoice bill template — header, footer and line-item columns for
+ * the hotel guest invoice, all in one place, separate from the POS bill
+ * template below (its own header/footer/columns — see PosBillTemplatePanel).
+ * The GST tax invoice's Description/Taxable/CGST/SGST/Amount are required by
+ * law (FR-TAX-003) and always show — the checkboxes only add columns. */
+function InvoiceBillTemplatePanel() {
   const { property, refreshProperty } = useApp();
   const [header, setHeader] = useState(property?.doc_header ?? "");
   const [footer, setFooter] = useState(property?.doc_footer ?? "");
   const [headerAlign, setHeaderAlign] = useState<Align>(property?.doc_header_align ?? "left");
   const [footerAlign, setFooterAlign] = useState<Align>(property?.doc_footer_align ?? "center");
+  const [cols, setCols] = useState<string[]>(property?.invoice_columns ?? []);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Mini editor: wrap the selected text of a textarea in a tag.
-  function wrap(id: string, tag: string, value: string, set: (v: string) => void) {
-    const el = document.getElementById(id) as HTMLTextAreaElement | null;
-    if (!el) return;
-    const { selectionStart: s, selectionEnd: e } = el;
-    set(value.slice(0, s) + `<${tag}>` + value.slice(s, e) + `</${tag}>` + value.slice(e));
-    el.focus();
-  }
+  const toggle = (key: string) =>
+    setCols((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
 
   async function save() {
     setSaving(true);
@@ -414,6 +445,7 @@ function LetterheadPanel() {
       await api.patch("/auth/property/", {
         doc_header: header, doc_footer: footer,
         doc_header_align: headerAlign, doc_footer_align: footerAlign,
+        invoice_columns: cols,
       });
       await refreshProperty();
       setSaved(true);
@@ -423,34 +455,15 @@ function LetterheadPanel() {
     }
   }
 
-  // The only markup this editor ever inserts is <b>/<i> via wrap() above —
-  // escape everything, then re-open exactly those four literal tag
-  // sequences. Anything else typed directly (e.g. <img onerror=...>) stays
-  // inert text instead of executing (security review 2026-07, finding F2).
-  // Normal header/footer text and real bold/italic formatting render
-  // exactly as before.
-  const ALLOWED_TAGS: Record<string, string> = {
-    "&lt;b&gt;": "<b>", "&lt;/b&gt;": "</b>",
-    "&lt;i&gt;": "<i>", "&lt;/i&gt;": "</i>",
-  };
-  const sanitize = (raw: string) => {
-    const escaped = raw.replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-    }[c]!));
-    return escaped.replace(/&lt;\/?[bi]&gt;/g, (tag) => ALLOWED_TAGS[tag] ?? tag);
-  };
-
-  const previewLines = (text: string) =>
-    text.split("\n").filter((l) => l.trim()).map((l, i) => (
-      <div key={i} dangerouslySetInnerHTML={{ __html: sanitize(l) }} />
-    ));
+  const showType = cols.includes("type");
+  const showRate = cols.includes("gst_rate");
 
   return (
     <Card className="mb-4">
-      <div className="font-semibold mb-1">Letterhead &amp; documents</div>
+      <div className="font-semibold mb-1">Bill template — guest invoice</div>
       <div className="text-sm text-muted mb-4">
-        Extra lines printed on invoices and bills — tagline, CIN/FSSAI, terms, bank details.
-        Use <b>B</b>/<i>I</i> to format. The logo, name, address &amp; GSTIN above are included automatically.
+        Header/footer text and line-item columns for the hotel guest invoice. The logo, name,
+        address &amp; GSTIN are included automatically. Use <b>B</b>/<i>I</i> to format.
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
@@ -459,33 +472,47 @@ function LetterheadPanel() {
             <label className="text-xs font-semibold text-muted">Header lines (below the address)</label>
             <span className="flex items-center gap-2">
               <AlignPicker value={headerAlign} onChange={setHeaderAlign} />
-              <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrap("lh-head", "b", header, setHeader)}>B</button>
-              <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrap("lh-head", "i", header, setHeader)}>I</button>
+              <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrapSelection("inv-head", "b", header, setHeader)}>B</button>
+              <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrapSelection("inv-head", "i", header, setHeader)}>I</button>
             </span>
           </div>
-          <textarea id="lh-head" className="input w-full font-mono text-xs" rows={3}
-            placeholder={"Fine dining since 1998\nFSSAI Lic. No. 12345678901234"}
+          <textarea id="inv-head" className="input w-full font-mono text-xs" rows={3}
+            placeholder={"Fine dining since 1998\nCIN U12345KA2020PTC000000"}
             value={header} onChange={(e) => setHeader(e.target.value)} />
 
           <div className="flex items-center justify-between mb-1 mt-3 gap-2">
             <label className="text-xs font-semibold text-muted">Footer — terms / bank details</label>
             <span className="flex items-center gap-2">
               <AlignPicker value={footerAlign} onChange={setFooterAlign} />
-              <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrap("lh-foot", "b", footer, setFooter)}>B</button>
-              <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrap("lh-foot", "i", footer, setFooter)}>I</button>
+              <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrapSelection("inv-foot", "b", footer, setFooter)}>B</button>
+              <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrapSelection("inv-foot", "i", footer, setFooter)}>I</button>
             </span>
           </div>
-          <textarea id="lh-foot" className="input w-full font-mono text-xs" rows={4}
+          <textarea id="inv-foot" className="input w-full font-mono text-xs" rows={4}
             placeholder={"Checkout time 11 AM. Tariff subject to change.\nBank: HDFC ****1234 · IFSC HDFC0000001"}
             value={footer} onChange={(e) => setFooter(e.target.value)} />
 
-          <div className="flex items-center gap-3 mt-3">
-            <button className="btn-primary" onClick={save} disabled={saving}>Save letterhead</button>
+          <div className="mt-4">
+            <label className="text-xs font-semibold text-muted">Line-item columns</label>
+            <div className="mt-1.5 space-y-1.5">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={showType} onChange={() => toggle("type")} />
+                Show line type (Room / F&amp;B / Tax / Incidental)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={showRate} onChange={() => toggle("gst_rate")} />
+                Show GST rate % per line
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 mt-4">
+            <button className="btn-primary" onClick={save} disabled={saving}>Save</button>
             {saved && <span className="text-sm text-pine">Saved ✓</span>}
           </div>
         </div>
 
-        {/* Live preview of the printed letterhead */}
+        {/* Live preview of the printed invoice */}
         <div className="rounded-card border border-hairline bg-white p-5 text-ink">
           <div className="flex justify-between items-start">
             <div>
@@ -494,7 +521,7 @@ function LetterheadPanel() {
               <div className="text-[10px] text-muted">
                 {property?.address && <div>{property.address}</div>}
                 {property?.gstin && <div>GSTIN: {property.gstin}</div>}
-                <div className={`mt-0.5 text-${headerAlign}`}>{previewLines(header)}</div>
+                <div className={`mt-0.5 text-${headerAlign}`}>{letterheadPreviewLines(header)}</div>
               </div>
             </div>
             <div className="text-right text-[10px] text-muted">
@@ -503,10 +530,150 @@ function LetterheadPanel() {
             </div>
           </div>
           <div className="border-t-2 border-pine my-2" />
-          <div className="text-[10px] text-muted italic py-4 text-center">… bill lines …</div>
-          <div className={`border-t border-hairline pt-2 text-[10px] text-muted text-${footerAlign}`}>
-            {previewLines(footer)}
+          <table className="w-full text-[10px]">
+            <thead>
+              <tr className="text-muted border-b border-hairline">
+                <th className="text-left font-normal py-1">Description</th>
+                {showType && <th className="text-left font-normal py-1">Type</th>}
+                {showRate && <th className="text-right font-normal py-1">GST %</th>}
+                <th className="text-right font-normal py-1">Taxable</th>
+                <th className="text-right font-normal py-1">CGST</th>
+                <th className="text-right font-normal py-1">SGST</th>
+                <th className="text-right font-normal py-1">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b border-hairline/60">
+                <td className="py-1">Room charge</td>
+                {showType && <td className="py-1">Room</td>}
+                {showRate && <td className="text-right py-1">12%</td>}
+                <td className="text-right py-1">4,000.00</td>
+                <td className="text-right py-1">240.00</td>
+                <td className="text-right py-1">240.00</td>
+                <td className="text-right py-1">4,480.00</td>
+              </tr>
+            </tbody>
+          </table>
+          <div className={`border-t border-hairline pt-2 mt-2 text-[10px] text-muted text-${footerAlign}`}>
+            {letterheadPreviewLines(footer)}
             <div className="text-center mt-1 opacity-60">{property?.name} · computer-generated, no signature required</div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/** POS/restaurant bill template — header, footer and line-item columns for
+ * the POS bill, its own template separate from the guest invoice above. */
+function PosBillTemplatePanel() {
+  const { property, refreshProperty } = useApp();
+  const [header, setHeader] = useState(property?.pos_doc_header ?? "");
+  const [footer, setFooter] = useState(property?.pos_doc_footer ?? "");
+  const [headerAlign, setHeaderAlign] = useState<Align>(property?.pos_doc_header_align ?? "center");
+  const [footerAlign, setFooterAlign] = useState<Align>(property?.pos_doc_footer_align ?? "center");
+  const [cols, setCols] = useState<string[]>(property?.pos_bill_columns ?? []);
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const toggle = (key: string) =>
+    setCols((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch("/auth/property/", {
+        pos_doc_header: header, pos_doc_footer: footer,
+        pos_doc_header_align: headerAlign, pos_doc_footer_align: footerAlign,
+        pos_bill_columns: cols,
+      });
+      await refreshProperty();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const showUnitRate = cols.includes("rate");
+
+  return (
+    <Card className="mb-4">
+      <div className="font-semibold mb-1">Bill template — POS / restaurant bill</div>
+      <div className="text-sm text-muted mb-4">
+        Header/footer text and line-item columns for the restaurant/bar bill — its own template,
+        separate from the guest invoice. Use <b>B</b>/<i>I</i> to format.
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <div className="flex items-center justify-between mb-1 gap-2">
+            <label className="text-xs font-semibold text-muted">Header lines (below the property name)</label>
+            <span className="flex items-center gap-2">
+              <AlignPicker value={headerAlign} onChange={setHeaderAlign} />
+              <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrapSelection("pos-head", "b", header, setHeader)}>B</button>
+              <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrapSelection("pos-head", "i", header, setHeader)}>I</button>
+            </span>
+          </div>
+          <textarea id="pos-head" className="input w-full font-mono text-xs" rows={2}
+            placeholder={"FSSAI Lic. No. 12345678901234"}
+            value={header} onChange={(e) => setHeader(e.target.value)} />
+
+          <div className="flex items-center justify-between mb-1 mt-3 gap-2">
+            <label className="text-xs font-semibold text-muted">Footer — return policy / thank-you line</label>
+            <span className="flex items-center gap-2">
+              <AlignPicker value={footerAlign} onChange={setFooterAlign} />
+              <button className="btn-ghost text-xs px-2 py-0.5 font-bold" onClick={() => wrapSelection("pos-foot", "b", footer, setFooter)}>B</button>
+              <button className="btn-ghost text-xs px-2 py-0.5 italic" onClick={() => wrapSelection("pos-foot", "i", footer, setFooter)}>I</button>
+            </span>
+          </div>
+          <textarea id="pos-foot" className="input w-full font-mono text-xs" rows={3}
+            placeholder={"Prices inclusive of taxes.\nNo returns on food items."}
+            value={footer} onChange={(e) => setFooter(e.target.value)} />
+
+          <div className="mt-4">
+            <label className="text-xs font-semibold text-muted">Line-item columns</label>
+            <div className="mt-1.5">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={showUnitRate} onChange={() => toggle("rate")} />
+                Show unit rate per item (alongside qty &amp; amount)
+              </label>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 mt-4">
+            <button className="btn-primary" onClick={save} disabled={saving}>Save</button>
+            {saved && <span className="text-sm text-pine">Saved ✓</span>}
+          </div>
+        </div>
+
+        {/* Live preview of the printed POS receipt */}
+        <div className="rounded-card border border-hairline bg-white p-5 text-ink mx-auto w-full max-w-[220px] text-center">
+          <div className="font-display text-sm text-pine leading-tight">{property?.name}</div>
+          <div className="text-[9px] text-muted">Table 4</div>
+          <div className={`text-[9px] text-muted mt-1 text-${headerAlign}`}>{letterheadPreviewLines(header)}</div>
+          <div className="border-t border-pine my-2" />
+          <table className="w-full text-[9px] text-left">
+            <thead>
+              <tr className="text-muted border-b border-hairline">
+                <th className="font-normal py-1">Item</th>
+                <th className="text-right font-normal py-1">Qty</th>
+                {showUnitRate && <th className="text-right font-normal py-1">Rate</th>}
+                <th className="text-right font-normal py-1">Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="py-1">Biryani</td>
+                <td className="text-right py-1">2</td>
+                {showUnitRate && <td className="text-right py-1">400.00</td>}
+                <td className="text-right py-1">800.00</td>
+              </tr>
+            </tbody>
+          </table>
+          <div className={`border-t border-hairline pt-2 mt-2 text-[9px] text-muted text-${footerAlign}`}>
+            {letterheadPreviewLines(footer)}
+            <div className="mt-1 opacity-60">Thank you · {property?.name}</div>
           </div>
         </div>
       </div>
@@ -685,7 +852,8 @@ function DocumentNumberingPanel() {
 
 const SECTIONS = [
   { key: "property", label: "Property Details" },
-  { key: "letterhead", label: "Letterhead & Documents" },
+  { key: "billtemplate_invoice", label: "Bill Template — Hotel" },
+  { key: "billtemplate_pos", label: "Bill Template — POS" },
   { key: "commission", label: "Aggregator Commission" },
   { key: "numbering", label: "Document Numbering" },
   { key: "edition", label: "Edition" },
@@ -778,7 +946,9 @@ export function Settings() {
         <div className="flex-1 min-w-0 space-y-4">
           {activeSection === "property" && <PropertyPanel />}
 
-          {activeSection === "letterhead" && <LetterheadPanel />}
+          {activeSection === "billtemplate_invoice" && <InvoiceBillTemplatePanel />}
+
+          {activeSection === "billtemplate_pos" && <PosBillTemplatePanel />}
 
           {activeSection === "commission" && hasBar && <CommissionPanel />}
 

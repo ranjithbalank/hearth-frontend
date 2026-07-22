@@ -88,6 +88,12 @@ export interface Property {
   doc_footer: string;
   doc_header_align: "left" | "center" | "right";
   doc_footer_align: "left" | "center" | "right";
+  pos_doc_header: string;
+  pos_doc_footer: string;
+  pos_doc_header_align: "left" | "center" | "right";
+  pos_doc_footer_align: "left" | "center" | "right";
+  invoice_columns: string[];
+  pos_bill_columns: string[];
   currency: string;
   entitlement: Entitlement;
   gst_billing_mode: string;
