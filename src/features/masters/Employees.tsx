@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { CsvImport } from "../../design/CsvImport";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -84,6 +85,10 @@ export function Employees() {
   return (
     <div>
       <PageHeader title="Employees" subtitle="Staff directory & system access" />
+
+      <CsvImport path="/hr/import/" templateFilename="employees-template.csv"
+        noun="employee" invalidate={["employees-master"]}
+        hint="Onboarding many staff? Download the format, fill it in Excel (or export from your old system), and upload — department and designation must already exist in Settings > Masters." />
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add employee</div>
