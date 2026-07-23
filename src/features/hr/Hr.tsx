@@ -1,26 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
+import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { fmtDate } from "../../lib/date";
+import { COUNTRY_CODES } from "../../lib/countryCodes";
 import { amount as decimalFilter, digits, personName } from "../../lib/inputs";
 import { money } from "../../lib/money";
 import { downloadPayslipPdf } from "../print/documents";
 
 interface Employee {
   id: number; name: string; department: string; role: string; shifts: string[]; status: string;
-  wage_type: "monthly" | "daily"; monthly_salary: string; daily_rate: string;
-  statutory: boolean; has_allowances: boolean; phone: string;
+  wage_type: "monthly" | "daily" | "weekly";
+  monthly_salary: string; daily_rate: string; weekly_rate: string;
+  statutory: boolean; has_allowances: boolean; country_code: string; phone: string;
   /** Linked login account, if this person has system access — null means
    *  they're roster-only (e.g. kitchen helpers, cleaners) or not invited yet. */
   user: number | null;
 }
 interface PayrollRow {
   payslip: number | null; id: number; name: string; department: string; role: string;
-  wage_type: "monthly" | "daily"; statutory: boolean;
+  wage_type: "monthly" | "daily" | "weekly"; statutory: boolean;
   monthly_salary: string; days_marked: number | null; payable_days: string;
   basic: string; hra: string; other_allowance: string; gross_earned: string;
   pf: string; esi: string; pt: string; adjustment: string; adjustment_note: string;
@@ -73,6 +77,16 @@ const SIDE_TABS: { key: Side; label: string }[] = [
   { key: "shared", label: "Shared" },
 ];
 
+/** Monthly-equivalent gross, for comparing pay across cadences at a glance —
+ *  daily uses the same 26-working-days estimate as the HR overview card;
+ *  weekly uses 52 weeks / 12 months, same approximation payroll.py uses for
+ *  the ESI eligibility ceiling on weekly-rated staff. */
+function monthlyEquivalent(e: Pick<Employee, "wage_type" | "monthly_salary" | "daily_rate" | "weekly_rate">) {
+  if (e.wage_type === "daily") return Number(e.daily_rate) * 26;
+  if (e.wage_type === "weekly") return Number(e.weekly_rate) * 52 / 12;
+  return Number(e.monthly_salary);
+}
+
 const MARKS = [
   ["present", "P", "bg-pine text-white"],
   ["half", "½", "bg-amber-400 text-white"],
@@ -98,11 +112,26 @@ export function Hr() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [editing, setEditing] = useState<Employee | null>(null);
   const [inviting, setInviting] = useState<Employee | null>(null);
+  const [q, setQ] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { data, isLoading } = useQuery({
     queryKey: ["hr"],
     queryFn: async () => (await api.get<Employee[]>("/hr/")).data,
   });
+
+  // Deep-link from Employees master's "View payroll →": /hr?edit=<id> jumps
+  // straight to the roster tab with that person's edit modal already open.
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId || !data) return;
+    const match = data.find((e) => e.id === Number(editId));
+    if (match) {
+      setTab("roster");
+      setEditing(match);
+    }
+    setSearchParams((p) => { p.delete("edit"); return p; }, { replace: true });
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
   const { data: att } = useQuery({
     queryKey: ["hr-att", date],
     queryFn: async () => (await api.get<{ date: string; marks: Record<string, string> }>(`/hr/attendance/?date=${date}`)).data,
@@ -128,7 +157,11 @@ export function Hr() {
 
   if (isLoading || !data) return <Spinner />;
 
-  const staff = side === "all" ? data : data.filter((e) => sideOfDept(e.department) === side);
+  const bySide = side === "all" ? data : data.filter((e) => sideOfDept(e.department) === side);
+  const staff = bySide.filter((e) => !q
+    || e.name.toLowerCase().includes(q.toLowerCase())
+    || e.department.toLowerCase().includes(q.toLowerCase())
+    || e.role.toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div>
@@ -140,6 +173,10 @@ export function Hr() {
             {t}
           </button>
         ))}
+        {(tab === "roster" || tab === "attendance") && (
+          <input className="input w-56" placeholder="Search name, department, role…"
+            value={q} onChange={(e) => setQ(e.target.value)} />
+        )}
         {(tab === "roster" || tab === "attendance") && (
           <div className="flex gap-1 rounded-pill bg-hairline p-1 ml-auto">
             {SIDE_TABS.map(({ key, label }) => {
@@ -225,7 +262,12 @@ export function Hr() {
                   <td className="py-2 pl-2 text-right">
                     {e.wage_type === "daily"
                       ? <>{money(e.daily_rate)}<span className="text-xs text-muted">/day</span></>
+                      : e.wage_type === "weekly"
+                      ? <>{money(e.weekly_rate)}<span className="text-xs text-muted">/week</span></>
                       : money(e.monthly_salary)}
+                    {e.wage_type !== "monthly" && (
+                      <div className="text-[10px] text-muted">~{money(monthlyEquivalent(e))}/mo</div>
+                    )}
                     {!e.statutory && <div className="text-[10px] text-muted">no PF/ESI</div>}
                   </td>
                   <td className="py-2 pl-2 text-right whitespace-nowrap">
@@ -314,6 +356,7 @@ function PayrollSheet({ payroll, month, setMonth, canManage }: {
 }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const ask = usePrompt();
   const run = payroll.run;
   const isDraft = run?.status === "draft";
 
@@ -356,7 +399,13 @@ function PayrollSheet({ payroll, month, setMonth, canManage }: {
                 <button className="btn-primary text-sm" onClick={() => advance.mutate(undefined)}>
                   Finalize
                 </button>
-                <button className="btn-ghost text-sm text-clay" onClick={() => advance.mutate("discard")}>
+                <button className="btn-ghost text-sm text-clay" onClick={async () => {
+                  const ok = await ask({
+                    title: "Discard draft payroll", confirm: true, danger: true, confirmLabel: "Discard",
+                    message: `This deletes the ${payroll.month} draft and every adjustment made to it — attendance stays intact and you can rerun. This can't be undone.`,
+                  });
+                  if (ok === "yes") advance.mutate("discard");
+                }}>
                   Discard draft
                 </button>
               </>
@@ -560,8 +609,9 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
   const toast = useToast();
   const [form, setForm] = useState({
     name: employee.name, department: employee.department, role: employee.role,
-    phone: employee.phone ?? "", monthly_salary: employee.monthly_salary,
-    daily_rate: employee.daily_rate, wage_type: employee.wage_type,
+    country_code: employee.country_code || "+91", phone: employee.phone ?? "",
+    monthly_salary: employee.monthly_salary,
+    daily_rate: employee.daily_rate, weekly_rate: employee.weekly_rate, wage_type: employee.wage_type,
     statutory: employee.statutory, has_allowances: employee.has_allowances,
     status: employee.status,
   });
@@ -576,40 +626,61 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
 
   const set = (k: string, v: string | boolean) => setForm({ ...form, [k]: v });
   const daily = form.wage_type === "daily";
+  const weekly = form.wage_type === "weekly";
+  const rateField = daily ? "daily_rate" : weekly ? "weekly_rate" : "monthly_salary";
   return (
     <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
       <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-3">Edit {employee.name}</div>
-        {([["name", "Name"], ["department", "Department"], ["role", "Role"],
-           ["phone", "Phone"]] as const).map(([k, label]) => (
+        {([["name", "Name"], ["department", "Department"], ["role", "Role"]] as const).map(([k, label]) => (
           <label key={k} className="block mb-3">
             <span className="text-xs text-muted uppercase tracking-wide">{label}</span>
             <input className="input mt-1" value={(form as any)[k]}
-              onChange={(e) => set(k, k === "name" ? personName(e.target.value) : k === "phone" ? digits(e.target.value, 15) : e.target.value)} />
+              onChange={(e) => set(k, k === "name" ? personName(e.target.value) : e.target.value)} />
           </label>
         ))}
+        <label className="block mb-3">
+          <span className="text-xs text-muted uppercase tracking-wide">Phone</span>
+          <div className="flex gap-2 mt-1">
+            <select className="input w-28" value={form.country_code}
+              onChange={(e) => set("country_code", e.target.value)}>
+              {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+            </select>
+            <input className="input flex-1" value={form.phone}
+              onChange={(e) => set("phone", digits(e.target.value, 15))} />
+          </div>
+        </label>
         <div className="grid grid-cols-2 gap-3 mb-3">
           <label className="block">
             <span className="text-xs text-muted uppercase tracking-wide">Pay terms</span>
             <select className="input mt-1" value={form.wage_type}
               onChange={(e) => {
-                const wage_type = e.target.value as "monthly" | "daily";
-                // Casuals are typically off the rolls; salaried on them.
-                setForm({ ...form, wage_type, statutory: wage_type === "monthly" });
+                const wage_type = e.target.value as "monthly" | "daily" | "weekly";
+                // Casuals are typically off the rolls; salaried pay (monthly
+                // or weekly) is on them by default.
+                setForm({ ...form, wage_type, statutory: wage_type !== "daily" });
               }}>
               <option value="monthly">Monthly salary</option>
+              <option value="weekly">Weekly wage</option>
               <option value="daily">Daily wage</option>
             </select>
           </label>
           <label className="block">
             <span className="text-xs text-muted uppercase tracking-wide">
-              {daily ? "Rate per day" : "Monthly salary (gross)"}
+              {daily ? "Rate per day" : weekly ? "Rate per week" : "Monthly salary (gross)"}
             </span>
             <input className="input mt-1" inputMode="decimal"
-              value={daily ? form.daily_rate : form.monthly_salary}
-              onChange={(e) => set(daily ? "daily_rate" : "monthly_salary", decimalFilter(e.target.value))} />
+              value={form[rateField]}
+              onChange={(e) => set(rateField, decimalFilter(e.target.value))} />
           </label>
         </div>
+        {(daily || weekly) && (
+          <div className="text-xs text-muted -mt-2 mb-3">
+            ~{money(monthlyEquivalent({ ...employee, wage_type: form.wage_type,
+              daily_rate: form.daily_rate, weekly_rate: form.weekly_rate,
+              monthly_salary: form.monthly_salary }))}/month equivalent
+          </div>
+        )}
         {!daily && (
           <label className="block mb-3">
             <span className="text-xs text-muted uppercase tracking-wide">Salary structure</span>
@@ -666,6 +737,7 @@ const ADVANCE_TONE: Record<string, "amber" | "pine"> = { active: "amber", settle
 function AdvancesPanel({ employees, canManage }: { employees: Employee[]; canManage: boolean }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const ask = usePrompt();
   const [issuing, setIssuing] = useState(false);
   const [showSettled, setShowSettled] = useState(false);
 
@@ -744,7 +816,13 @@ function AdvancesPanel({ employees, canManage }: { employees: Employee[]; canMan
                   <td className="px-3 py-3"><Badge tone={ADVANCE_TONE[a.status]}>{a.status}</Badge></td>
                   <td className="px-4 py-3 text-right">
                     {canManage && a.status === "active" && (
-                      <button className="btn-ghost text-sm text-clay" onClick={() => waive.mutate(a.id)}>
+                      <button className="btn-ghost text-sm text-clay" onClick={async () => {
+                        const ok = await ask({
+                          title: "Write off balance", confirm: true, danger: true, confirmLabel: "Write off",
+                          message: `Forgive the remaining ${money(a.balance)} owed by ${a.employee_name}? This stops it being recovered from future payroll and can't be undone.`,
+                        });
+                        if (ok === "yes") waive.mutate(a.id);
+                      }}>
                         Write off
                       </button>
                     )}

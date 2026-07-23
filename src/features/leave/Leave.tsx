@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { fmtDate } from "../../lib/date";
+import { money } from "../../lib/money";
+import { downloadPayslipPdf } from "../print/documents";
 
 interface LeaveTypeRow {
   id: number; name: string; annual_quota: number; is_paid: boolean;
@@ -40,7 +43,7 @@ const APPROVER_ROLES = new Set([
 const OVERSIGHT_ROLES = new Set(["Super Admin", "Managing Director", "General Manager", "HR Manager", "CEO"]);
 const TYPE_MANAGER_ROLES = new Set(["Super Admin", "Managing Director", "General Manager", "Admin", "HR Manager"]);
 
-type Tab = "mine" | "queue" | "all" | "types";
+type Tab = "mine" | "queue" | "all" | "types" | "payslips";
 
 export function Leave() {
   const qc = useQueryClient();
@@ -58,6 +61,7 @@ export function Leave() {
     ...(canApprove ? [{ key: "queue" as const, label: "Approvals" }] : []),
     ...(isOversight ? [{ key: "all" as const, label: "All requests" }] : []),
     ...(managesTypes ? [{ key: "types" as const, label: "Leave types" }] : []),
+    { key: "payslips", label: "My payslips" },
   ];
 
   return (
@@ -101,7 +105,59 @@ export function Leave() {
       {tab === "queue" && <ApprovalQueue view="queue" />}
       {tab === "all" && <ApprovalQueue view="all" />}
       {tab === "types" && <TypesMaster />}
+      {tab === "payslips" && <MyPayslips />}
     </div>
+  );
+}
+
+interface MyPayslip { payslip: number; month: string; status: string; gross_earned: string; net: string }
+
+function MyPayslips() {
+  const { user } = useApp();
+  const { data, isLoading } = useQuery({
+    queryKey: ["hr", "my-payslips"],
+    queryFn: async () => (await api.get<MyPayslip[] | { detail: string }>("/hr/my_payslips/")).data,
+  });
+
+  if (isLoading) return <Spinner />;
+  if (!Array.isArray(data)) {
+    return <EmptyState title="No staff record linked"
+      hint={(data as { detail: string })?.detail ?? "Ask HR to link a staff record to your login."} />;
+  }
+  if (!data.length) {
+    return <EmptyState title="No payslips yet"
+      hint="Payslips appear here once payroll for a month is finalized." />;
+  }
+  return (
+    <Card className="p-0 overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
+          <tr>
+            <th className="text-left px-4 py-3">Month</th>
+            <th className="px-3 py-3">Status</th>
+            <th className="text-right px-3 py-3">Gross</th>
+            <th className="text-right px-3 py-3">Net</th>
+            <th className="px-4 py-3" />
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((s) => (
+            <tr key={s.payslip} className="border-t border-line">
+              <td className="px-4 py-3 font-medium">{s.month}</td>
+              <td className="px-3 py-3"><Badge tone={s.status === "paid" ? "pine" : "amber"}>{s.status}</Badge></td>
+              <td className="px-3 py-3 text-right">{money(s.gross_earned)}</td>
+              <td className="px-3 py-3 text-right font-medium">{money(s.net)}</td>
+              <td className="px-4 py-3 text-right">
+                <button className="btn-ghost text-sm"
+                  onClick={() => downloadPayslipPdf(s.payslip, user?.name ?? "Employee", s.month)}>
+                  Download PDF
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
   );
 }
 
@@ -151,6 +207,7 @@ function MyLeave() {
 
 function ApprovalQueue({ view }: { view: "queue" | "all" }) {
   const { user } = useApp();
+  const [q, setQ] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["leave", view],
     queryFn: async () => (await api.get<LeaveReq[]>(`/leave/?view=${view}`)).data,
@@ -163,9 +220,21 @@ function ApprovalQueue({ view }: { view: "queue" | "all" }) {
         ? "Every application across the property will show up here."
         : "Requests land here at your level: department first, then HR's final sign-off."} />;
   }
+  const rows = view === "all" ? data.filter((r) => !q
+    || r.employee_name.toLowerCase().includes(q.toLowerCase())
+    || r.department.toLowerCase().includes(q.toLowerCase())
+    || r.leave_type_name.toLowerCase().includes(q.toLowerCase())) : data;
   // Decide buttons render in both views, but only on rows whose current
   // stage matches the viewer's role (and never on their own requests).
-  return <RequestList rows={data} me={user?.username} showDecide />;
+  return (
+    <>
+      {view === "all" && (
+        <input className="input w-64 mb-3" placeholder="Search employee, department, leave type…"
+          value={q} onChange={(e) => setQ(e.target.value)} />
+      )}
+      <RequestList rows={rows} me={user?.username} showDecide />
+    </>
+  );
 }
 
 function RequestList({ rows, me, showDecide = false }: {
@@ -173,6 +242,7 @@ function RequestList({ rows, me, showDecide = false }: {
 }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const ask = usePrompt();
   const { user } = useApp();
   const canApprove = APPROVER_ROLES.has(user?.role ?? "");
   const isOversight = OVERSIGHT_ROLES.has(user?.role ?? "");
@@ -234,13 +304,29 @@ function RequestList({ rows, me, showDecide = false }: {
                       {r.status === "manager_approved" ? "Final approve" : "Approve"}
                     </button>
                     <button className="btn-outline text-sm text-clay"
-                      onClick={() => decide.mutate({ id: r.id, decision: "reject" })}>
+                      onClick={async () => {
+                        const ok = await ask({
+                          title: "Reject leave request", confirm: true, confirmLabel: "Reject",
+                          message: `Reject ${r.employee_name}'s ${r.leave_type_name} request?`,
+                        });
+                        if (ok === "yes") decide.mutate({ id: r.id, decision: "reject" });
+                      }}>
                       Reject
                     </button>
                   </>
                 )}
                 {canCancelThis && (
-                  <button className="btn-ghost text-sm text-muted" onClick={() => cancel.mutate(r.id)}>
+                  <button className="btn-ghost text-sm text-muted" onClick={async () => {
+                    const isApproved = r.status === "approved";
+                    const ok = await ask({
+                      title: isApproved ? "Cancel leave" : "Withdraw request",
+                      confirm: true, danger: isApproved, confirmLabel: isApproved ? "Cancel leave" : "Withdraw",
+                      message: isApproved
+                        ? `Cancel ${r.employee_name}'s already-approved ${r.leave_type_name}? This reverts the attendance marks for those days.`
+                        : `Withdraw this ${r.leave_type_name} request?`,
+                    });
+                    if (ok === "yes") cancel.mutate(r.id);
+                  }}>
                     {r.status === "approved" ? "Cancel leave" : "Withdraw"}
                   </button>
                 )}

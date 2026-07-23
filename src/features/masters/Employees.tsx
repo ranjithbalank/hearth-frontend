@@ -1,17 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { CsvImport } from "../../design/CsvImport";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { useApp } from "../../lib/app-context";
+import { COUNTRY_CODES } from "../../lib/countryCodes";
 import { amount, digits, personName } from "../../lib/inputs";
 import { currencySymbol } from "../../lib/money";
 import type { Branch } from "../../lib/types";
 
 interface Employee {
   id: number; name: string; department: string; role: string; status: string;
-  phone: string; monthly_salary: string;
+  country_code: string; phone: string; monthly_salary: string;
   branch: number | null; branch_name: string | null;
 }
 interface User { username: string; name: string; role: string }
@@ -20,8 +23,10 @@ interface MasterItem { id: number; name: string; active: boolean }
 export function Employees() {
   const qc = useQueryClient();
   const toast = useToast();
-  const empty = { name: "", department: "", role: "", phone: "", monthly_salary: "", branch: "" };
+  const { canAccess } = useApp();
+  const empty = { name: "", department: "", role: "", country_code: "+91", phone: "", monthly_salary: "", branch: "" };
   const [f, setF] = useState(empty);
+  const [q, setQ] = useState("");
 
   const { data: staff, isLoading } = useQuery({
     queryKey: ["employees-master"],
@@ -47,7 +52,8 @@ export function Employees() {
 
   const create = useMutation({
     mutationFn: async () => (await api.post("/hr/", {
-      name: f.name, department: f.department, role: f.role, phone: f.phone,
+      name: f.name, department: f.department, role: f.role,
+      country_code: f.country_code, phone: f.phone,
       monthly_salary: f.monthly_salary || 0, branch: f.branch || null,
     })).data,
     onSuccess: () => {
@@ -63,13 +69,15 @@ export function Employees() {
   function startEdit(e: Employee) {
     setEditingId(e.id);
     setEf({
-      name: e.name, department: e.department, role: e.role, phone: e.phone,
+      name: e.name, department: e.department, role: e.role,
+      country_code: e.country_code || "+91", phone: e.phone,
       monthly_salary: e.monthly_salary, branch: e.branch ? String(e.branch) : "",
     });
   }
   const saveEdit = useMutation({
     mutationFn: async (id: number) => (await api.patch(`/hr/${id}/`, {
-      name: ef.name, department: ef.department, role: ef.role, phone: ef.phone,
+      name: ef.name, department: ef.department, role: ef.role,
+      country_code: ef.country_code, phone: ef.phone,
       monthly_salary: ef.monthly_salary || 0, branch: ef.branch || null,
     })).data,
     onSuccess: () => { setEditingId(null); toast("Employee updated"); qc.invalidateQueries({ queryKey: ["employees-master"] }); },
@@ -81,6 +89,11 @@ export function Employees() {
   const showBranch = (branches?.length ?? 0) > 0;
   const active = (items?: MasterItem[], current = "") =>
     (items ?? []).filter((i) => i.active || i.name === current);
+  const visible = staff.filter((e) => !q
+    || e.name.toLowerCase().includes(q.toLowerCase())
+    || e.department.toLowerCase().includes(q.toLowerCase())
+    || e.role.toLowerCase().includes(q.toLowerCase())
+    || e.phone.includes(q));
 
   return (
     <div>
@@ -89,6 +102,9 @@ export function Employees() {
       <CsvImport path="/hr/import/" templateFilename="employees-template.csv"
         noun="employee" invalidate={["employees-master"]}
         hint="Onboarding many staff? Download the format, fill it in Excel (or export from your old system), and upload — department and designation must already exist in Settings > Masters." />
+
+      <input className="input w-64 mb-4" placeholder="Search name, department, role, phone…"
+        value={q} onChange={(e) => setQ(e.target.value)} />
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add employee</div>
@@ -102,7 +118,12 @@ export function Employees() {
             <option value="">Designation…</option>
             {active(designations).map((d) => <option key={d.id}>{d.name}</option>)}
           </select>
-          <input className="input" placeholder="Phone" value={f.phone} onChange={(e) => setF({ ...f, phone: digits(e.target.value, 15) })} />
+          <div className="flex gap-1">
+            <select className="input w-20 px-1" value={f.country_code} onChange={(e) => setF({ ...f, country_code: e.target.value })}>
+              {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+            </select>
+            <input className="input flex-1" placeholder="Phone" value={f.phone} onChange={(e) => setF({ ...f, phone: digits(e.target.value, 15) })} />
+          </div>
           <input className="input" inputMode="decimal" placeholder="Monthly salary" value={f.monthly_salary}
             onChange={(e) => setF({ ...f, monthly_salary: amount(e.target.value) })} />
           {showBranch && (
@@ -134,7 +155,7 @@ export function Employees() {
             </tr>
           </thead>
           <tbody>
-            {staff.map((e) => {
+            {visible.map((e) => {
               const u = userByName.get(e.name);
               const editing = editingId === e.id;
               return (
@@ -158,8 +179,14 @@ export function Employees() {
                   </td>
                   <td className="px-4 py-3 text-muted">
                     {editing ? (
-                      <input className="input py-1 text-xs w-24" value={ef.phone} onChange={(v) => setEf({ ...ef, phone: digits(v.target.value, 15) })} />
-                    ) : (e.phone || "—")}
+                      <div className="flex gap-1">
+                        <select className="input py-1 text-xs w-16 px-1" value={ef.country_code}
+                          onChange={(v) => setEf({ ...ef, country_code: v.target.value })}>
+                          {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+                        </select>
+                        <input className="input py-1 text-xs w-20" value={ef.phone} onChange={(v) => setEf({ ...ef, phone: digits(v.target.value, 15) })} />
+                      </div>
+                    ) : (e.phone ? `${e.country_code || "+91"} ${e.phone}` : "—")}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {editing ? (
@@ -188,7 +215,12 @@ export function Employees() {
                         <button className="btn-primary text-xs py-1 px-2" disabled={saveEdit.isPending} onClick={() => saveEdit.mutate(e.id)}>Save</button>
                       </>
                     ) : (
-                      <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(e)}>Edit</button>
+                      <>
+                        {canAccess("hr") && (
+                          <Link to={`/hr?edit=${e.id}`} className="text-pine text-xs py-1 px-2">View payroll →</Link>
+                        )}
+                        <button className="btn-ghost text-xs py-1 px-2" onClick={() => startEdit(e)}>Edit</button>
+                      </>
                     )}
                   </td>
                 </tr>
