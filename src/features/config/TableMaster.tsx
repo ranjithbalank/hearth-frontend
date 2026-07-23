@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { CsvImport } from "../../design/CsvImport";
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
@@ -84,6 +85,11 @@ export function TableMaster() {
   return (
     <div>
       <PageHeader title="Table Master" subtitle="Floor sections &amp; tables" />
+
+      <CsvImport path="/pos/tables/import/" templateFilename="tables-template.csv"
+        noun="table" invalidate={["tables"]}
+        hint="Setting up many tables? Download the format, fill it in Excel, and upload once — leave branch blank to use your own." />
+
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add table</div>
 
