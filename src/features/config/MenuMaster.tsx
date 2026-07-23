@@ -132,16 +132,19 @@ export function MenuMaster() {
         subtitle="Items, categories, prices &amp; tax"
         action={<input className="input w-56" placeholder="Search item…" value={q} onChange={(e) => setQ(e.target.value)} />}
       />
+      <div className="text-xs uppercase tracking-wide text-muted mb-2">Menu items</div>
       <CsvImport path="/pos/menu-items/import/" templateFilename="menu-template.csv"
+        title="Import menu items"
         noun="dish" invalidate={["menu", "cats"]}
         hint="Onboarding a whole menu? Download the format, fill it in Excel (name, category, price, GST, veg/nonveg, and one of your configured kitchen stations), and upload once — categories are created for you." />
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-6">
         <button className="btn-outline text-xs py-1" onClick={() => download("/pos/menu-items/export/?fmt=xlsx", "menu-items.xlsx")}>Export XLSX</button>
         <button className="btn-ghost text-xs py-1" onClick={() => download("/pos/menu-items/export/?fmt=csv", "menu-items.csv")}>CSV</button>
       </div>
 
-      <div className="font-semibold mb-2">Categories</div>
+      <div className="text-xs uppercase tracking-wide text-muted mb-2">Categories</div>
       <CsvImport path="/pos/categories/import/" templateFilename="category-template.csv"
+        title="Import categories"
         noun="category" invalidate={["cats"]}
         hint="Setting up the menu structure? Download the format, fill it in Excel (name, sort order, and whether it's a bar category), and upload once." />
       <div className="flex gap-2 mb-4">

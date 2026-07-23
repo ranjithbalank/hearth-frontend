@@ -14,12 +14,16 @@ interface ImportResult {
 /** The masters' bulk-onboarding card: download the CSV format, fill it in
  *  Excel, upload it back — per-row results shown inline. `path` is the API
  *  endpoint that serves the template on GET and imports on POST. */
-export function CsvImport({ path, templateFilename, noun, invalidate, hint }: {
+export function CsvImport({ path, templateFilename, noun, invalidate, hint, title }: {
   path: string;
   templateFilename: string;
   noun: string;                      // "dish", "supplier", "room"…
   invalidate: string[];              // react-query keys to refresh after import
   hint?: string;
+  /** Override the card's heading — needed wherever a screen has more than
+   *  one of these (e.g. Menu Master's items vs. categories import), so two
+   *  cards never read as an accidental duplicate. */
+  title?: string;
 }) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -59,7 +63,7 @@ export function CsvImport({ path, templateFilename, noun, invalidate, hint }: {
     <Card className="mb-4">
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex-1 min-w-[260px]">
-          <div className="font-semibold">Import from Excel / CSV</div>
+          <div className="font-semibold">{title ?? "Import from Excel / CSV"}</div>
           <div className="text-sm text-muted">
             {hint ?? `Setting up many ${noun}s? Download the format, fill it in Excel, and upload once.`}
           </div>
