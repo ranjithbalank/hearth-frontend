@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
@@ -21,10 +21,21 @@ const EXTRA_LABELS: Record<string, string> = {
 export function RoleMatrix() {
   const qc = useQueryClient();
   const toast = useToast();
+  const [fullScreen, setFullScreen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["role-matrix"],
     queryFn: async () => (await api.get<Matrix>("/auth/roles/matrix/")).data,
   });
+
+  // Escape exits full screen — a matrix this wide (every role × every
+  // module) is the one screen in Settings worth reclaiming the sidebar
+  // and header for, without needing the browser's own Fullscreen API.
+  useEffect(() => {
+    if (!fullScreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFullScreen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullScreen]);
 
   const toggle = useMutation({
     mutationFn: async (b: { role: string; module: string; allowed: boolean }) =>
@@ -75,9 +86,16 @@ export function RoleMatrix() {
     );
   }
 
+  const fullScreenButton = (
+    <button className="btn-outline text-sm" onClick={() => setFullScreen((v) => !v)}>
+      {fullScreen ? "✕ Exit full screen" : "⛶ Full screen"}
+    </button>
+  );
+
   return (
-    <div>
-      <PageHeader title="Role Mapping" subtitle="What each role can open, grouped by area. Click a cell to grant or revoke." />
+    <div className={fullScreen ? "fixed inset-0 z-50 bg-cream px-4 md:px-8 py-6 overflow-auto" : undefined}>
+      <PageHeader title="Role Mapping" subtitle="What each role can open, grouped by area. Click a cell to grant or revoke."
+        action={fullScreenButton} />
 
       <div className="flex items-center gap-4 mb-3 text-xs text-muted">
         <span className="flex items-center gap-1.5"><span className="inline-block h-4 w-4 rounded bg-pine" /> Allowed</span>
@@ -88,8 +106,10 @@ export function RoleMatrix() {
       {/* Freeze panes: header row and module column stay pinned while the
           matrix scrolls in both directions inside this container. */}
       {/* !p-0: the card's default padding would leave a gap above the sticky
-          header through which scrolled rows stay visible (freeze-pane overlap). */}
-      <Card className="overflow-auto !p-0 max-h-[calc(100vh-230px)]">
+          header through which scrolled rows stay visible (freeze-pane overlap).
+          Full screen reclaims the app sidebar/header, so the table gets most
+          of the viewport instead of stopping short for chrome that's gone. */}
+      <Card className={`overflow-auto !p-0 ${fullScreen ? "max-h-[calc(100vh-180px)]" : "max-h-[calc(100vh-230px)]"}`}>
         <table className="text-sm border-separate border-spacing-0 min-w-full">
           <thead>
             <tr>
