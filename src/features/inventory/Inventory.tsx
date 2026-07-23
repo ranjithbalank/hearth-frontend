@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { CsvImport } from "../../design/CsvImport";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
 import { useToast } from "../../design/Toast";
@@ -306,6 +307,10 @@ export function Inventory({ fixedTab, tabGroup, title }: {
       )}
 
       {tab === "materials" && (
+        <>
+        <CsvImport path="/inventory/import/" templateFilename="raw-materials-template.csv"
+          noun="material" invalidate={["ingredients"]}
+          hint="Onboarding many materials? Download the format, fill it in Excel (or export from your old system), and upload — opening stock is booked automatically, new categories/units are created for you." />
         <div className="card overflow-x-auto p-0">
           <table className="w-full text-sm">
             <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
@@ -349,6 +354,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {tab === "masters" && (

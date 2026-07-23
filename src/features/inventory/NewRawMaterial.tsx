@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader } from "../../design/ui";
-import { api, getAccess } from "../../lib/api";
+import { api } from "../../lib/api";
 import { amount } from "../../lib/inputs";
 import { currencySymbol, money } from "../../lib/money";
 
@@ -31,10 +31,6 @@ export function NewRawMaterial() {
   const qc = useQueryClient();
   const [f, setF] = useState<Draft>(EMPTY);
   const [staged, setStaged] = useState<Draft[]>([]);
-  const [importResult, setImportResult] = useState<{
-    created: number; skipped_existing: string[];
-    errors: { row: number; name: string; reason: string }[];
-  } | null>(null);
 
   const { data: uoms } = useQuery({
     queryKey: ["inv-uoms"],
@@ -117,81 +113,9 @@ export function NewRawMaterial() {
         }
       />
 
-      {/* Bulk onboarding: download the format, fill it in Excel, upload once. */}
-      <Card className="mb-4">
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex-1 min-w-[260px]">
-            <div className="font-semibold">Import from Excel / CSV</div>
-            <div className="text-sm text-muted">
-              Onboarding many materials? Download the format, fill it in Excel
-              (or export from your old system), and upload — opening stock is
-              booked automatically, new categories/units are created for you.
-            </div>
-          </div>
-          <button className="btn-outline text-sm"
-            onClick={async () => {
-              const res = await fetch("/api/inventory/import/", {
-                headers: { Authorization: `Bearer ${getAccess()}` },
-              });
-              const url = URL.createObjectURL(await res.blob());
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "raw-materials-template.csv";
-              a.click();
-              URL.revokeObjectURL(url);
-            }}>
-            ⬇ Download format
-          </button>
-          <label className="btn-primary text-sm cursor-pointer">
-            ⬆ Upload file
-            <input type="file" accept=".csv,.xlsx" className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                e.target.value = "";
-                const fd = new FormData();
-                fd.append("file", file);
-                try {
-                  const r = (await api.post("/inventory/import/", fd)).data as {
-                    created: number; skipped_existing: string[];
-                    errors: { row: number; name: string; reason: string }[];
-                  };
-                  setImportResult(r);
-                  if (r.created && !r.errors.length) {
-                    toast(`${r.created} material(s) imported to stock`);
-                    qc.invalidateQueries({ queryKey: ["ingredients"] });
-                  }
-                } catch (err: any) {
-                  toast(err?.response?.data?.detail ?? "Import failed — use the downloaded format", "error");
-                }
-              }} />
-          </label>
-        </div>
-        {importResult && (
-          <div className="border-t border-line mt-3 pt-3 text-sm space-y-1">
-            <div>
-              <Badge tone="pine">{importResult.created} created</Badge>{" "}
-              {!!importResult.skipped_existing.length && (
-                <span className="text-muted text-xs">
-                  skipped (already exist): {importResult.skipped_existing.join(", ")}
-                </span>
-              )}
-            </div>
-            {importResult.errors.map((er) => (
-              <div key={er.row} className="text-clay text-xs">
-                Row {er.row} — {er.name}: {er.reason}
-              </div>
-            ))}
-            {importResult.created > 0 && (
-              <button className="btn-outline text-xs py-1 mt-1" onClick={() => nav("/store/materials")}>
-                View in Raw Material Master →
-              </button>
-            )}
-          </div>
-        )}
-      </Card>
-
-      <div className="text-xs uppercase tracking-wide text-muted mb-2">Or add one by one</div>
+      <div className="text-xs uppercase tracking-wide text-muted mb-2">
+        Add one raw material at a time — for bulk onboarding use the Import card on Raw Material Master.
+      </div>
       <Card className="mb-4">
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-1">

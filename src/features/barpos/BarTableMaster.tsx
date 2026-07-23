@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { CsvImport } from "../../design/CsvImport";
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -59,6 +60,11 @@ export function BarTableMaster() {
   return (
     <div>
       <PageHeader title="Bar Table Master" subtitle="The bar's own seating — separate from the restaurant floor" />
+
+      <CsvImport path="/bar/tables/import/" templateFilename="bar-tables-template.csv"
+        noun="bar table" invalidate={["bar-tables-master"]}
+        hint="Setting up many bar tables? Download the format, fill it in Excel, and upload once." />
+
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add bar table</div>
         <div className="grid grid-cols-4 gap-2">

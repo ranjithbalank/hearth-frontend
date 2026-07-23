@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { CsvImport } from "../../design/CsvImport";
 import { useToast } from "../../design/Toast";
 import { Card, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -72,6 +73,10 @@ export function BranchMaster() {
   return (
     <div>
       <PageHeader title="Branch Master" subtitle="The group's locations — each with its own address, GSTIN and edition" />
+
+      <CsvImport path="/auth/branches/import/" templateFilename="branches-template.csv"
+        noun="branch" invalidate={["branches"]}
+        hint="Onboarding many branches? Download the format, fill it in Excel, and upload once." />
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add branch</div>

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { CsvImport } from "../../design/CsvImport";
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
@@ -88,6 +89,10 @@ export function BarMenu() {
           </button>
         }
       />
+
+      <CsvImport path="/pos/menu-items/import/" templateFilename="menu-template.csv"
+        noun="beverage" invalidate={["menu"]}
+        hint="Onboarding many beverages? Download the format, fill it in Excel — set the station column to 'Bar' so items land on the bar menu — and upload once." />
 
       <Card className="mb-4">
         <div className="font-semibold mb-1">Bar categories</div>
