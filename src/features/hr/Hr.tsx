@@ -9,6 +9,7 @@ import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { fmtDate } from "../../lib/date";
 import { COUNTRY_CODES } from "../../lib/countryCodes";
+import { monthlyEquivalent } from "../../lib/wage";
 import { amount as decimalFilter, digits, personName } from "../../lib/inputs";
 import { money } from "../../lib/money";
 import { downloadPayslipPdf } from "../print/documents";
@@ -76,16 +77,6 @@ const SIDE_TABS: { key: Side; label: string }[] = [
   { key: "restaurant", label: "🍽 Restaurant" },
   { key: "shared", label: "Shared" },
 ];
-
-/** Monthly-equivalent gross, for comparing pay across cadences at a glance —
- *  daily uses the same 26-working-days estimate as the HR overview card;
- *  weekly uses 52 weeks / 12 months, same approximation payroll.py uses for
- *  the ESI eligibility ceiling on weekly-rated staff. */
-function monthlyEquivalent(e: Pick<Employee, "wage_type" | "monthly_salary" | "daily_rate" | "weekly_rate">) {
-  if (e.wage_type === "daily") return Number(e.daily_rate) * 26;
-  if (e.wage_type === "weekly") return Number(e.weekly_rate) * 52 / 12;
-  return Number(e.monthly_salary);
-}
 
 const MARKS = [
   ["present", "P", "bg-pine text-white"],

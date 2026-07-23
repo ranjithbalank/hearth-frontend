@@ -9,12 +9,15 @@ import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { COUNTRY_CODES } from "../../lib/countryCodes";
 import { amount, digits, personName } from "../../lib/inputs";
-import { currencySymbol } from "../../lib/money";
+import { currencySymbol, money } from "../../lib/money";
+import { monthlyEquivalent } from "../../lib/wage";
 import type { Branch } from "../../lib/types";
 
 interface Employee {
   id: number; name: string; department: string; role: string; status: string;
-  country_code: string; phone: string; monthly_salary: string;
+  country_code: string; phone: string;
+  wage_type: "monthly" | "daily" | "weekly";
+  monthly_salary: string; daily_rate: string; weekly_rate: string;
   branch: number | null; branch_name: string | null;
 }
 interface User { username: string; name: string; role: string }
@@ -147,7 +150,7 @@ export function Employees() {
               <th className="text-left px-4 py-3">Department</th>
               <th className="text-left px-4 py-3">Role</th>
               <th className="text-left px-4 py-3">Phone</th>
-              <th className="text-right px-4 py-3">Monthly salary</th>
+              <th className="text-right px-4 py-3">Pay</th>
               {showBranch && <th className="text-left px-4 py-3">Branch</th>}
               <th className="text-left px-4 py-3">System access</th>
               <th className="text-left px-4 py-3">Status</th>
@@ -190,8 +193,24 @@ export function Employees() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     {editing ? (
-                      <input className="input py-1 text-xs text-right w-24" inputMode="decimal"
-                        value={ef.monthly_salary} onChange={(v) => setEf({ ...ef, monthly_salary: amount(v.target.value) })} />
+                      e.wage_type === "monthly" ? (
+                        <input className="input py-1 text-xs text-right w-24" inputMode="decimal"
+                          value={ef.monthly_salary} onChange={(v) => setEf({ ...ef, monthly_salary: amount(v.target.value) })} />
+                      ) : (
+                        <Link to={`/hr?edit=${e.id}`} className="text-pine text-xs">
+                          Edit {e.wage_type} rate in payroll →
+                        </Link>
+                      )
+                    ) : e.wage_type === "daily" ? (
+                      <>
+                        {money(e.daily_rate)}<span className="text-xs text-muted">/day</span>
+                        <div className="text-[10px] text-muted">~{money(monthlyEquivalent(e))}/mo</div>
+                      </>
+                    ) : e.wage_type === "weekly" ? (
+                      <>
+                        {money(e.weekly_rate)}<span className="text-xs text-muted">/week</span>
+                        <div className="text-[10px] text-muted">~{money(monthlyEquivalent(e))}/mo</div>
+                      </>
                     ) : (Number(e.monthly_salary) ? `${currencySymbol()}${Number(e.monthly_salary).toLocaleString("en-IN")}` : "—")}
                   </td>
                   {showBranch && (
