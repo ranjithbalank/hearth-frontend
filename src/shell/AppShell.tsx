@@ -430,19 +430,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
         {welcomeName && (
-          <div className="flex items-center justify-center gap-3 bg-pine text-white text-sm font-semibold text-center py-2 sticky top-[57px] z-10">
-            <span>Welcome, {welcomeName}!</span>
-            <button
-              onClick={() => setWelcomeName(null)}
-              aria-label="Dismiss welcome banner"
-              className="opacity-70 hover:opacity-100 text-xs"
-            >
-              ✕
-            </button>
+          <div className="flex justify-center py-2 sticky top-[57px] z-10">
+            <div className="flex items-center gap-2 bg-success-50 text-success text-sm font-semibold px-4 py-1.5 rounded-full shadow-sm">
+              <span>Welcome, {welcomeName}!</span>
+              <button
+                onClick={() => setWelcomeName(null)}
+                aria-label="Dismiss welcome banner"
+                className="text-xs font-medium text-success/70 hover:text-success hover:underline underline-offset-2"
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
         {!online && (
-          <div className={`bg-amber text-white text-xs font-semibold text-center py-1.5 sticky z-10 ${welcomeName ? "top-[94px]" : "top-[57px]"}`}>
+          <div className={`bg-amber text-white text-xs font-semibold text-center py-1.5 sticky z-10 ${welcomeName ? "top-[100px]" : "top-[57px]"}`}>
             You're offline — changes will sync when you're back online
           </div>
         )}
