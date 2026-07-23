@@ -44,7 +44,7 @@ interface Payroll {
   rows: PayrollRow[];
 }
 interface Overview {
-  date: string; headcount: number; salaried: number; casual: number;
+  date: string; headcount: number; salaried: number; casual: number; weekly: number;
   today: { present: number; half: number; leave: number; absent: number; unmarked: number };
   on_leave: { employee: string; type: string; until: string }[];
   monthly_wage_bill: string;
@@ -203,7 +203,10 @@ export function Hr() {
           <Card>
             <div className="text-xs text-muted uppercase tracking-wide">Active staff</div>
             <div className="font-display text-2xl mt-1">{overview.headcount}</div>
-            <div className="text-xs text-muted mt-1">{overview.salaried} salaried · {overview.casual} day-rate</div>
+            <div className="text-xs text-muted mt-1">
+              {overview.salaried} salaried · {overview.casual} day-rate
+              {overview.weekly ? ` · ${overview.weekly} weekly` : ""}
+            </div>
           </Card>
           <Card>
             <div className="text-xs text-muted uppercase tracking-wide">Today&apos;s muster</div>
@@ -227,7 +230,9 @@ export function Hr() {
           <Card>
             <div className="text-xs text-muted uppercase tracking-wide">Monthly wage bill</div>
             <div className="font-display text-2xl mt-1">{money(overview.monthly_wage_bill)}</div>
-            <div className="text-xs text-muted mt-1">gross · day rates × 26 days</div>
+            <div className="text-xs text-muted mt-1">
+              gross · day rates × 26 days{overview.weekly ? " · weekly rates × 52/12 weeks" : ""}
+            </div>
           </Card>
         </div>
       )}
