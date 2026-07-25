@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
+import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Card, Field, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -792,6 +793,125 @@ function CommissionPanel() {
 }
 
 
+interface AggregatorConnectionRow {
+  id: number; platform: "zomato" | "swiggy"; platform_label: string;
+  branch: number | null; branch_name: string | null;
+  outlet_id: string; connected: boolean; configured: boolean;
+}
+
+const PLATFORMS: { key: "zomato" | "swiggy"; label: string }[] = [
+  { key: "zomato", label: "Zomato" },
+  { key: "swiggy", label: "Swiggy" },
+];
+
+function AggregatorPanel() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const ask = usePrompt();
+  const [editing, setEditing] = useState<"zomato" | "swiggy" | null>(null);
+  const [outletId, setOutletId] = useState("");
+  const [secret, setSecret] = useState("");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["aggregator-connections"],
+    queryFn: async () => (await api.get<AggregatorConnectionRow[]>("/pos/aggregator-connections/")).data,
+  });
+
+  const save = useMutation({
+    mutationFn: async (platform: "zomato" | "swiggy") => {
+      const existing = data?.find((c) => c.platform === platform);
+      const body = { platform, outlet_id: outletId, webhook_secret: secret };
+      return existing
+        ? (await api.patch(`/pos/aggregator-connections/${existing.id}/`, body)).data
+        : (await api.post("/pos/aggregator-connections/", body)).data;
+    },
+    onSuccess: () => {
+      toast("Connection saved");
+      setEditing(null); setOutletId(""); setSecret("");
+      qc.invalidateQueries({ queryKey: ["aggregator-connections"] });
+    },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save connection", "error"),
+  });
+
+  const disconnect = useMutation({
+    mutationFn: async (id: number) => (await api.post(`/pos/aggregator-connections/${id}/disconnect/`)).data,
+    onSuccess: () => { toast("Disconnected"); qc.invalidateQueries({ queryKey: ["aggregator-connections"] }); },
+    onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not disconnect", "error"),
+  });
+
+  if (isLoading || !data) return null;
+
+  return (
+    <Card className="mb-4">
+      <div className="font-semibold mb-1">Aggregator integrations</div>
+      <div className="text-sm text-muted mb-4">
+        Link a Swiggy/Zomato outlet so Hearth can verify their orders really
+        come from them. Once connected, point that outlet's webhook at{" "}
+        <code className="text-xs bg-hairline/60 px-1 py-0.5 rounded">/api/pos/orders/aggregator/</code>{" "}
+        with header <code className="text-xs bg-hairline/60 px-1 py-0.5 rounded">X-Hearth-Signature</code>:
+        hex HMAC-SHA256 of the raw request body, keyed on the secret below.
+      </div>
+      <div className="space-y-3">
+        {PLATFORMS.map(({ key, label }) => {
+          const conn = data.find((c) => c.platform === key);
+          const isEditing = editing === key;
+          return (
+            <div key={key} className="border border-hairline rounded-xl p-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="font-medium w-20">{label}</div>
+                {conn?.configured && !isEditing ? (
+                  <>
+                    <span className="text-sm text-muted">Outlet {conn.outlet_id}</span>
+                    <span className={`pill text-xs ${conn.connected ? "bg-pine-50 text-pine" : "bg-hairline text-muted"}`}>
+                      {conn.connected ? "Connected" : "Disconnected"}
+                    </span>
+                    <span className="ml-auto flex gap-2">
+                      <button className="btn-ghost text-sm"
+                        onClick={() => { setEditing(key); setOutletId(conn.outlet_id); setSecret(""); }}>
+                        Rotate secret
+                      </button>
+                      {conn.connected && (
+                        <button className="btn-ghost text-sm text-clay" onClick={async () => {
+                          const ok = await ask({
+                            title: "Disconnect", confirm: true, danger: true, confirmLabel: "Disconnect",
+                            message: `Stop accepting webhook orders from ${label}? Its outlet ID/secret stay saved — reconnecting later just needs "Rotate secret".`,
+                          });
+                          if (ok === "yes") disconnect.mutate(conn.id);
+                        }}>
+                          Disconnect
+                        </button>
+                      )}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <input className="input w-40" placeholder="Outlet ID"
+                      value={isEditing ? outletId : ""} onFocus={() => setEditing(key)}
+                      onChange={(e) => { setEditing(key); setOutletId(e.target.value); }} />
+                    <input className="input flex-1 max-w-xs" type="password" placeholder="Webhook secret"
+                      value={isEditing ? secret : ""} onFocus={() => setEditing(key)}
+                      onChange={(e) => { setEditing(key); setSecret(e.target.value); }} />
+                    <button className="btn-primary text-sm" disabled={!isEditing || !outletId || !secret || save.isPending}
+                      onClick={() => save.mutate(key)}>
+                      Save
+                    </button>
+                    {conn?.configured && (
+                      <button className="btn-ghost text-sm" onClick={() => { setEditing(null); setOutletId(""); setSecret(""); }}>
+                        Cancel
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+
 function DocumentNumberingPanel() {
   const { property, refreshProperty } = useApp();
   const FIELDS = [
@@ -855,6 +975,7 @@ const SECTIONS = [
   { key: "billtemplate_invoice", label: "Bill Template — Hotel" },
   { key: "billtemplate_pos", label: "Bill Template — POS" },
   { key: "commission", label: "Aggregator Commission" },
+  { key: "integrations", label: "Integrations" },
   { key: "numbering", label: "Document Numbering" },
   { key: "edition", label: "Edition" },
   { key: "barmode", label: "Bar Operating Mode" },
@@ -884,8 +1005,9 @@ export function Settings() {
       ? (requested as SectionKey) : "property";
   });
   const hasBar = !!property?.entitlement.restaurant;
-  const visibleSections = SECTIONS.filter((s) => (s.key !== "barmode" && s.key !== "commission") || hasBar);
-  const activeSection = (section === "barmode" || section === "commission") && !hasBar ? "property" : section;
+  const RESTAURANT_ONLY = ["barmode", "commission", "integrations"];
+  const visibleSections = SECTIONS.filter((s) => !RESTAURANT_ONLY.includes(s.key) || hasBar);
+  const activeSection = RESTAURANT_ONLY.includes(section) && !hasBar ? "property" : section;
 
   async function toggle(flag: keyof Entitlement) {
     if (!property) return;
@@ -951,6 +1073,8 @@ export function Settings() {
           {activeSection === "billtemplate_pos" && <PosBillTemplatePanel />}
 
           {activeSection === "commission" && hasBar && <CommissionPanel />}
+
+          {activeSection === "integrations" && hasBar && <AggregatorPanel />}
 
           {activeSection === "numbering" && <DocumentNumberingPanel />}
 
