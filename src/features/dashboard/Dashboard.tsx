@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 
 import { Badge, Card, PageHeader, Spinner, Stat, Tabs } from "../../design/ui";
 import { LineChart } from "../../design/LineChart";
+import { Donut } from "../../design/Donut";
+import { RadialGauge } from "../../design/RadialGauge";
 import { NavIcon } from "../../design/NavIcon";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
@@ -354,7 +356,18 @@ function AnalyticalView({ data }: { data: DashboardData }) {
       <div className="grid grid-cols-4 gap-4">
         {rooms && (
           <>
-            <Stat tone="dark" delayMs={0} icon={<Percent size={16} />} label="Occupancy" value={`${rooms.occupancy_pct}%`} sub={`${rooms.occupied}/${rooms.rooms_total} rooms`} />
+            {/* Bespoke hero tile: occupancy magnitude as a ring + the exact number. */}
+            <div className="relative overflow-hidden rounded-card p-5 bg-gradient-ink text-white shadow-md animate-fade-in-up flex items-center justify-between gap-2">
+              <div className="pointer-events-none absolute -right-6 -top-10 w-32 h-32 rounded-full bg-pine-400/20 blur-2xl" aria-hidden />
+              <div className="relative">
+                <div className="stat-num text-3xl text-white">{rooms.occupancy_pct}%</div>
+                <div className="text-xs mt-1 text-white/60">Occupancy</div>
+                <div className="text-xs mt-2 text-white/60">{rooms.occupied}/{rooms.rooms_total} rooms</div>
+              </div>
+              <RadialGauge pct={rooms.occupancy_pct} size={72} thickness={8}>
+                <Percent size={15} className="text-white/70" />
+              </RadialGauge>
+            </div>
             <Stat delayMs={60} icon={<Wallet size={16} />} label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
             <Stat delayMs={120} icon={<TrendingUp size={16} />} label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
           </>
@@ -375,21 +388,28 @@ function AnalyticalView({ data }: { data: DashboardData }) {
         {rooms && roomsTotal > 0 && (
           <Card>
             <div className="font-semibold mb-4">Room status mix</div>
-            <div className="space-y-3">
-              <ProportionRow label="Occupied" display={`${rooms.occupied} rooms`} pct={Math.round((rooms.occupied / roomsTotal) * 100)} fill="bg-pine" />
-              <ProportionRow label="Available to sell" display={`${rooms.available} rooms`} pct={Math.round((rooms.available / roomsTotal) * 100)} fill="bg-info" />
-              <ProportionRow label="Dirty / out of order" display={`${rooms.dirty + rooms.ooo} rooms`} pct={Math.round(((rooms.dirty + rooms.ooo) / roomsTotal) * 100)} fill="bg-amber" />
-            </div>
+            <Donut
+              centerLabel="rooms"
+              slices={[
+                { label: "Occupied", value: rooms.occupied, color: "#2563EB", display: `${rooms.occupied} rms` },
+                { label: "Available", value: rooms.available, color: "#16A34A", display: `${rooms.available} rms` },
+                { label: "Dirty / OOO", value: rooms.dirty + rooms.ooo, color: "#D97706", display: `${rooms.dirty + rooms.ooo} rms` },
+              ]}
+            />
           </Card>
         )}
 
         {rooms && fnb && revenueMixTotal > 0 && (
           <Card>
             <div className="font-semibold mb-4">Revenue mix</div>
-            <div className="space-y-3">
-              <ProportionRow label="Rooms" display={money(rooms.room_revenue)} pct={Math.round((num(rooms.room_revenue) / revenueMixTotal) * 100)} fill="bg-pine" />
-              <ProportionRow label="F&B" display={money(fnb.fnb_sales)} pct={Math.round((num(fnb.fnb_sales) / revenueMixTotal) * 100)} fill="bg-clay" />
-            </div>
+            <Donut
+              centerLabel="revenue"
+              centerValue={money(revenueMixTotal)}
+              slices={[
+                { label: "Rooms", value: num(rooms.room_revenue), color: "#2563EB", display: money(rooms.room_revenue) },
+                { label: "F&B", value: num(fnb.fnb_sales), color: "#DC2626", display: money(fnb.fnb_sales) },
+              ]}
+            />
           </Card>
         )}
 
