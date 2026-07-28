@@ -1,7 +1,10 @@
+import { CircleAlert, CircleCheck, Info } from "lucide-react";
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 
 type Kind = "success" | "error" | "info";
 interface Toast { id: number; kind: Kind; message: string; onClick?: () => void }
+
+const ICONS: Record<Kind, typeof CircleCheck> = { success: CircleCheck, error: CircleAlert, info: Info };
 
 const Ctx = createContext<(message: string, kind?: Kind, onClick?: () => void) => void>(() => {});
 
@@ -26,9 +29,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center gap-2">
         {toasts.map((t) => {
-          const cls = `flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-pop text-sm font-medium text-white animate-[toastIn_.2s_ease] ${
+          const cls = `flex items-center gap-2 pl-3.5 pr-4 py-2.5 rounded-xl shadow-pop text-sm font-medium text-white animate-[toastIn_.2s_ease] ${
             t.kind === "error" ? "bg-clay" : t.kind === "info" ? "bg-info" : "bg-success"
           }`;
+          const Icon = ICONS[t.kind];
           const x = (
             <button
               onClick={() => dismiss(t.id)}
@@ -40,6 +44,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           );
           return t.onClick ? (
             <div key={t.id} className={cls}>
+              <Icon size={16} className="shrink-0" />
               <button onClick={t.onClick} className="hover:brightness-110 text-left">
                 {t.message} <span className="opacity-80">→</span>
               </button>
@@ -47,6 +52,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             </div>
           ) : (
             <div key={t.id} className={cls}>
+              <Icon size={16} className="shrink-0" />
               <span>{t.message}</span>
               {x}
             </div>

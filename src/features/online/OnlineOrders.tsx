@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ShoppingBag, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
@@ -90,6 +91,7 @@ export function OnlineOrders() {
   return (
     <div>
       <PageHeader
+        icon={<ShoppingBag size={20} />}
         title="Online Orders"
         subtitle="Aggregators & direct online · auto-refresh"
         action={
@@ -124,8 +126,8 @@ export function OnlineOrders() {
                   </span>
                 </div>
                 {o.customer_name && (
-                  <div className="text-xs text-muted mb-2 truncate">
-                    👤 {o.customer_name}{o.customer_mobile ? ` · ${o.customer_mobile}` : ""}
+                  <div className="text-xs text-muted mb-2 truncate flex items-center gap-1">
+                    <User size={11} className="shrink-0" /> {o.customer_name}{o.customer_mobile ? ` · ${o.customer_mobile}` : ""}
                   </div>
                 )}
                 <div className="text-sm space-y-0.5 mb-2">

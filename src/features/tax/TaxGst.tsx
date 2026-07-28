@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Landmark } from "lucide-react";
 
 import { PageHeader, Spinner } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
@@ -28,6 +29,7 @@ export function TaxGst() {
   return (
     <div>
       <PageHeader
+        icon={<Landmark size={20} />}
         title="Tax &amp; GST"
         subtitle="Output tax by slab · CGST + SGST"
         action={<button className="btn-primary" onClick={exportCsv}>Export GSTR-1</button>}
@@ -46,7 +48,7 @@ export function TaxGst() {
           </thead>
           <tbody>
             {data.map((r) => (
-              <tr key={r.rate} className="border-t border-line">
+              <tr key={r.rate} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="px-4 py-3 font-medium">{r.rate}%</td>
                 <td className="px-4 py-3 text-right">{money(r.taxable)}</td>
                 <td className="px-4 py-3 text-right">{money(r.cgst)}</td>

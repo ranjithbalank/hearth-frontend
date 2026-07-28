@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Award, HeartHandshake, Star, Users, Wallet } from "lucide-react";
 import { useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
@@ -118,6 +119,7 @@ export function Crm() {
   return (
     <div>
       <PageHeader
+        icon={<HeartHandshake size={20} />}
         title="Guest CRM &amp; Loyalty"
         subtitle="Unified customer profiles"
         action={
@@ -129,9 +131,9 @@ export function Crm() {
       />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
       <div className="grid grid-cols-3 gap-4 mb-5">
-        <Stat tone="dark" label="Customers" value={data.length} />
-        <Stat label="Loyalty points" value={loyalty.toLocaleString("en-IN")} />
-        <Stat label="Outstanding (BTC/AR)" value={money(outstanding)} />
+        <Stat tone="dark" delayMs={0} icon={<Users size={16} />} label="Customers" value={data.length} />
+        <Stat delayMs={60} icon={<Award size={16} />} label="Loyalty points" value={loyalty.toLocaleString("en-IN")} />
+        <Stat delayMs={120} icon={<Wallet size={16} />} label="Outstanding (BTC/AR)" value={money(outstanding)} />
       </div>
 
       {profileOf && <ProfileDrawer customer={profileOf} onClose={() => setProfileOf(null)} />}
@@ -154,7 +156,7 @@ export function Crm() {
           <div className="flex items-center justify-between mb-3">
             <div className="font-semibold">Guest feedback</div>
             <div className="flex items-center gap-3 text-sm">
-              <span>⭐ {fb.avg_rating}/5</span>
+              <span className="flex items-center gap-1"><Star size={14} className="fill-gold text-gold" /> {fb.avg_rating}/5</span>
               <Badge tone={fb.nps >= 50 ? "pine" : fb.nps >= 0 ? "amber" : "clay"}>NPS {fb.nps}</Badge>
               <span className="text-muted text-xs">{fb.count} response(s) · {fb.pending} pending</span>
             </div>
@@ -162,7 +164,11 @@ export function Crm() {
           <div className="space-y-1.5">
             {fb.recent.slice(0, 6).map((r) => (
               <div key={r.id} className="flex items-center gap-2 text-sm">
-                <span className="w-16">{"⭐".repeat(r.rating)}</span>
+                <span className="flex items-center gap-0.5 w-20 shrink-0">
+                  {Array.from({ length: 5 }, (_, i) => (
+                    <Star key={i} size={12} className={i < r.rating ? "fill-gold text-gold" : "text-hairline"} />
+                  ))}
+                </span>
                 <span className="flex-1 truncate">{r.comment || <span className="text-muted">no comment</span>}</span>
                 <span className="text-xs text-muted">{r.where}</span>
               </div>
@@ -561,7 +567,7 @@ function TiersPanel() {
         </thead>
         <tbody>
           {tiers?.map((t) => (
-            <tr key={t.id} className="border-t border-line">
+            <tr key={t.id} className="border-t border-line hover:bg-cream/60 transition-colors">
               <td className={`py-2 font-medium ${t.active ? "" : "text-muted line-through"}`}>{t.name}</td>
               <td className="py-2 text-right">{t.min_lifetime_points}</td>
               <td className="py-2 text-right">{t.earn_multiplier}×</td>
@@ -648,7 +654,7 @@ function RewardsPanel() {
         </thead>
         <tbody>
           {rewards?.map((r) => (
-            <tr key={r.id} className="border-t border-line">
+            <tr key={r.id} className="border-t border-line hover:bg-cream/60 transition-colors">
               <td className={`py-2 font-medium ${r.active ? "" : "text-muted line-through"}`}>{r.name}</td>
               <td className="py-2 text-right">{r.points_cost}</td>
               <td className="py-2 text-right">{r.kind === "percent" ? `${Number(r.value)}%` : money(r.value)}</td>

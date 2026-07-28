@@ -1,4 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
+import { Bell, CircleQuestionMark, LogOut, Menu } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
@@ -112,16 +114,13 @@ function NotificationBell() {
     <button
       data-tour="header-notifications"
       onClick={() => nav("/notifications")}
-      className="relative p-2 rounded-lg hover:bg-hairline/60 text-body"
+      className="relative p-2 rounded-lg hover:bg-hairline/60 text-body transition-all duration-150 active:scale-90"
       title="Notifications"
       aria-label="Notifications"
     >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <path d="M6 9a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-        <path d="M10 19a2 2 0 004 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
+      <Bell size={20} strokeWidth={1.7} />
       {count > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-clay text-white text-[10px] font-bold flex items-center justify-center">
+        <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 rounded-full bg-clay text-white text-[10px] font-bold flex items-center justify-center animate-pulse-glow">
           {count}
         </span>
       )}
@@ -139,6 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const online = useOnlineStatus();
   const navInputRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
+  const [scrolled, setScrolled] = useState(false);
 
   // First-login onboarding tour: auto-runs once per username, replayable
   // anytime via the header "?" button regardless of the seen-flag.
@@ -186,6 +186,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   // Fresh screen starts at the top (main is the scroll container).
   useEffect(() => {
     mainRef.current?.scrollTo(0, 0);
+    setScrolled(false);
   }, [location.pathname]);
 
   // Ctrl/Cmd+K jumps to the sidebar quick-find from anywhere.
@@ -254,17 +255,26 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full">
       {/* Mobile drawer backdrop */}
-      {mobileOpen && (
-        <div className="fixed inset-0 bg-ink/40 z-30 md:hidden" onClick={() => setMobileOpen(false)} />
-      )}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 bg-ink/40 z-30 md:hidden"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Sidebar — off-canvas drawer on mobile, static rail/expanded on desktop */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-60 transform transition-transform duration-200
+        className={`fixed inset-y-0 left-0 z-40 w-60 transform transition-transform duration-200 ease-smooth
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
           md:static md:z-auto md:translate-x-0 md:transition-[width]
           ${open ? "md:w-60" : "md:w-[68px]"}
-          shrink-0 bg-ink text-white flex flex-col overflow-hidden`}
+          shrink-0 bg-gradient-ink text-white flex flex-col overflow-hidden`}
       >
         <div className={`flex items-center gap-3 py-5 ${open ? "px-5" : "px-0 justify-center"}`}>
           {property?.logo
@@ -335,8 +345,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                           end={i.path === "/store"}
                           onClick={() => { setMobileOpen(false); setNavQuery(""); }}
                           className={({ isActive }) =>
-                            `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                              isActive ? "bg-pine text-white font-medium" : "text-white/70 hover:bg-white/5 hover:text-white"
+                            `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all duration-150 ${
+                              isActive
+                                ? "bg-gradient-primary text-white font-medium shadow-sm"
+                                : "text-white/70 hover:bg-white/5 hover:text-white hover:translate-x-0.5"
                             }`
                           }
                         >
@@ -364,8 +376,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                     onMouseEnter={(e) => setHover({ label: g.title, y: e.currentTarget.getBoundingClientRect().top })}
                     onMouseLeave={() => setHover(null)}
                     onClick={() => { setOpen(true); setOpenGroups((s) => ({ ...s, [g.title]: true })); }}
-                    className={`grid place-items-center h-10 w-10 rounded-lg transition-colors ${
-                      activeHere ? "bg-pine text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
+                    className={`grid place-items-center h-10 w-10 rounded-lg transition-all duration-150 ${
+                      activeHere
+                        ? "bg-gradient-primary text-white shadow-sm"
+                        : "text-white/75 hover:bg-white/10 hover:text-white hover:scale-105"
                     }`}
                   >
                     <NavIcon name={g.items[0].key} />
@@ -377,7 +391,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
 
         <div className={`border-t border-white/10 ${open ? "p-4 flex items-center gap-3" : "py-3 flex flex-col items-center gap-2"}`}>
-          <div className="h-9 w-9 rounded-full bg-pine/90 flex items-center justify-center text-sm font-bold shrink-0" title={user?.name}>
+          <div className="h-9 w-9 rounded-full bg-gradient-primary flex items-center justify-center text-sm font-bold shrink-0 shadow-sm" title={user?.name}>
             {user?.name?.split(" ").map((w) => w[0]).slice(0, 2).join("")}
           </div>
           {open && (
@@ -386,26 +400,30 @@ export function AppShell({ children }: { children: ReactNode }) {
               <div className="text-[11px] text-white/45 truncate">{user?.role}</div>
             </div>
           )}
-          <button onClick={logout} className="text-white/50 hover:text-white p-1" title="Sign out" aria-label="Sign out">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 3h4a1 1 0 011 1v16a1 1 0 01-1 1h-4M10 17l5-5-5-5M15 12H3" />
-            </svg>
+          <button onClick={logout} className="text-white/50 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-all duration-150 active:scale-90" title="Sign out" aria-label="Sign out">
+            <LogOut size={16} strokeWidth={1.8} />
           </button>
         </div>
       </aside>
 
       {/* Main */}
-      <main ref={mainRef} className="flex-1 overflow-y-auto flex flex-col">
-        <header className="flex items-center gap-3 px-6 py-3 border-b border-hairline bg-surface/80 backdrop-blur sticky top-0 z-10">
+      <main
+        ref={mainRef}
+        onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
+        className="flex-1 overflow-y-auto flex flex-col"
+      >
+        <header
+          className={`flex items-center gap-3 px-6 py-3 border-b border-hairline bg-surface/80 backdrop-blur sticky top-0 z-10 transition-shadow duration-200 ${
+            scrolled ? "shadow-sm" : ""
+          }`}
+        >
           <button
             onClick={toggleNav}
-            className="p-2 -ml-2 rounded-lg hover:bg-hairline/60 text-body"
+            className="p-2 -ml-2 rounded-lg hover:bg-hairline/60 text-body transition-all duration-150 active:scale-90"
             title="Toggle menu"
             aria-label="Toggle navigation"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <Menu size={20} strokeWidth={1.8} />
           </button>
           <div className="text-sm text-muted truncate">
             {property?.name}
@@ -418,31 +436,36 @@ export function AppShell({ children }: { children: ReactNode }) {
             <button
               data-tour="header-help"
               onClick={() => setTourRun(true)}
-              className="p-2 rounded-lg hover:bg-hairline/60 text-body"
+              className="p-2 rounded-lg hover:bg-hairline/60 text-body transition-all duration-150 active:scale-90"
               title="Replay tour"
               aria-label="Replay product tour"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9.5 9a2.5 2.5 0 015 .5c0 1.5-2 2-2.5 3.2M12 17h.01" />
-                <circle cx="12" cy="12" r="9" />
-              </svg>
+              <CircleQuestionMark size={20} strokeWidth={1.8} />
             </button>
           </div>
         </header>
-        {welcomeName && (
-          <div className="flex justify-center py-2 sticky top-[57px] z-10">
-            <div className="flex items-center gap-2 bg-success-50 text-success text-sm font-semibold px-4 py-1.5 rounded-full shadow-sm">
-              <span>Welcome, {welcomeName}!</span>
-              <button
-                onClick={() => setWelcomeName(null)}
-                aria-label="Dismiss welcome banner"
-                className="text-xs font-medium text-success/70 hover:text-success hover:underline underline-offset-2"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {welcomeName && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="flex justify-center py-2 sticky top-[57px] z-10"
+            >
+              <div className="flex items-center gap-2 bg-success-50 text-success text-sm font-semibold px-4 py-1.5 rounded-full shadow-sm">
+                <span>Welcome, {welcomeName}!</span>
+                <button
+                  onClick={() => setWelcomeName(null)}
+                  aria-label="Dismiss welcome banner"
+                  className="text-xs font-medium text-success/70 hover:text-success hover:underline underline-offset-2"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {!online && (
           <div className={`bg-amber text-white text-xs font-semibold text-center py-1.5 sticky z-10 ${welcomeName ? "top-[100px]" : "top-[57px]"}`}>
             You're offline — changes will sync when you're back online
@@ -451,7 +474,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Workstation screens (POS / KDS / online-order board) and the Store's
             table-heavy screens use the full width; reading/admin pages stay
             capped for comfortable line lengths. */}
-        <div
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
           className={`mx-auto w-full px-4 md:px-8 py-6 md:py-8 ${
             ["/pos", "/kds", "/online-orders", "/reports"].includes(location.pathname)
               || location.pathname.startsWith("/store")
@@ -462,7 +489,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           }`}
         >
           <ErrorBoundary resetKey={location.pathname}>{children}</ErrorBoundary>
-        </div>
+        </motion.div>
       </main>
 
       {/* Instant name tooltip for the collapsed icon rail */}

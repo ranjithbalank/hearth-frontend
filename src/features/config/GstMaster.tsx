@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Percent } from "lucide-react";
 
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -23,7 +24,7 @@ export function GstMaster() {
 
   return (
     <div>
-      <PageHeader title="GST Master" subtitle="Rate slabs & billing mode" />
+      <PageHeader icon={<Percent size={20} />} title="GST Master" subtitle="Rate slabs & billing mode" />
 
       <Card className="mb-4">
         <div className="font-semibold mb-1">Billing mode</div>
@@ -55,7 +56,7 @@ export function GstMaster() {
           </thead>
           <tbody>
             {data.slabs.map((s) => (
-              <tr key={s.id} className="border-t border-line">
+              <tr key={s.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="px-4 py-3 font-medium">{s.name}</td>
                 <td className="px-4 py-3 text-right"><Badge tone="info">{Number(s.rate)}%</Badge></td>
                 <td className="px-4 py-3 font-mono text-xs">{s.hsn_sac}</td>

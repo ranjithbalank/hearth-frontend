@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Boxes, CalendarClock, Package, TrendingDown, TriangleAlert, Wallet } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -184,7 +185,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
           </thead>
           <tbody>
             {moves?.map((m) => (
-              <tr key={m.id} className="border-t border-line">
+              <tr key={m.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="px-4 py-2.5 text-xs text-muted">{new Date(m.created_at).toLocaleString("en-IN")}</td>
                 <td className="px-4 py-2.5 font-medium">{m.ingredient_name}</td>
                 <td className="px-4 py-2.5"><Badge tone={Number(m.qty) >= 0 ? "pine" : "amber"}>{m.kind_label}</Badge></td>
@@ -205,6 +206,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
   return (
     <div>
       <PageHeader
+        icon={<Boxes size={20} />}
         title={title ?? (fixedTab ? (TABS.find((t) => t.key === fixedTab)?.label ?? "Store") : "Inventory & Stock")}
         subtitle="Raw materials · consumption auto-deducts from recipes on KOT"
         action={tab === "materials" ? (
@@ -249,11 +251,11 @@ export function Inventory({ fixedTab, tabGroup, title }: {
       {tab === "dashboard" && (
         <>
           <div className="grid grid-cols-5 gap-4 mb-4">
-            <Stat tone="dark" label="Materials tracked" value={data.length} />
-            <Stat label="Stock value" value={stockValue == null ? "—" : money(stockValue)} />
-            <Stat label="Below reorder level" value={low.length} />
-            <Stat label="Expiring ≤ 30 days" value={expiring?.length ?? 0} />
-            <Stat label={`Consumption cost (${days}d)`} value={consumed30 == null ? "—" : money(consumed30)} />
+            <Stat tone="dark" delayMs={0} icon={<Package size={16} />} label="Materials tracked" value={data.length} />
+            <Stat delayMs={50} icon={<Wallet size={16} />} label="Stock value" value={stockValue == null ? "—" : money(stockValue)} />
+            <Stat delayMs={100} icon={<TriangleAlert size={16} />} label="Below reorder level" value={low.length} />
+            <Stat delayMs={150} icon={<CalendarClock size={16} />} label="Expiring ≤ 30 days" value={expiring?.length ?? 0} />
+            <Stat delayMs={200} icon={<TrendingDown size={16} />} label={`Consumption cost (${days}d)`} value={consumed30 == null ? "—" : money(consumed30)} />
           </div>
 
           {/* Deep links to the sibling screens the spec lists as tabs (§6) */}
@@ -266,7 +268,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
               { label: "Material Requests", path: "/material-requests" },
               { label: "Inventory Reports", path: "/reports" },
             ].map((l) => (
-              <button key={l.path} className="card p-3 text-sm font-medium hover:bg-cream text-left"
+              <button key={l.path} className="card-interactive p-3 text-sm font-medium text-left"
                 onClick={() => nav(l.path)}>
                 {l.label} →
               </button>
@@ -290,7 +292,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
               </thead>
               <tbody>
                 {consumption?.rows.map((r) => (
-                  <tr key={r.ingredient} className="border-t border-line">
+                  <tr key={r.ingredient} className="border-t border-line hover:bg-cream/60 transition-colors">
                     <td className="px-4 py-3 font-medium">{r.ingredient} <span className="text-xs text-muted font-mono">{r.code}</span></td>
                     <td className="px-4 py-3 text-right text-pine">{Number(r.purchased)} {r.unit}</td>
                     <td className="px-4 py-3 text-right">{Number(r.consumed)} {r.unit}</td>
@@ -329,7 +331,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
             </thead>
             <tbody>
               {rows.map((i) => (
-                <tr key={i.id} className="border-t border-line">
+                <tr key={i.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-3 text-xs text-muted font-mono">{i.code}</td>
                   <td className="px-4 py-3 font-medium">{i.name}</td>
                   <td className="px-4 py-3 text-muted text-xs">{i.category || "—"}</td>
@@ -416,7 +418,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
             </thead>
             <tbody>
               {low.map((i) => (
-                <tr key={i.id} className="border-t border-line">
+                <tr key={i.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-3 font-medium">{i.name}</td>
                   <td className="px-4 py-3 text-right">{Number(i.current_stock)} {i.unit}</td>
                   <td className="px-4 py-3 text-right text-muted">{Number(i.reorder_level)} {i.unit}</td>
@@ -456,7 +458,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
               {expiring?.map((i) => {
                 const expired = i.expiry_date! <= new Date().toISOString().slice(0, 10);
                 return (
-                  <tr key={i.id} className="border-t border-line">
+                  <tr key={i.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                     <td className="px-4 py-3 font-medium">{i.name}</td>
                     <td className="px-4 py-3">
                       <Badge tone={expired ? "clay" : "amber"}>{fmtDate(i.expiry_date)}{expired ? " · expired" : ""}</Badge>
@@ -531,7 +533,7 @@ function StockCountSheet({ materials, onSaved, q, setQ }: {
               const val = counted[i.id] ?? "";
               const diff = val === "" ? null : Number(val) - Number(i.current_stock);
               return (
-                <tr key={i.id} className="border-t border-line">
+                <tr key={i.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-2.5 font-medium">{i.name} <span className="text-xs text-muted">{i.code}</span></td>
                   <td className="px-4 py-2.5 text-right">{Number(i.current_stock)} {i.unit}</td>
                   <td className="px-4 py-2.5 text-right">

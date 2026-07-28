@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bell, Sparkles, Wrench } from "lucide-react";
 import { useState } from "react";
 
 import { useToast } from "../../design/Toast";
@@ -189,7 +190,7 @@ export function Housekeeping() {
 
   return (
     <div>
-      <PageHeader title="Housekeeping" subtitle="Dirty → Cleaning → Clean → Inspected" />
+      <PageHeader icon={<Sparkles size={20} />} title="Housekeeping" subtitle="Dirty → Cleaning → Clean → Inspected" />
 
       <label className="text-sm flex items-center gap-2 mb-3">
         <input type="checkbox" checked={onlyMine} onChange={(e) => setOnlyMine(e.target.checked)} />
@@ -207,7 +208,7 @@ export function Housekeeping() {
 
       {requested > 0 && (
         <div className="card p-3 mb-3 bg-clay/10 flex items-center gap-3">
-          <Badge tone="clay">🔔 Requested</Badge>
+          <Badge tone="clay" dot>Requested</Badge>
           <span className="text-sm">{requested} cleaning request(s) from the front desk — shown first below.</span>
         </div>
       )}
@@ -227,11 +228,11 @@ export function Housekeeping() {
             </div>
             <div className="text-xs text-muted mt-1">{r.room_type_name}</div>
             {r.status === "ooo" && r.ooo_reason && (
-              <div className="text-xs text-muted mt-1">🔧 {r.ooo_reason}</div>
+              <div className="text-xs text-muted mt-1 flex items-center gap-1"><Wrench size={11} className="shrink-0" /> {r.ooo_reason}</div>
             )}
             {r.cleaning_requested && (
-              <div className="text-xs text-clay mt-1">
-                🔔 Requested{r.cleaning_note ? ` — ${r.cleaning_note}` : ""}
+              <div className="text-xs text-clay mt-1 flex items-center gap-1">
+                <Bell size={11} className="shrink-0" /> Requested{r.cleaning_note ? ` — ${r.cleaning_note}` : ""}
               </div>
             )}
             {(() => {

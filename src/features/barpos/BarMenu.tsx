@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Martini } from "lucide-react";
 import { useState } from "react";
 
 import { CsvImport } from "../../design/CsvImport";
@@ -81,6 +82,7 @@ export function BarMenu() {
   return (
     <div>
       <PageHeader
+        icon={<Martini size={20} />}
         title="Bar Menu"
         subtitle="The bar's own menu — separate from the restaurant. Kitchen dishes only appear here once added below."
         action={
@@ -169,7 +171,7 @@ export function BarMenu() {
             {barItems.map((m) => {
               const editing = editingId === m.id;
               return (
-                <tr key={m.id} className="border-t border-line">
+                <tr key={m.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-3 font-medium">{m.name}</td>
                   <td className="px-4 py-3 text-muted">
                     {editing && m.station === "bar" ? (

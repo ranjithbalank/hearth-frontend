@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { TrendingUp } from "lucide-react";
 import { useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
@@ -53,7 +54,7 @@ export function Revenue() {
 
   return (
     <div>
-      <PageHeader title="Revenue Manager" subtitle="Rate recommendations &amp; demand forecast" />
+      <PageHeader icon={<TrendingUp size={20} />} title="Revenue Manager" subtitle="Rate recommendations &amp; demand forecast" />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
       <div className="grid grid-cols-2 gap-4">

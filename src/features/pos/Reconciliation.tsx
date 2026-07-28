@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeftRight } from "lucide-react";
 import { useState } from "react";
 
 import { useToast } from "../../design/Toast";
@@ -54,6 +55,7 @@ export function Reconciliation() {
   return (
     <div>
       <PageHeader
+        icon={<ArrowLeftRight size={20} />}
         title="Payment reconciliation"
         subtitle="POS settlements vs platform payouts — variances flag pilferage"
         action={

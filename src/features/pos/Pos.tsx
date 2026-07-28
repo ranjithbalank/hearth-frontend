@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChefHat, Lock, Trash2, User, UtensilsCrossed } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Badge, PageHeader, Spinner } from "../../design/ui";
@@ -56,6 +57,11 @@ const URGENCY_BORDER: Record<Urgency, string> = {
 };
 const URGENCY_BADGE: Record<Urgency, string> = {
   "on-track": "bg-pine text-white", approaching: "bg-amber text-white", delayed: "bg-clay text-white",
+};
+// Soft full-tile tint, on top of the left-border accent — a table's status
+// should read from across the room, not just from a 4px sliver.
+const URGENCY_BG: Record<Urgency, string> = {
+  "on-track": "bg-pine-50/60", approaching: "bg-amber-50/80", delayed: "bg-clay-50/80",
 };
 
 export function Pos() {
@@ -446,7 +452,7 @@ export function Pos() {
   if (!online) {
     return (
       <div>
-        <PageHeader title="Restaurant POS" subtitle="Offline mode" />
+        <PageHeader icon={<UtensilsCrossed size={20} />} title="Restaurant POS" subtitle="Offline mode" />
         {banner}
         <OfflineBilling mode={mode} table={table} onQueued={() => toast("Bill saved offline")} />
       </div>
@@ -458,6 +464,7 @@ export function Pos() {
     return (
       <div>
         <PageHeader
+          icon={<UtensilsCrossed size={20} />}
           title="Restaurant POS"
           subtitle="Tap a table to open its order"
           action={canAssignCaptains ? (
@@ -465,7 +472,7 @@ export function Pos() {
               className="btn font-semibold bg-amber text-ink hover:bg-amber-600 shadow-pop"
               onClick={() => setShowAssign(true)}
             >
-              🧑‍🍳 Assign captains
+              <ChefHat size={16} /> Assign captains
             </button>
           ) : undefined}
         />
@@ -547,7 +554,7 @@ export function Pos() {
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-hairline" />Free</span>
           </div>
         </div>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-3">
           {tables?.map((t) => {
             const checks = ordersByTable.get(t.id) ?? [];
             // Hard assignment: once the F&B Cashier hands a table to a
@@ -571,19 +578,19 @@ export function Pos() {
                 tabIndex={0}
                 onClick={() => { if (lockedForMe) { toast(`Assigned to ${t.assigned_captain_name} — not your table`, "error"); return; } openTable(t); }}
                 onKeyDown={(e) => e.key === "Enter" && !lockedForMe && openTable(t)}
-                className={`relative rounded-card border p-3 transition-colors ${
+                className={`relative rounded-card border p-4 transition-all duration-150 ${
                   lockedForMe
                     ? "bg-hairline/60 border-hairline text-muted cursor-not-allowed opacity-70"
                     : urgency
-                      ? `bg-surface border-hairline border-l-4 ${URGENCY_BORDER[urgency]} cursor-pointer`
+                      ? `${URGENCY_BG[urgency]} border-hairline border-l-4 ${URGENCY_BORDER[urgency]} cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5`
                       : t.status === "reserved"
-                        ? "bg-pine-50/40 hover:bg-pine-50 border-hairline cursor-pointer"
-                        : "bg-cream hover:bg-hairline/40 border-hairline cursor-pointer"
+                        ? "bg-pine-50/40 hover:bg-pine-50 border-hairline cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5"
+                        : "bg-cream hover:bg-hairline/40 border-hairline cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5"
                 }`}
               >
                 <div className="flex items-start justify-between gap-1">
                   <div>
-                    <div className="font-display text-xl">{lockedForMe && "🔒 "}{t.name}</div>
+                    <div className="font-display text-xl flex items-center gap-1">{lockedForMe && <Lock size={14} className="shrink-0" />}{t.name}</div>
                     <div className="text-xs mt-0.5 text-muted">{t.seats} seats</div>
                   </div>
                   {urgency && (
@@ -596,8 +603,8 @@ export function Pos() {
                   )}
                 </div>
                 {t.assigned_captain_name && (
-                  <div className="text-[10px] mt-0.5 truncate text-muted">
-                    👤 {t.assigned_captain_name}{t.assigned_captain_on_leave ? " (on leave — up for grabs)" : ""}
+                  <div className="text-[10px] mt-0.5 truncate text-muted flex items-center gap-1">
+                    <User size={10} className="shrink-0" /> {t.assigned_captain_name}{t.assigned_captain_on_leave ? " (on leave — up for grabs)" : ""}
                   </div>
                 )}
                 {/* Desktop: every party's bill lives on the card — tap it directly.
@@ -733,6 +740,7 @@ export function Pos() {
       )}
 
       <PageHeader
+        icon={<UtensilsCrossed size={20} />}
         title={mode === "dinein" ? `Table ${table?.name ?? ""}`
           : mode === "room" ? `Room ${roomFolio?.room ?? ""}`
             : MODE_LABELS[mode]}
@@ -808,22 +816,27 @@ export function Pos() {
               })}
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
             {shown?.map((i) => (
               <button
                 key={i.id}
                 disabled={(mode === "dinein" && !table) || !i.available || billed}
                 onClick={() => onItemClick(i)}
-                className="card p-3 text-left hover:bg-cream disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-surface"
+                className={`card-interactive p-4 text-left border-l-4 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none ${
+                  i.diet === "veg" ? "border-l-success" : "border-l-clay"
+                }`}
               >
-                <div className="flex items-center gap-1.5">
-                  <span className={`h-2.5 w-2.5 rounded-sm border ${i.diet === "veg" ? "border-pine" : "border-clay"}`}>
-                    <span className={`block h-1 w-1 m-auto mt-0.5 rounded-full ${i.diet === "veg" ? "bg-pine" : "bg-clay"}`} />
-                  </span>
-                  <span className="font-medium text-sm">{i.name}</span>
+                <div className="flex items-start gap-2">
+                  <span
+                    className={`shrink-0 mt-1 h-3 w-3 rounded-full ring-2 ring-offset-1 ${
+                      i.diet === "veg" ? "bg-success ring-success/30" : "bg-clay ring-clay/30"
+                    }`}
+                    aria-hidden
+                  />
+                  <span className="font-semibold text-[15px] leading-snug">{i.name}</span>
                 </div>
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-sm text-muted">{money(i.price)}</span>
+                <div className="flex items-center justify-between mt-2.5">
+                  <span className="stat-num text-lg text-pine">{money(i.price)}</span>
                   {!i.available
                     ? <span className="pill bg-clay-50 text-clay text-[10px]">86'd</span>
                     : i.short_code && <span className="text-[10px] uppercase tracking-wide text-muted">{i.short_code}</span>}
@@ -869,12 +882,10 @@ export function Pos() {
                     <button className="h-8 w-8 rounded-lg bg-hairline text-base disabled:opacity-40" disabled={billed}
                       aria-label={`Increase ${l.name}`}
                       onClick={() => setQty.mutate({ line: l.id, qty: l.qty + 1 })}>+</button>
-                    <button className="h-8 w-8 rounded-lg grid place-items-center text-muted hover:text-clay hover:bg-clay-50 disabled:opacity-40" disabled={billed}
+                    <button className="h-8 w-8 rounded-lg grid place-items-center text-muted hover:text-clay hover:bg-clay-50 transition-colors disabled:opacity-40" disabled={billed}
                       aria-label={`Remove ${l.name}`}
                       onClick={() => setQty.mutate({ line: l.id, qty: 0 })}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2M19 6l-1 14a1 1 0 01-1 1H7a1 1 0 01-1-1L5 6M10 11v6M14 11v6" />
-                      </svg>
+                      <Trash2 size={14} />
                     </button>
                   </div>
                   <div className="w-16 text-right">{money(Number(l.unit_price) * l.qty)}</div>
@@ -886,8 +897,8 @@ export function Pos() {
           {order?.lines.length ? (
             <>
               {order.customer_name && (
-                <div className="text-xs text-muted mb-1 truncate">
-                  👤 {order.customer_name} · {order.customer_mobile}
+                <div className="text-xs text-muted mb-1 truncate flex items-center gap-1">
+                  <User size={11} className="shrink-0" /> {order.customer_name} · {order.customer_mobile}
                   {order.customer_points ? ` · ${order.customer_points} pts` : ""}
                 </div>
               )}
@@ -1080,7 +1091,7 @@ export function Pos() {
             <div className="grid gap-2">
               {roomPick.map((f) => (
                 <button key={f.folio}
-                  className="card p-3 text-left hover:bg-cream flex items-center gap-3"
+                  className="card-interactive p-3 text-left flex items-center gap-3"
                   onClick={() => startRoomOrder(f)}>
                   <span className="font-display text-xl w-14">{f.room}</span>
                   <span className="flex-1 font-medium">{f.guest}</span>
@@ -1534,12 +1545,12 @@ function CategoryButton({
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm text-left transition-colors ${
-        active ? "bg-pine text-white" : "text-body hover:bg-cream"
+      className={`w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm text-left font-medium transition-all duration-150 ${
+        active ? "bg-gradient-primary text-white shadow-sm" : "text-body hover:bg-cream"
       }`}
     >
       <span className="truncate">{name}</span>
-      <span className={`text-xs tabular-nums ${active ? "opacity-80" : "text-muted"}`}>{count}</span>
+      <span className={`text-xs tabular-nums rounded-pill px-1.5 py-0.5 ${active ? "bg-white/20" : "bg-hairline text-muted"}`}>{count}</span>
     </button>
   );
 }
@@ -1855,7 +1866,7 @@ function OfflineBilling({ mode, table, onQueued }: { mode: string; table: Table 
     <div className="grid grid-cols-[1fr_340px] gap-4">
       <div className="grid grid-cols-3 gap-2">
         {menu.filter((m) => m.available).map((m) => (
-          <button key={m.id} className="card p-3 text-left hover:bg-cream"
+          <button key={m.id} className="card-interactive p-3 text-left"
             onClick={() => setCart((c) => ({ ...c, [m.id]: (c[m.id] ?? 0) + 1 }))}>
             <div className="font-medium text-sm">{m.name}</div>
             <div className="text-sm text-muted mt-1">{money(m.price)}</div>

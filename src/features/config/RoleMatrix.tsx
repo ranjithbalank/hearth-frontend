@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ShieldCheck } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 
 import { useToast } from "../../design/Toast";
@@ -94,7 +95,7 @@ export function RoleMatrix() {
 
   return (
     <div className={fullScreen ? "fixed inset-0 z-50 bg-cream px-4 md:px-8 py-6 overflow-auto" : undefined}>
-      <PageHeader title="Role Mapping" subtitle="What each role can open, grouped by area. Click a cell to grant or revoke."
+      <PageHeader icon={<ShieldCheck size={20} />} title="Role Mapping" subtitle="What each role can open, grouped by area. Click a cell to grant or revoke."
         action={fullScreenButton} />
 
       <div className="flex items-center gap-4 mb-3 text-xs text-muted">

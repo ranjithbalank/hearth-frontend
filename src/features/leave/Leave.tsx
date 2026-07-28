@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarOff } from "lucide-react";
 import { useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
@@ -67,6 +68,7 @@ export function Leave() {
   return (
     <div>
       <PageHeader
+        icon={<CalendarOff size={20} />}
         title="Leave"
         subtitle="Apply · balances · department-manager approval"
         action={
@@ -142,7 +144,7 @@ function MyPayslips() {
         </thead>
         <tbody>
           {data.map((s) => (
-            <tr key={s.payslip} className="border-t border-line">
+            <tr key={s.payslip} className="border-t border-line hover:bg-cream/60 transition-colors">
               <td className="px-4 py-3 font-medium">{s.month}</td>
               <td className="px-3 py-3"><Badge tone={s.status === "paid" ? "pine" : "amber"}>{s.status}</Badge></td>
               <td className="px-3 py-3 text-right">{money(s.gross_earned)}</td>
@@ -486,7 +488,7 @@ function TypesMaster() {
           </thead>
           <tbody>
             {data?.map((t) => (
-              <tr key={t.id} className="border-t border-line">
+              <tr key={t.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="px-4 py-3 font-medium">{t.name}</td>
                 <td className="px-4 py-3 text-right">{t.annual_quota || "no cap"}</td>
                 <td className="px-4 py-3 text-center">{t.is_paid ? "✓" : "—"}</td>

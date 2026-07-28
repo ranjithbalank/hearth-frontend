@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookOpen } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -118,6 +119,7 @@ export function Recipes() {
   return (
     <div>
       <PageHeader
+        icon={<BookOpen size={20} />}
         title="Recipes & BOM"
         subtitle={canSeeCost ? "Plate cost & margin · auto-deducts on KOT" : "Auto-deducts raw materials on KOT"}
         action={
@@ -206,7 +208,7 @@ export function Recipes() {
             </thead>
             <tbody>
               {mapping?.map((m) => (
-                <tr key={m.menu_item} className="border-t border-line">
+                <tr key={m.menu_item} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-3 font-medium">
                     <div className="flex items-center gap-2">
                       <span>{m.name}</span>

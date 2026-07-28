@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Building2 } from "lucide-react";
 import { useState } from "react";
 
 import { CsvImport } from "../../design/CsvImport";
@@ -72,7 +73,7 @@ export function BranchMaster() {
 
   return (
     <div>
-      <PageHeader title="Branch Master" subtitle="The group's locations — each with its own address, GSTIN and edition" />
+      <PageHeader icon={<Building2 size={20} />} title="Branch Master" subtitle="The group's locations — each with its own address, GSTIN and edition" />
 
       <CsvImport path="/auth/branches/import/" templateFilename="branches-template.csv"
         noun="branch" invalidate={["branches"]}
@@ -120,7 +121,7 @@ export function BranchMaster() {
             {branches?.map((b) => {
               const editing = editingId === b.id;
               return (
-                <tr key={b.id} className="border-t border-line">
+                <tr key={b.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-3 font-mono text-xs">
                     {editing ? (
                       <input className="input py-1 text-xs font-mono w-20" value={ef.code}

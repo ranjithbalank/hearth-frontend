@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Radio } from "lucide-react";
 
 import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
@@ -68,6 +69,7 @@ export function Channel() {
   return (
     <div>
       <PageHeader
+        icon={<Radio size={20} />}
         title="Channel Manager"
         subtitle="Pooled ARI across OTAs · rate parity"
         action={
@@ -100,7 +102,7 @@ export function Channel() {
           </thead>
           <tbody>
             {ari.grid.map((row) => (
-              <tr key={row.room_type} className="border-t border-line">
+              <tr key={row.room_type} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="py-2 pr-4 font-medium">
                   {row.name}{" "}
                   {row.parity_breach && <Badge tone="clay">parity</Badge>}

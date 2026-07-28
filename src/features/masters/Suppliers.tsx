@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Truck } from "lucide-react";
 import { useState } from "react";
 
 import { CsvImport } from "../../design/CsvImport";
@@ -54,7 +55,7 @@ export function Suppliers() {
 
   return (
     <div>
-      <PageHeader title="Suppliers" subtitle="Goods suppliers · lead time & rating" />
+      <PageHeader icon={<Truck size={20} />} title="Suppliers" subtitle="Goods suppliers · lead time & rating" />
 
       <CsvImport path="/suppliers/import/" templateFilename="suppliers-template.csv"
         noun="supplier" invalidate={["suppliers-master", "suppliers"]} />
@@ -122,7 +123,7 @@ export function Suppliers() {
           </thead>
           <tbody>
             {data.map((s) => (
-              <tr key={s.id} className="border-t border-line">
+              <tr key={s.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="px-4 py-3 font-medium">{s.name}</td>
                 <td className="px-4 py-3 text-muted">{s.gstin || "—"}</td>
                 <td className="px-4 py-3 text-muted">{s.contact || "—"}</td>

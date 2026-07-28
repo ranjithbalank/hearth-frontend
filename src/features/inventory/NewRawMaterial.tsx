@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PackagePlus } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -104,6 +105,7 @@ export function NewRawMaterial() {
   return (
     <div>
       <PageHeader
+        icon={<PackagePlus size={20} />}
         title="New raw materials"
         subtitle="Spec §1 — fill the form, add each item to the list, then save the lot"
         action={
@@ -194,7 +196,7 @@ export function NewRawMaterial() {
           </thead>
           <tbody>
             {staged.map((s, ix) => (
-              <tr key={s.name} className="border-t border-line">
+              <tr key={s.name} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="px-4 py-2.5 font-medium">{s.name}</td>
                 <td className="px-4 py-2.5 text-xs text-muted">{s.category || "—"}</td>
                 <td className="px-4 py-2.5"><Badge tone="muted">{s.unit}</Badge></td>

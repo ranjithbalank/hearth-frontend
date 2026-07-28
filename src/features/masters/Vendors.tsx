@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Handshake } from "lucide-react";
 
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -16,7 +17,7 @@ export function Vendors() {
   if (isLoading || !data) return <Spinner />;
   return (
     <div>
-      <PageHeader title="Vendors" subtitle="Service vendors · contracts & terms" />
+      <PageHeader icon={<Handshake size={20} />} title="Vendors" subtitle="Service vendors · contracts & terms" />
       <Card className="overflow-hidden p-0">
         <table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
@@ -30,7 +31,7 @@ export function Vendors() {
           </thead>
           <tbody>
             {data.map((v) => (
-              <tr key={v.id} className="border-t border-line">
+              <tr key={v.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="px-4 py-3 font-medium">{v.name}</td>
                 <td className="px-4 py-3">{v.category}</td>
                 <td className="px-4 py-3 text-muted">{v.contact}</td>

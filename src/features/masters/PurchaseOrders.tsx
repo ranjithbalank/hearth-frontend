@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ShoppingCart } from "lucide-react";
 import { useState } from "react";
 
 import { useToast } from "../../design/Toast";
@@ -48,7 +49,7 @@ export function PurchaseOrders() {
 
   return (
     <div>
-      <PageHeader title="Purchase Orders" subtitle="Lifecycle: pending → approved → received" />
+      <PageHeader icon={<ShoppingCart size={20} />} title="Purchase Orders" subtitle="Lifecycle: pending → approved → received" />
       <div className="flex gap-2 mb-4">
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Calculator } from "lucide-react";
 import { useState } from "react";
 
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
@@ -44,6 +45,7 @@ export function Accounting() {
   return (
     <div>
       <PageHeader
+        icon={<Calculator size={20} />}
         title="Accounting"
         subtitle="City ledger &amp; day-end close"
         action={<button data-tour="landing-accounting" className="btn-primary" onClick={() => runAudit.mutate()} disabled={runAudit.isPending}>Run night audit</button>}
@@ -93,7 +95,7 @@ export function Accounting() {
             </thead>
             <tbody>
               {dayend.tenders.map((t) => (
-                <tr key={t.tender} className="border-t border-line">
+                <tr key={t.tender} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="py-2">{t.tender}</td>
                   <td className="py-2 text-right">{t.count}</td>
                   <td className="py-2 text-right">{money(t.tip)}</td>

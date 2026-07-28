@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookOpen } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -94,6 +95,7 @@ export function NewRecipe() {
   return (
     <div>
       <PageHeader
+        icon={<BookOpen size={20} />}
         title="Create recipe"
         subtitle={needsApproval
           ? "Per-serving raw-material consumption · a manager signs off before it goes live"

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BedDouble } from "lucide-react";
 import { useState } from "react";
 
 import { useToast } from "../../design/Toast";
@@ -58,7 +59,7 @@ export function RoomMaster() {
 
   return (
     <div>
-      <PageHeader title="Room Master" subtitle="Room types, tariffs &amp; GST slabs" />
+      <PageHeader icon={<BedDouble size={20} />} title="Room Master" subtitle="Room types, tariffs &amp; GST slabs" />
       <CsvImport path="/rooms/import/" templateFilename="rooms-template.csv"
         noun="room" invalidate={["room-types", "rooms"]}
         hint="Setting up the whole property? Download the format, list every room with its type and rate, and upload once — room types are created for you." />
@@ -96,7 +97,7 @@ export function RoomMaster() {
             {data.map((rt) => {
               const editing = editingId === rt.id;
               return (
-                <tr key={rt.id} className="border-t border-line">
+                <tr key={rt.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-3 font-mono text-xs">
                     {editing ? (
                       <input className="input py-1 text-xs font-mono w-20" value={editForm.code}

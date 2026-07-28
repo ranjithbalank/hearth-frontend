@@ -8,8 +8,18 @@
   #root {
     height: 100%;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
-    @apply bg-cream text-ink font-sans antialiased;
+    @apply text-ink font-sans antialiased;
+    background-color: #f5f7fa;
+    /* Faint blue/gold mesh instead of a flat fill — visible behind cards,
+       never competes with content since both stops fade to transparent. */
+    background-image:
+      radial-gradient(1200px 600px at 100% -10%, rgba(59, 130, 246, 0.06), transparent 60%),
+      radial-gradient(1000px 520px at -10% 110%, rgba(201, 147, 46, 0.05), transparent 55%);
+    background-attachment: fixed;
   }
   button:focus-visible,
   a:focus-visible,
@@ -22,35 +32,60 @@
   input:focus-visible {
     outline: none; /* .input carries its own focus ring */
   }
+  ::selection {
+    background: rgba(37, 99, 235, 0.18);
+    color: #0f1e33;
+  }
 }
 
 @layer components {
   .card {
-    @apply bg-surface border border-hairline rounded-card shadow-card transition-shadow;
+    @apply bg-surface border border-hairline rounded-card shadow-card transition-all duration-200;
+  }
+  /* Opt-in for cards that are actually clickable (nav shortcuts, list rows) —
+     the lift/shadow is an affordance and shouldn't appear on static panels. */
+  .card-interactive {
+    @apply card cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 hover:border-pine-200
+      active:translate-y-0 active:shadow-card;
+  }
+  /* Thin gradient rule along the top edge for a hero/flagship card. */
+  .card-accent {
+    @apply relative overflow-hidden;
+  }
+  .card-accent::before {
+    content: "";
+    @apply absolute inset-x-0 top-0 h-1 bg-gradient-primary;
   }
   .pill {
-    @apply inline-flex items-center rounded-pill text-xs font-bold px-2.5 py-1;
+    @apply inline-flex items-center rounded-pill text-xs font-bold px-2.5 py-1 transition-colors duration-150;
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold
-      text-sm px-4 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-      active:translate-y-px;
+      text-sm px-4 py-2 transition-all duration-150 ease-smooth disabled:opacity-50
+      disabled:cursor-not-allowed disabled:pointer-events-none active:scale-[0.97];
   }
   .btn-primary {
-    @apply btn bg-pine text-white hover:bg-pine-700;
+    @apply btn bg-gradient-primary text-white shadow-sm hover:shadow-glow-pine hover:brightness-[1.06];
   }
   .btn-ghost {
     @apply btn bg-transparent text-body hover:bg-hairline/60;
   }
   .btn-outline {
-    @apply btn border border-hairline bg-surface text-ink hover:bg-cream;
+    @apply btn border border-hairline bg-surface text-ink hover:bg-cream hover:border-pine-200;
+  }
+  .btn-gold {
+    @apply btn bg-gradient-gold text-white shadow-sm hover:shadow-glow-gold hover:brightness-[1.06];
+  }
+  .btn-danger {
+    @apply btn bg-clay text-white shadow-sm hover:bg-clay-700;
   }
   .stat-num {
-    @apply font-display font-semibold text-ink tracking-tight;
+    @apply font-display font-semibold text-ink tracking-tight tabular-nums;
   }
   .input {
     @apply w-full rounded-xl border border-hairline bg-surface px-3 py-2 text-sm
-      outline-none focus:border-pine focus:ring-2 focus:ring-pine/15;
+      outline-none transition-colors duration-150 hover:border-pine-200
+      focus:border-pine focus:ring-2 focus:ring-pine/15;
   }
 }
 
@@ -59,15 +94,22 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes shimmer {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
-}
 .skeleton {
   border-radius: 8px;
   background: linear-gradient(90deg, #e9eef5 25%, #f5f7fa 50%, #e9eef5 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+  @apply animate-shimmer;
+}
+
+/* Legacy hand-rolled modal overlays (pre-dating the shared <Modal>) still
+   scattered across features/* — matched structurally by the exact class
+   string every one of them shares, so they get blur + entrance motion
+   without a per-callsite JSX migration. New screens should use <Modal>. */
+[class*="fixed inset-0 bg-ink/40"] {
+  @apply backdrop-blur-sm animate-fade-in;
+}
+[class*="fixed inset-0"] > .card {
+  @apply animate-scale-in;
 }
 
 /* Browser print of in-app screens: drop the chrome, keep the content */
@@ -86,6 +128,10 @@
 }
 
 /* Thin scrollbars to match the prototype */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -96,4 +142,16 @@
 }
 *::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* Respect reduced-motion users across every animate-* utility + keyframe used above. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

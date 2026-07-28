@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Ticket } from "lucide-react";
 
 import { EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
@@ -26,7 +27,7 @@ export function TokenBoard() {
 
   return (
     <div>
-      <PageHeader title="Token board" subtitle="Takeaway & delivery pickup status · auto-refresh" />
+      <PageHeader icon={<Ticket size={20} />} title="Token board" subtitle="Takeaway & delivery pickup status · auto-refresh" />
       {!data?.length ? (
         <EmptyState title="No active tokens" hint="Takeaway/delivery orders appear here when their KOT fires." />
       ) : (

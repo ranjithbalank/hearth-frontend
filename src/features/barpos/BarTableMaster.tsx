@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Martini } from "lucide-react";
 import { useState } from "react";
 
 import { CsvImport } from "../../design/CsvImport";
@@ -59,7 +60,7 @@ export function BarTableMaster() {
 
   return (
     <div>
-      <PageHeader title="Bar Table Master" subtitle="The bar's own seating — separate from the restaurant floor" />
+      <PageHeader icon={<Martini size={20} />} title="Bar Table Master" subtitle="The bar's own seating — separate from the restaurant floor" />
 
       <CsvImport path="/bar/tables/import/" templateFilename="bar-tables-template.csv"
         noun="bar table" invalidate={["bar-tables-master"]}

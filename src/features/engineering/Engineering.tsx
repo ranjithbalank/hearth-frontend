@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Wrench } from "lucide-react";
 import { useState } from "react";
 
 import { useToast } from "../../design/Toast";
@@ -47,6 +48,7 @@ export function Engineering() {
   return (
     <div>
       <PageHeader
+        icon={<Wrench size={20} />}
         title="Engineering"
         subtitle="Maintenance work orders"
         action={

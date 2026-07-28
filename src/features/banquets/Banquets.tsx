@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PartyPopper, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
@@ -78,6 +79,7 @@ export function Banquets() {
   return (
     <div>
       <PageHeader
+        icon={<PartyPopper size={20} />}
         title="Banquets & Events"
         subtitle="Function space &amp; BEOs"
         action={<button className="btn-primary" onClick={() => setBooking(true)}>+ New booking</button>}
@@ -100,8 +102,10 @@ export function Banquets() {
       )}
 
       {/* Walk-in enquiry — always available, whichever tab you're looking at */}
-      <div className="rounded-card border-2 border-dashed border-clay/30 bg-clay/5 p-5 mb-6 flex items-center gap-4">
-        <div className="h-12 w-12 rounded-xl bg-clay flex items-center justify-center text-white text-xl">＋</div>
+      <div className="rounded-card border-2 border-dashed border-clay/30 bg-clay/5 p-5 mb-6 flex items-center gap-4 animate-fade-in-up">
+        <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-clay to-clay-700 shadow-sm flex items-center justify-center text-white shrink-0">
+          <Plus size={22} />
+        </div>
         <div className="flex-1">
           <div className="font-semibold text-ink">Walk-in enquiry</div>
           <div className="text-sm text-muted">A customer wants to book a function? Capture the enquiry and hold a hall.</div>

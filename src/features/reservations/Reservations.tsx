@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CalendarRange, X } from "lucide-react";
 import { useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
-import { Badge, PageHeader, Spinner } from "../../design/ui";
+import { Badge, Modal, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/date";
 import { money } from "../../lib/money";
@@ -84,6 +85,7 @@ export function Reservations() {
   return (
     <div>
       <PageHeader
+        icon={<CalendarRange size={20} />}
         title="Reservations"
         subtitle="Bookings, availability & amendments"
         action={<input className="input w-56" placeholder="Search guest, room or status…" value={q} onChange={(e) => setQ(e.target.value)} />}
@@ -135,7 +137,7 @@ export function Reservations() {
         {(status !== "all" || rtype !== "all" || source !== "all") && (
           <button className="btn-ghost text-xs py-1 text-clay"
             onClick={() => { setStatus("all"); setRtype("all"); setSource("all"); }}>
-            ✕ Clear
+            <X size={13} /> Clear
           </button>
         )}
       </div>
@@ -144,7 +146,7 @@ export function Reservations() {
         <div className="grid grid-cols-3 gap-3 mb-4">
           {avail.map((a) => (
             <button key={a.room_type}
-              className={`card p-5 text-left hover:bg-cream ${rtype === a.room_type ? "ring-2 ring-pine" : ""}`}
+              className={`card-interactive p-5 text-left ${rtype === a.room_type ? "ring-2 ring-pine" : ""}`}
               title="Click to filter the list by this room type"
               onClick={() => setRtype(rtype === a.room_type ? "all" : a.room_type)}>
               <div className="flex justify-between items-center">
@@ -173,7 +175,7 @@ export function Reservations() {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.id} className="border-t border-line">
+              <tr key={r.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="px-4 py-3">
                   <div className="font-medium">{r.guest_name}</div>
                   <div className="text-xs text-muted">
@@ -258,27 +260,24 @@ function ChangeRoomModal({
   });
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="font-display text-xl mb-1">Change room</div>
-        <div className="text-xs text-muted mb-3">
-          {reservation.guest_name} is currently in room {reservation.room_number ?? "—"}. Pick a new room to move them to.
-        </div>
-        {isLoading ? (
-          <Spinner />
-        ) : !opts?.length ? (
-          <div className="text-sm text-muted text-center py-6">No alternative rooms available right now.</div>
-        ) : (
-          <div className="grid grid-cols-4 gap-2">
-            {opts.map((o) => (
-              <button key={o.id} className="card p-3 text-center hover:bg-cream" onClick={() => onPick(o.id)}>
-                <div className="font-display text-lg">{o.number}</div>
-              </button>
-            ))}
-          </div>
-        )}
-        <button className="btn-ghost w-full mt-3" onClick={onClose}>Cancel</button>
+    <Modal open onClose={onClose} title="Change room" maxWidth="max-w-[420px]"
+      footer={<button className="btn-ghost w-full" onClick={onClose}>Cancel</button>}>
+      <div className="text-xs text-muted mb-3">
+        {reservation.guest_name} is currently in room {reservation.room_number ?? "—"}. Pick a new room to move them to.
       </div>
-    </div>
+      {isLoading ? (
+        <Spinner />
+      ) : !opts?.length ? (
+        <div className="text-sm text-muted text-center py-6">No alternative rooms available right now.</div>
+      ) : (
+        <div className="grid grid-cols-4 gap-2">
+          {opts.map((o) => (
+            <button key={o.id} className="card-interactive p-3 text-center" onClick={() => onPick(o.id)}>
+              <div className="font-display text-lg">{o.number}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </Modal>
   );
 }

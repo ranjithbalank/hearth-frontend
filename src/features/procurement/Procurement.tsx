@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ClipboardList } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -76,6 +77,7 @@ export function Procurement() {
   return (
     <div>
       <PageHeader
+        icon={<ClipboardList size={20} />}
         title="Procurement"
         subtitle="Purchase orders &amp; goods receipt — receiving posts stock automatically"
         action={

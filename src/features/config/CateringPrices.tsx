@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Tags } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useToast } from "../../design/Toast";
@@ -36,7 +37,7 @@ export function CateringPrices() {
 
   return (
     <div>
-      <PageHeader title="Catering Prices" subtitle="Standard per-plate rates for banquet events" />
+      <PageHeader icon={<Tags size={20} />} title="Catering Prices" subtitle="Standard per-plate rates for banquet events" />
       <Card className="max-w-md">
         <div className="text-sm text-muted mb-4">
           Set the property's standard veg and non-veg plate prices once. New banquet

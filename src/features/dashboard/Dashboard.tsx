@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+import { ArrowRight, Bell, DoorOpen, LayoutDashboard, Percent, Sparkles, TrendingUp, UtensilsCrossed, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
+import { Badge, Card, PageHeader, Spinner, Stat, Tabs } from "../../design/ui";
 import { LineChart } from "../../design/LineChart";
 import { NavIcon } from "../../design/NavIcon";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { fmtDate, greeting } from "../../lib/date";
 import { money, num } from "../../lib/money";
+import type { Reservation } from "../../lib/types";
 
 interface DashboardData {
   view: "hotel" | "restaurant" | "combined";
@@ -65,19 +68,19 @@ export function Dashboard() {
   return (
     <div>
       <PageHeader
+        icon={<LayoutDashboard size={20} />}
         title={title}
         subtitle={`${greeting(firstName)} · ${fmtDate(new Date().toISOString())}${asOf ? ` · as of ${asOf}` : ""}`}
         action={
-          <div data-tour="landing-dashboard" className="flex gap-1 rounded-pill bg-hairline p-1">
-            {(["analytical", "data"] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => chooseView(m)}
-                className={`pill ${viewMode === m ? "bg-ink text-white" : "bg-transparent text-body"}`}
-              >
-                {m === "analytical" ? "Analytical view" : "Data view"}
-              </button>
-            ))}
+          <div data-tour="landing-dashboard">
+            <Tabs
+              value={viewMode}
+              onChange={chooseView}
+              options={[
+                { value: "analytical", label: "Analytical view" },
+                { value: "data", label: "Data view" },
+              ]}
+            />
           </div>
         }
       />
@@ -89,7 +92,7 @@ export function Dashboard() {
           {data.receivables && (
             <button
               onClick={() => nav("/crm")}
-              className="card p-5 text-left hover:bg-cream w-full flex items-center justify-between"
+              className="card-interactive group p-5 text-left w-full flex items-center justify-between"
             >
               <div>
                 <div className="text-xs uppercase tracking-wide text-muted">Accounts receivable</div>
@@ -100,14 +103,16 @@ export function Dashboard() {
                   {data.receivables.corporate_accounts} corporate account(s) · {money(data.receivables.corporate)} bill-to-company
                 </div>
               </div>
-              <span className="text-pine text-sm">View ledger →</span>
+              <span className="text-pine text-sm font-medium flex items-center gap-1 shrink-0">
+                View ledger <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+              </span>
             </button>
           )}
 
           {canApprove && (
             <button
               onClick={() => nav("/recipes?tab=pending")}
-              className="card p-5 text-left hover:bg-cream w-full flex items-center justify-between"
+              className="card-interactive group p-5 text-left w-full flex items-center justify-between"
             >
               <div>
                 <div className="text-xs uppercase tracking-wide text-muted">Dish approvals</div>
@@ -120,7 +125,9 @@ export function Dashboard() {
                     : "All caught up — no new dishes waiting"}
                 </div>
               </div>
-              <span className="text-pine text-sm">Review →</span>
+              <span className="text-pine text-sm font-medium flex items-center gap-1 shrink-0">
+                Review <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+              </span>
             </button>
           )}
         </div>
@@ -128,21 +135,42 @@ export function Dashboard() {
 
       <div className="grid grid-cols-3 gap-4 mt-4">
         {data.rooms && (
-          <button className="card p-5 text-left hover:bg-cream" onClick={() => nav("/frontdesk")}>
-            <div className="font-semibold">Front Desk →</div>
-            <div className="text-sm text-muted mt-1">Check in arrivals, manage folios</div>
+          <button className="card-interactive group p-5 text-left flex items-start gap-3" onClick={() => nav("/frontdesk")}>
+            <span className="shrink-0 grid place-items-center w-10 h-10 rounded-xl bg-pine-50 text-pine">
+              <DoorOpen size={18} />
+            </span>
+            <div className="min-w-0">
+              <div className="font-semibold flex items-center gap-1">
+                Front Desk <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </div>
+              <div className="text-sm text-muted mt-1">Check in arrivals, manage folios</div>
+            </div>
           </button>
         )}
         {data.fnb && (
-          <button className="card p-5 text-left hover:bg-cream" onClick={() => nav("/pos")}>
-            <div className="font-semibold">Restaurant POS →</div>
-            <div className="text-sm text-muted mt-1">Take orders, fire KOTs, settle</div>
+          <button className="card-interactive group p-5 text-left flex items-start gap-3" onClick={() => nav("/pos")}>
+            <span className="shrink-0 grid place-items-center w-10 h-10 rounded-xl bg-clay-50 text-clay">
+              <UtensilsCrossed size={18} />
+            </span>
+            <div className="min-w-0">
+              <div className="font-semibold flex items-center gap-1">
+                Restaurant POS <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </div>
+              <div className="text-sm text-muted mt-1">Take orders, fire KOTs, settle</div>
+            </div>
           </button>
         )}
         {data.rooms && (
-          <button className="card p-5 text-left hover:bg-cream" onClick={() => nav("/housekeeping")}>
-            <div className="font-semibold">Housekeeping →</div>
-            <div className="text-sm text-muted mt-1">Room status &amp; turnaround</div>
+          <button className="card-interactive group p-5 text-left flex items-start gap-3" onClick={() => nav("/housekeeping")}>
+            <span className="shrink-0 grid place-items-center w-10 h-10 rounded-xl bg-gold-50 text-gold-700">
+              <Sparkles size={18} />
+            </span>
+            <div className="min-w-0">
+              <div className="font-semibold flex items-center gap-1">
+                Housekeeping <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+              </div>
+              <div className="text-sm text-muted mt-1">Room status &amp; turnaround</div>
+            </div>
           </button>
         )}
       </div>
@@ -176,7 +204,7 @@ function RevenueTrendCard() {
   });
 
   return (
-    <Card>
+    <Card accent>
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="font-semibold">Revenue trend</div>
         <div className="flex flex-wrap items-center gap-1">
@@ -219,6 +247,82 @@ function RevenueTrendCard() {
   );
 }
 
+interface Alert { severity: string; module: string; title: string; detail: string }
+
+/** Sidebar companion to the revenue chart — the two things a GM checks the
+ *  dashboard for beyond the numbers: who's arriving today, and what needs
+ *  attention right now. Both reuse the same endpoints Front Desk and the
+ *  header bell already poll, so there's no new backend surface here. */
+function TodayPanel({ hasRooms }: { hasRooms: boolean }) {
+  const nav = useNavigate();
+  const { canAccess } = useApp();
+  const showNotif = canAccess("notifications");
+  const { data: arrivals } = useQuery({
+    queryKey: ["arrivals"],
+    queryFn: async () => (await api.get<Reservation[]>("/reservations/arrivals/")).data,
+    enabled: hasRooms,
+  });
+  const { data: notif } = useQuery({
+    queryKey: ["notif-count"],
+    queryFn: async () => (await api.get<{ count: number; alerts: Alert[] }>("/notifications/")).data,
+    enabled: showNotif,
+  });
+
+  if (!hasRooms && !showNotif) return null;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const todaysArrivals = (arrivals ?? []).filter((a) => a.checkin_date <= today);
+
+  return (
+    <Card className="h-full flex flex-col gap-5">
+      <div className="font-semibold">Today at a glance</div>
+
+      {hasRooms && (
+        <button onClick={() => nav("/frontdesk")} className="text-left group">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <DoorOpen size={15} className="text-pine shrink-0" /> Arrivals today
+            </div>
+            <Badge tone={todaysArrivals.length ? "pine" : "muted"}>{todaysArrivals.length}</Badge>
+          </div>
+          {todaysArrivals.length ? (
+            <div className="space-y-1.5">
+              {todaysArrivals.slice(0, 3).map((a) => (
+                <div key={a.id} className="text-xs text-muted truncate">
+                  {a.guest_name} · {a.room_type_name || a.room_type_code}
+                </div>
+              ))}
+              {todaysArrivals.length > 3 && (
+                <div className="text-xs text-pine font-medium flex items-center gap-1">
+                  +{todaysArrivals.length - 3} more <ArrowRight size={11} className="transition-transform group-hover:translate-x-1" />
+                </div>
+              )}
+            </div>
+          ) : <div className="text-xs text-muted">No arrivals due today</div>}
+        </button>
+      )}
+
+      {showNotif && (
+        <button onClick={() => nav("/notifications")} className={`text-left group ${hasRooms ? "border-t border-hairline pt-4" : ""}`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Bell size={15} className="text-amber-600 shrink-0" /> Needs attention
+            </div>
+            <Badge tone={notif?.count ? "clay" : "muted"}>{notif?.count ?? 0}</Badge>
+          </div>
+          {notif?.alerts?.length ? (
+            <div className="space-y-1.5">
+              {notif.alerts.slice(0, 3).map((a, i) => (
+                <div key={i} className="text-xs text-muted truncate">{a.title}</div>
+              ))}
+            </div>
+          ) : <div className="text-xs text-muted">All clear — nothing waiting</div>}
+        </button>
+      )}
+    </Card>
+  );
+}
+
 function ProportionRow({ label, display, pct, fill }: { label: string; display: string; pct: number; fill: string }) {
   return (
     <div>
@@ -227,7 +331,12 @@ function ProportionRow({ label, display, pct, fill }: { label: string; display: 
         <span className="text-muted tabular-nums">{display} · {pct}%</span>
       </div>
       <div className="h-2 rounded-pill bg-hairline overflow-hidden">
-        <div className={`h-full ${fill}`} style={{ width: `${pct > 0 ? Math.max(pct, 2) : 0}%` }} />
+        <motion.div
+          className={`h-full rounded-pill ${fill}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct > 0 ? Math.max(pct, 2) : 0}%` }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        />
       </div>
     </div>
   );
@@ -245,18 +354,24 @@ function AnalyticalView({ data }: { data: DashboardData }) {
       <div className="grid grid-cols-4 gap-4">
         {rooms && (
           <>
-            <Stat tone="dark" label="Occupancy" value={`${rooms.occupancy_pct}%`} sub={`${rooms.occupied}/${rooms.rooms_total} rooms`} />
-            <Stat label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
-            <Stat label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
+            <Stat tone="dark" delayMs={0} icon={<Percent size={16} />} label="Occupancy" value={`${rooms.occupancy_pct}%`} sub={`${rooms.occupied}/${rooms.rooms_total} rooms`} />
+            <Stat delayMs={60} icon={<Wallet size={16} />} label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
+            <Stat delayMs={120} icon={<TrendingUp size={16} />} label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
           </>
         )}
         {fnb && (
-          <Stat tone={rooms ? undefined : "dark"} label="F&B sales" value={money(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
+          <Stat tone={rooms ? undefined : "dark"} delayMs={rooms ? 180 : 0} icon={<UtensilsCrossed size={16} />} label="F&B sales" value={money(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4 items-start">
-        <RevenueTrendCard />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 items-stretch">
+        <div className="lg:col-span-2">
+          <RevenueTrendCard />
+        </div>
+        <TodayPanel hasRooms={!!(rooms && roomsTotal > 0)} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 items-start">
         {rooms && roomsTotal > 0 && (
           <Card>
             <div className="font-semibold mb-4">Room status mix</div>
@@ -279,9 +394,9 @@ function AnalyticalView({ data }: { data: DashboardData }) {
         )}
 
         {fnb && fnbTotal > 0 && (
-          <Card className="lg:col-span-2">
+          <Card className={rooms && roomsTotal > 0 && revenueMixTotal > 0 ? "" : "md:col-span-2"}>
             <div className="font-semibold mb-4">F&amp;B sales by mode</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3">
+            <div className="grid grid-cols-1 gap-y-3">
               {(["dinein", "takeaway", "delivery"] as const).map((m) => (
                 <ProportionRow
                   key={m}

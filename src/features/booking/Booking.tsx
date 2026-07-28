@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Globe } from "lucide-react";
 import { useState } from "react";
 
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
@@ -36,7 +37,7 @@ export function Booking() {
 
   return (
     <div>
-      <PageHeader title="Booking Engine" subtitle="Commission-free direct bookings" />
+      <PageHeader icon={<Globe size={20} />} title="Booking Engine" subtitle="Commission-free direct bookings" />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
       {stats && (

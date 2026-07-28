@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Grid3x3 } from "lucide-react";
 import { useState } from "react";
 
 import { CsvImport } from "../../design/CsvImport";
@@ -84,7 +85,7 @@ export function TableMaster() {
 
   return (
     <div>
-      <PageHeader title="Table Master" subtitle="Floor sections &amp; tables" />
+      <PageHeader icon={<Grid3x3 size={20} />} title="Table Master" subtitle="Floor sections &amp; tables" />
 
       <CsvImport path="/pos/tables/import/" templateFilename="tables-template.csv"
         noun="table" invalidate={["tables"]}

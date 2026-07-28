@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Martini } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
@@ -34,6 +35,9 @@ function tableUrgency(checks: Order[]): Urgency | null {
 }
 const URGENCY_BORDER: Record<Urgency, string> = {
   "on-track": "border-l-pine", approaching: "border-l-amber", delayed: "border-l-clay",
+};
+const URGENCY_BG: Record<Urgency, string> = {
+  "on-track": "bg-pine-50/60", approaching: "bg-amber-50/80", delayed: "bg-clay-50/80",
 };
 const URGENCY_BADGE: Record<Urgency, string> = {
   "on-track": "bg-pine text-white", approaching: "bg-amber text-white", delayed: "bg-clay text-white",
@@ -195,6 +199,7 @@ export function BarPos() {
     return (
       <div>
         <PageHeader
+          icon={<Martini size={20} />}
           title="Bar POS"
           subtitle="The bar's own tabs — separate from the restaurant floor"
           action={canTakeaway ? (
@@ -211,7 +216,7 @@ export function BarPos() {
             <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-hairline" />Free</span>
           </div>
         </div>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-3">
           {tables?.map((t) => {
             const checks = ordersByTable.get(t.id) ?? [];
             const urgency = tableUrgency(checks);
@@ -223,9 +228,9 @@ export function BarPos() {
                 tabIndex={0}
                 onClick={() => openTable(t, checks[0]?.id ?? null)}
                 onKeyDown={(e) => e.key === "Enter" && openTable(t, checks[0]?.id ?? null)}
-                className={`rounded-card border p-3 cursor-pointer transition-colors ${
+                className={`rounded-card border p-4 cursor-pointer transition-all duration-150 hover:shadow-card-hover hover:-translate-y-0.5 ${
                   urgency
-                    ? `bg-surface border-hairline border-l-4 ${URGENCY_BORDER[urgency]}`
+                    ? `${URGENCY_BG[urgency]} border-hairline border-l-4 ${URGENCY_BORDER[urgency]}`
                     : "bg-cream hover:bg-hairline/40 border-hairline"
                 }`}
               >
@@ -280,7 +285,7 @@ export function BarPos() {
   if (orderId === null) {
     return (
       <div>
-        <PageHeader title={screenTitle} action={<button className="btn-ghost text-sm" onClick={reset}>← Bar floor</button>} />
+        <PageHeader icon={<Martini size={20} />} title={screenTitle} action={<button className="btn-ghost text-sm" onClick={reset}>← Bar floor</button>} />
         <button className="btn-primary" disabled={openOrder.isPending} onClick={() => openOrder.mutate()}>
           {mode === "takeaway" ? "Start takeaway order" : "Open a new tab"}
         </button>
@@ -298,6 +303,7 @@ export function BarPos() {
   return (
     <div>
       <PageHeader
+        icon={<Martini size={20} />}
         title={screenTitle}
         subtitle={order.bill_no ? `Bill ${order.bill_no}` : order.kot_no ? `Ticket ${order.kot_no}` : mode === "takeaway" ? "New takeaway order" : "New tab"}
         action={<button className="btn-ghost text-sm" onClick={reset}>← Bar floor</button>}
@@ -317,18 +323,18 @@ export function BarPos() {
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
             {shownItems.map((m) => (
-              <button key={m.id} className="card p-3 text-left hover:bg-cream" disabled={addItem.isPending}
+              <button key={m.id} className="card-interactive p-4 text-left disabled:pointer-events-none" disabled={addItem.isPending}
                 onClick={() => addItem.mutate(m)}>
-                <div className="font-medium text-sm flex items-center justify-between">
+                <div className="font-semibold text-[15px] leading-snug flex items-start justify-between gap-2">
                   <span>{m.name}</span>
-                  {m.station === "bar" && <Badge tone="amber">bar</Badge>}
+                  {m.station === "bar" && <Badge tone="gold">Bar</Badge>}
                 </div>
-                <div className="text-xs text-muted mt-1">{money(m.price)}</div>
+                <div className="stat-num text-lg text-pine mt-2">{money(m.price)}</div>
               </button>
             ))}
-            {!shownItems.length && <div className="text-sm text-muted col-span-3">No items in this category.</div>}
+            {!shownItems.length && <div className="text-sm text-muted col-span-full">No items in this category.</div>}
           </div>
         </div>
 

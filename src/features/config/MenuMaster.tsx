@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
 
 import { usePrompt } from "../../design/Prompt";
@@ -128,6 +129,7 @@ export function MenuMaster() {
   return (
     <div>
       <PageHeader
+        icon={<UtensilsCrossed size={20} />}
         title="Menu Master"
         subtitle="Items, categories, prices &amp; tax"
         action={<input className="input w-56" placeholder="Search item…" value={q} onChange={(e) => setQ(e.target.value)} />}
@@ -200,7 +202,7 @@ export function MenuMaster() {
             {shown.filter((m) => !q || m.name.toLowerCase().includes(q.toLowerCase())).map((m) => {
               const editing = editingId === m.id;
               return (
-                <tr key={m.id} className="border-t border-line">
+                <tr key={m.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-2">
                     <button onClick={() => pickImage(m)} title="Upload photo"
                       className="h-10 w-10 rounded-lg border border-hairline overflow-hidden bg-cream flex items-center justify-center text-muted hover:border-pine">

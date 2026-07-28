@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Receipt } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -244,7 +245,7 @@ export function Folios() {
   });
 
   if (isLoading) return <Spinner />;
-  if (!folios?.length) return <><PageHeader title="Folios" /><EmptyState title="No folios yet" hint="Check in a guest from Front Desk." /></>;
+  if (!folios?.length) return <><PageHeader icon={<Receipt size={20} />} title="Folios" /><EmptyState title="No folios yet" hint="Check in a guest from Front Desk." /></>;
 
   const needle = q.trim().toLowerCase();
   const searched = folios.filter((f) =>
@@ -260,6 +261,7 @@ export function Folios() {
   return (
     <div>
       <PageHeader
+        icon={<Receipt size={20} />}
         title={sel ? `Guest Folios — ${sel.guest_name}` : "Guest Folios"}
         subtitle={sel
           ? `Room ${sel.room_number ?? "—"} · Balance ${money(sel.projected_balance ?? sel.balance)} · ${sel.status}`
@@ -403,7 +405,7 @@ export function Folios() {
                   <div className="space-y-2">
                     {folios.filter((f) => f.status === "open" && f.id !== sel.id).map((f) => (
                       <button key={f.id}
-                        className="card p-3 w-full text-left hover:bg-cream flex justify-between items-center"
+                        className="card-interactive p-3 w-full text-left flex justify-between items-center"
                         disabled={transfer.isPending}
                         onClick={() => transfer.mutate({ line: moveLine.id, to: f.id })}>
                         <span>

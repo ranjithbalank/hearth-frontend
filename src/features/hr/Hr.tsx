@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { UserCog, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -156,7 +157,7 @@ export function Hr() {
 
   return (
     <div>
-      <PageHeader title="HR & Staff" subtitle="Roster · attendance · payroll & salary" />
+      <PageHeader icon={<UserCog size={20} />} title="HR & Staff" subtitle="Roster · attendance · payroll & salary" />
       <div data-tour="landing-hr" className="flex items-center gap-2 mb-4 flex-wrap">
         {(["roster", "attendance", "payroll", "advances"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
@@ -378,7 +379,7 @@ function PayrollSheet({ payroll, month, setMonth, canManage }: {
     <>
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <input className="input w-40" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
-        <Stat label={`Total net payable · ${payroll.month}`} value={money(payroll.total_payable)} />
+        <Stat tone="dark" icon={<Wallet size={16} />} label={`Total net payable · ${payroll.month}`} value={money(payroll.total_payable)} />
         {run
           ? <Badge tone={RUN_TONE[run.status] ?? "muted"}>{run.status}{run.status === "paid" && run.paid_by ? ` by ${run.paid_by}` : ""}</Badge>
           : <Badge tone="muted">preview — not run yet</Badge>}
@@ -437,7 +438,7 @@ function PayrollSheet({ payroll, month, setMonth, canManage }: {
           </thead>
           <tbody>
             {payroll.rows.map((r) => (
-              <tr key={r.id} className="border-t border-line">
+              <tr key={r.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                 <td className="px-4 py-2.5">
                   <div className="font-medium">{r.name}</div>
                   <div className="text-xs text-muted">{r.department} · {r.role}</div>
@@ -797,7 +798,7 @@ function AdvancesPanel({ employees, canManage }: { employees: Employee[]; canMan
             </thead>
             <tbody>
               {rows.map((a) => (
-                <tr key={a.id} className="border-t border-line">
+                <tr key={a.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-3">
                     <div className="font-medium">{a.employee_name}</div>
                     <div className="text-xs text-muted">{a.department}{a.note ? ` · ${a.note}` : ""}</div>

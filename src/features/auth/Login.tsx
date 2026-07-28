@@ -67,8 +67,8 @@ export function Login() {
     <div className="min-h-full flex">
       {/* Brand panel — desktop only */}
       <div className="hidden lg:flex flex-col justify-between w-[45%] relative overflow-hidden bg-gradient-to-br from-ink to-[#1E3A8A] p-12 text-white">
-        <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-pine/20 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-info/10 blur-3xl pointer-events-none" />
+        <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-pine/20 blur-3xl pointer-events-none animate-float-slow" />
+        <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-gold/10 blur-3xl pointer-events-none animate-float-slow" style={{ animationDelay: "-3s" }} />
         <div className="relative flex items-center gap-3">
           <Logo size={36} />
           <span className="font-display text-xl font-semibold">Hearth</span>
@@ -90,7 +90,7 @@ export function Login() {
 
       {/* Form side */}
       <div className="flex-1 flex items-center justify-center bg-cream p-6">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-sm animate-fade-in-up">
           <div className="flex flex-col items-center gap-3 mb-8">
             {property?.logo
               ? <img src={property.logo} alt="" className="h-14 w-14 rounded-2xl object-cover bg-hairline" />

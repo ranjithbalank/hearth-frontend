@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IdCard } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -100,7 +101,7 @@ export function Employees() {
 
   return (
     <div>
-      <PageHeader title="Employees" subtitle="Staff directory & system access" />
+      <PageHeader icon={<IdCard size={20} />} title="Employees" subtitle="Staff directory & system access" />
 
       <CsvImport path="/hr/import/" templateFilename="employees-template.csv"
         noun="employee" invalidate={["employees-master"]}
@@ -162,7 +163,7 @@ export function Employees() {
               const u = userByName.get(e.name);
               const editing = editingId === e.id;
               return (
-                <tr key={e.id} className="border-t border-line">
+                <tr key={e.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                   <td className="px-4 py-3 font-medium">
                     {editing ? <input className="input py-1 text-xs w-28" value={ef.name} onChange={(v) => setEf({ ...ef, name: personName(v.target.value) })} /> : e.name}
                   </td>

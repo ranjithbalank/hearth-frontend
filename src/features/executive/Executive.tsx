@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
+import { Gauge } from "lucide-react";
 import { useState } from "react";
 
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
@@ -37,6 +39,7 @@ export function Executive() {
   return (
     <div>
       <PageHeader
+        icon={<Gauge size={20} />}
         title="Executive Overview"
         subtitle={`${greeting(user?.name?.split(" ")[0])} · ${fmtDate(new Date().toISOString())}${asOf}`}
       />
@@ -66,13 +69,13 @@ function AllView({ data }: { data: ExecData }) {
   return (
     <>
       <div className="grid grid-cols-4 gap-4">
-        <Stat tone="dark" label="Total revenue" value={money(data.kpis.revenue)} />
-        <Stat label="Occupancy" value={`${data.kpis.occupancy_pct}%`} />
-        <Stat label="Room revenue" value={money(data.kpis.room_revenue)} />
-        <Stat label="Receivables" value={money(data.kpis.receivables)} sub="City ledger / AR" />
+        <Stat tone="dark" delayMs={0} label="Total revenue" value={money(data.kpis.revenue)} />
+        <Stat delayMs={60} label="Occupancy" value={`${data.kpis.occupancy_pct}%`} />
+        <Stat delayMs={120} label="Room revenue" value={money(data.kpis.room_revenue)} />
+        <Stat delayMs={180} label="Receivables" value={money(data.kpis.receivables)} sub="City ledger / AR" />
       </div>
 
-      <Card className="mt-4">
+      <Card accent className="mt-4">
         <div className="font-semibold mb-4">Revenue mix</div>
         <div className="space-y-3">
           {data.revenue_mix?.map((r) => {
@@ -81,10 +84,15 @@ function AllView({ data }: { data: ExecData }) {
               <div key={r.label}>
                 <div className="flex justify-between text-sm mb-1">
                   <span>{r.label}</span>
-                  <span className="text-muted">{money(r.value)} · {pct}%</span>
+                  <span className="text-muted tabular-nums">{money(r.value)} · {pct}%</span>
                 </div>
                 <div className="h-2 rounded-pill bg-hairline overflow-hidden">
-                  <div className="h-full bg-pine" style={{ width: `${pct}%` }} />
+                  <motion.div
+                    className="h-full rounded-pill bg-gradient-primary"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  />
                 </div>
               </div>
             );
@@ -101,16 +109,16 @@ function HotelView({ data }: { data: ExecData }) {
   return (
     <>
       <div className="grid grid-cols-4 gap-4">
-        <Stat tone="dark" label="Occupancy" value={`${rooms.occupancy_pct}%`} sub={`${rooms.occupied}/${rooms.rooms_total} rooms`} />
-        <Stat label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
-        <Stat label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
-        <Stat label="Receivables" value={money(data.kpis.receivables)} sub="City ledger / AR" />
+        <Stat tone="dark" delayMs={0} label="Occupancy" value={`${rooms.occupancy_pct}%`} sub={`${rooms.occupied}/${rooms.rooms_total} rooms`} />
+        <Stat delayMs={60} label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
+        <Stat delayMs={120} label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
+        <Stat delayMs={180} label="Receivables" value={money(data.kpis.receivables)} sub="City ledger / AR" />
       </div>
       <div className="grid grid-cols-4 gap-4 mt-4">
-        <Stat label="Total rooms" value={rooms.rooms_total} />
-        <Stat label="Occupied" value={rooms.occupied} sub="In-house" />
-        <Stat label="Available to sell" value={rooms.available} sub="Clean & inspected" />
-        <Stat label="Dirty / OOO" value={`${rooms.dirty} / ${rooms.ooo}`} sub="Being cleaned / out of order" />
+        <Stat delayMs={0} label="Total rooms" value={rooms.rooms_total} />
+        <Stat delayMs={60} label="Occupied" value={rooms.occupied} sub="In-house" />
+        <Stat delayMs={120} label="Available to sell" value={rooms.available} sub="Clean & inspected" />
+        <Stat delayMs={180} label="Dirty / OOO" value={`${rooms.dirty} / ${rooms.ooo}`} sub="Being cleaned / out of order" />
       </div>
     </>
   );
@@ -122,16 +130,15 @@ function RestaurantView({ data }: { data: ExecData }) {
   return (
     <>
       <div className="grid grid-cols-3 gap-4">
-        <Stat tone="dark" label="F&B sales" value={money(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
-        <Stat label="Orders" value={fnb.order_count} />
-        <Stat label="Average order value" value={money(fnb.order_count ? num(fnb.fnb_sales) / fnb.order_count : 0)} />
+        <Stat tone="dark" delayMs={0} label="F&B sales" value={money(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
+        <Stat delayMs={60} label="Orders" value={fnb.order_count} />
+        <Stat delayMs={120} label="Average order value" value={money(fnb.order_count ? num(fnb.fnb_sales) / fnb.order_count : 0)} />
       </div>
       <div className="grid grid-cols-3 gap-4 mt-4">
-        {(["dinein", "takeaway", "delivery"] as const).map((m) => (
-          <div key={m} className="card p-5">
-            <div className="text-xs uppercase tracking-wide text-muted">{m}</div>
-            <div className="stat-num text-2xl mt-1">{money(fnb.by_mode[m] ?? 0)}</div>
-          </div>
+        {(["dinein", "takeaway", "delivery"] as const).map((m, i) => (
+          <Stat key={m} delayMs={i * 60}
+            label={{ dinein: "Dine-in", takeaway: "Takeaway", delivery: "Delivery" }[m]}
+            value={money(fnb.by_mode[m] ?? 0)} />
         ))}
       </div>
     </>

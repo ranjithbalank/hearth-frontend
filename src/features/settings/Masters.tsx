@@ -98,7 +98,7 @@ function SimpleMasterPanel({ title, subtitle, endpoint, queryKey, placeholder }:
         </thead>
         <tbody>
           {items?.map((it) => (
-            <tr key={it.id} className="border-t border-line">
+            <tr key={it.id} className="border-t border-line hover:bg-cream/60 transition-colors">
               <td className={`py-2 font-medium ${it.active ? "" : "text-muted line-through"}`}>{it.name}</td>
               <td className="py-2 text-right">
                 <button className={`pill ${it.active ? "bg-pine text-white" : "bg-hairline text-muted"}`}
@@ -206,7 +206,7 @@ export function PaymentMethodsPanel() {
         </thead>
         <tbody>
           {methods?.map((m) => (
-            <tr key={m.id} className="border-t border-line">
+            <tr key={m.id} className="border-t border-line hover:bg-cream/60 transition-colors">
               <td className={`py-2 font-medium ${m.active ? "" : "text-muted line-through"}`}>
                 {m.name}
                 {m.builtin && <span className="pill bg-hairline text-muted ml-2 text-[10px]">built-in</span>}
@@ -298,7 +298,7 @@ export function KitchenStationsPanel() {
         </thead>
         <tbody>
           {stations?.map((s) => (
-            <tr key={s.id} className="border-t border-line">
+            <tr key={s.id} className="border-t border-line hover:bg-cream/60 transition-colors">
               <td className={`py-2 font-medium ${s.active ? "" : "text-muted line-through"}`}>
                 {s.name}
                 {s.is_bar && <span className="pill bg-hairline text-muted ml-2 text-[10px]">bar · built-in</span>}
@@ -388,7 +388,7 @@ export function ChecklistItemsPanel() {
         </thead>
         <tbody>
           {items?.map((c) => (
-            <tr key={c.id} className="border-t border-line">
+            <tr key={c.id} className="border-t border-line hover:bg-cream/60 transition-colors">
               <td className={`py-2 font-medium ${c.active ? "" : "text-muted line-through"}`}>{c.label}</td>
               <td className="py-2 text-right">{c.sort_order}</td>
               <td className="py-2 text-right">
@@ -465,7 +465,7 @@ export function LinenItemsPanel() {
         </thead>
         <tbody>
           {items?.map((l) => (
-            <tr key={l.id} className="border-t border-line">
+            <tr key={l.id} className="border-t border-line hover:bg-cream/60 transition-colors">
               <td className={`py-2 font-medium ${l.active ? "" : "text-muted line-through"}`}>{l.name}</td>
               <td className="py-2 text-right">{l.par_per_room}</td>
               <td className="py-2 text-right">

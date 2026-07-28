@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { NavIcon } from "../../design/NavIcon";
@@ -32,6 +33,7 @@ export function Notifications() {
   return (
     <div>
       <PageHeader
+        icon={<Bell size={20} />}
         title="Notifications"
         subtitle="Operational alerts"
         action={<Badge tone="clay">{data.count} active</Badge>}

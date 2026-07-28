@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { ChartColumn } from "lucide-react";
 import { useState } from "react";
 
 import { BarChart } from "../../design/BarChart";
-import { Card, PageHeader, Spinner } from "../../design/ui";
+import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
 import { money } from "../../lib/money";
 
@@ -113,7 +114,7 @@ export function Reports() {
 
   return (
     <div>
-      <PageHeader title="Reports" subtitle="Live viewer · export to XLSX / CSV" />
+      <PageHeader icon={<ChartColumn size={20} />} title="Reports" subtitle="Live viewer · export to XLSX / CSV" />
 
       {/* Master-detail: report menu on the left, selected report on the right */}
       <Card className="mb-4">
@@ -185,11 +186,8 @@ export function Reports() {
                     className="input py-1 text-xs w-36" aria-label="To date" />
                 </div>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-                  {report.kpis.map((k) => (
-                    <div key={k.label} className="card p-4">
-                      <div className="stat-num text-2xl">{k.money ? money(k.value) : k.value}</div>
-                      <div className="text-xs text-muted mt-1">{k.label}</div>
-                    </div>
+                  {report.kpis.map((k, i) => (
+                    <Stat key={k.label} delayMs={i * 50} label={k.label} value={k.money ? money(k.value) : k.value} />
                   ))}
                 </div>
                 <div className="text-xs uppercase tracking-wide text-muted mb-2">{report.series_label}</div>
@@ -206,7 +204,7 @@ export function Reports() {
                       </thead>
                       <tbody>
                         {report.bars.map((b, i) => (
-                          <tr key={`${b.name}-${i}`} className="border-t border-line">
+                          <tr key={`${b.name}-${i}`} className="border-t border-line hover:bg-cream/60 transition-colors">
                             <td className="px-4 py-2">{b.name}</td>
                             <td className="px-4 py-2 text-right font-medium tabular-nums">
                               {b.value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
@@ -235,7 +233,7 @@ export function Reports() {
                         </thead>
                         <tbody>
                           {report.records.rows.map((row, i) => (
-                            <tr key={i} className="border-t border-line">
+                            <tr key={i} className="border-t border-line hover:bg-cream/60 transition-colors">
                               {row.map((cell, j) => (
                                 <td key={j} className={`px-4 py-2 ${
                                   report.records!.columns[j] === "Total" ? "text-right font-medium"

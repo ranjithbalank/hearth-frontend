@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { Users } from "lucide-react";
 import { useState } from "react";
 
-import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
+import { Badge, Card, Modal, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/date";
 import { money } from "../../lib/money";
@@ -34,16 +35,13 @@ function GuestModal({ id, onClose }: { id: number; onClose: () => void }) {
     in_house: "pine", checked_out: "muted", booked: "amber", cancelled: "clay", no_show: "clay",
   };
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-6 w-[560px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <Modal open onClose={onClose} title={data?.profile.name ?? "Guest"} maxWidth="max-w-[560px]"
+      footer={<button className="btn-primary w-full" onClick={onClose}>Close</button>}>
         {isLoading || !data ? <Spinner /> : (
           <>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div className="font-display text-2xl">{data.profile.name}</div>
-                <div className="text-sm text-muted">{data.profile.mobile} · {data.profile.type_label}</div>
-              </div>
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-start justify-between mb-4 -mt-1">
+              <div className="text-sm text-muted">{data.profile.mobile} · {data.profile.type_label}</div>
+              <div className="flex items-center gap-1.5 shrink-0">
                 <Badge tone="info">{data.profile.loyalty_points} pts</Badge>
                 {data.profile.tier_name && data.profile.tier_name !== "Base" && (
                   <Badge tone="amber">{data.profile.tier_name}</Badge>
@@ -91,11 +89,9 @@ function GuestModal({ id, onClose }: { id: number; onClose: () => void }) {
               </div>
             )) : <div className="text-sm text-muted py-2">No orders on record.</div>}
 
-            <button className="btn-primary w-full mt-5" onClick={onClose}>Close</button>
           </>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -118,7 +114,7 @@ export function Customers() {
 
   return (
     <div>
-      <PageHeader title="Customers" subtitle="Guest, corporate & travel-agent master" />
+      <PageHeader icon={<Users size={20} />} title="Customers" subtitle="Guest, corporate & travel-agent master" />
       <div className="flex items-center gap-3 mb-4">
         <div className="flex gap-1 rounded-pill bg-hairline p-1">
           {TABS.map((t) => (
@@ -145,14 +141,21 @@ export function Customers() {
           </thead>
           <tbody>
             {rows.map((c) => (
-              <tr key={c.id} className="border-t border-line hover:bg-cream cursor-pointer" onClick={() => setViewId(c.id)}>
-                <td className="px-4 py-3 font-medium">{c.name}</td>
+              <tr key={c.id} className="border-t border-line hover:bg-cream cursor-pointer transition-colors" onClick={() => setViewId(c.id)}>
+                <td className="px-4 py-3 font-medium">
+                  <div className="flex items-center gap-2.5">
+                    <span className="shrink-0 h-7 w-7 rounded-full bg-gradient-primary text-white text-[11px] font-bold grid place-items-center">
+                      {c.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+                    </span>
+                    {c.name}
+                  </div>
+                </td>
                 <td className="px-4 py-3 font-mono text-xs">{c.mobile}</td>
                 <td className="px-4 py-3">{c.type_label}</td>
                 <td className="px-4 py-3 text-muted">{c.gstin || "—"}</td>
                 <td className="px-4 py-3">{c.btc_enabled ? <Badge tone="info">BTC</Badge> : "—"}</td>
                 <td className="px-4 py-3 text-right">{money(c.outstanding)}</td>
-                <td className="px-4 py-3 text-right"><span className="text-pine text-sm">View →</span></td>
+                <td className="px-4 py-3 text-right"><span className="text-pine text-sm font-medium">View →</span></td>
               </tr>
             ))}
             {!rows.length && <tr><td colSpan={7} className="px-4 py-6 text-center text-muted">No customers.</td></tr>}

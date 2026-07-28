@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChefHat } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useToast } from "../../design/Toast";
@@ -86,6 +87,7 @@ export function Kds() {
   return (
     <div>
       <PageHeader
+        icon={<ChefHat size={20} />}
         title="Kitchen Display"
         subtitle="Live tickets · auto-refresh"
         action={perf && perf.tickets > 0 ? (

@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { UserCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -78,7 +79,7 @@ export function CheckIn() {
   if (done) {
     return (
       <div>
-        <PageHeader title="Check-In Complete" />
+        <PageHeader icon={<UserCheck size={20} />} title="Check-In Complete" />
         <Card className="bg-pine-50 border-pine/20">
           <div className="text-pine font-medium">{done}</div>
           <div className="flex gap-2 mt-4">
@@ -94,7 +95,7 @@ export function CheckIn() {
 
   return (
     <div>
-      <PageHeader title="Check-In" subtitle={resv.guest_name} />
+      <PageHeader icon={<UserCheck size={20} />} title="Check-In" subtitle={resv.guest_name} />
       <div className="flex gap-2 mb-5">
         {STEPS.map((s, i) => (
           <div key={s} className={`pill ${i === step ? "bg-pine text-white" : i < step ? "bg-pine-50 text-pine" : "bg-hairline text-muted"}`}>
@@ -260,6 +261,7 @@ function ArrivalPicker() {
   return (
     <div>
       <PageHeader
+        icon={<UserCheck size={20} />}
         title="Check-In"
         subtitle="Select an arrival, or register a walk-in"
         action={<button className="btn-primary" onClick={() => setWalkin(true)}>+ Walk-in</button>}

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PackageSearch } from "lucide-react";
 import { useState } from "react";
 
 import { useToast } from "../../design/Toast";
@@ -105,6 +106,7 @@ export function MaterialRequests() {
   return (
     <div>
       <PageHeader
+        icon={<PackageSearch size={20} />}
         title="Material Requests"
         subtitle="Departmental indents · Requested → Approved → Issued (issues deduct store stock)"
         action={

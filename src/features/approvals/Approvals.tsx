@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ClipboardCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { NavIcon } from "../../design/NavIcon";
@@ -78,6 +79,7 @@ export function Approvals() {
   return (
     <div>
       <PageHeader
+        icon={<ClipboardCheck size={20} />}
         title="Approvals"
         subtitle="Everything awaiting your sign-off"
         action={<Badge tone={data.count ? "clay" : "pine"}>{data.count} waiting</Badge>}
