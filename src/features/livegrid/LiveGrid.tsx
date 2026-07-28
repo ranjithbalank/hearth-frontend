@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { LayoutGrid } from "lucide-react";
 import { useState } from "react";
 
 import { useToast } from "../../design/Toast";
-import { PageHeader, Spinner } from "../../design/ui";
+import { Modal, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import type { Branch, Room } from "../../lib/types";
@@ -16,7 +17,8 @@ const STATUS_STYLE: Record<string, string> = {
   ooo: "bg-hairline text-muted border-hairline",
 };
 
-// Click cycles a room's status for quick demo control.
+// Click cycles a room's status for quick demo control. Full cycle runs the
+// housekeeping states (dirty → cleaning → inspected → clean).
 const NEXT: Record<string, string> = {
   vacant_clean: "occupied",
   occupied: "vacant_dirty",
@@ -25,11 +27,24 @@ const NEXT: Record<string, string> = {
   inspected: "vacant_clean",
   ooo: "vacant_dirty",
 };
+// With no Housekeeping desk the cleaning states are meaningless — a checked-out
+// room goes straight back to sellable. The grid collapses to Occupied ⇄ Vacant
+// (+ OOO), and any lingering cleaning state one-taps back to clean.
+const NEXT_NO_HK: Record<string, string> = {
+  vacant_clean: "occupied",
+  occupied: "vacant_clean",
+  vacant_dirty: "vacant_clean",
+  cleaning: "vacant_clean",
+  inspected: "vacant_clean",
+  ooo: "vacant_clean",
+};
 
 export function LiveGrid() {
   const qc = useQueryClient();
   const toast = useToast();
   const { canAccess } = useApp();
+  const hkOn = canAccess("housekeeping");
+  const cycle = hkOn ? NEXT : NEXT_NO_HK;
   const [adding, setAdding] = useState(false);
   const { data: rooms, isLoading } = useQuery({
     queryKey: ["rooms"],
@@ -38,7 +53,7 @@ export function LiveGrid() {
 
   const patch = useMutation({
     mutationFn: async (room: Room) =>
-      (await api.patch(`/rooms/${room.id}/status/`, { status: NEXT[room.status] })).data,
+      (await api.patch(`/rooms/${room.id}/status/`, { status: cycle[room.status] })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["rooms"] }),
   });
 
@@ -77,6 +92,7 @@ export function LiveGrid() {
   return (
     <div>
       <PageHeader
+        icon={<LayoutGrid size={20} />}
         title="Live Grid"
         subtitle={multiBranch
           ? "Click a room to advance its status · pick a branch in the top bar to focus on one"
@@ -104,9 +120,13 @@ export function LiveGrid() {
       )}
 
       <div className="flex flex-wrap gap-3 mb-5 text-xs text-muted">
-        {Object.entries(STATUS_STYLE).map(([k, cls]) => (
-          <span key={k} className={`pill border ${cls}`}>{k.replace("_", " ")}</span>
-        ))}
+        {Object.entries(STATUS_STYLE)
+          // No Housekeeping desk → the cleaning/inspected states never occur,
+          // so drop them from the legend (rooms are just Occupied / Vacant / OOO).
+          .filter(([k]) => hkOn || !["cleaning", "inspected", "vacant_dirty"].includes(k))
+          .map(([k, cls]) => (
+            <span key={k} className={`pill border ${cls}`}>{k.replace("_", " ")}</span>
+          ))}
       </div>
       <div className="space-y-6">
         {branches.map((branchName) => {
@@ -132,7 +152,7 @@ export function LiveGrid() {
                           <button
                             key={r.id}
                             onClick={() => patch.mutate(r)}
-                            className={`rounded-card border p-3 text-left transition-transform hover:scale-[1.03] ${
+                            className={`rounded-card border p-3 text-left transition-transform duration-150 hover:scale-[1.03] hover:shadow-card-hover active:scale-95 ${
                               STATUS_STYLE[r.status] ?? "bg-surface"
                             }`}
                           >
@@ -215,46 +235,13 @@ function AddRoomModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
-        <div className="font-display text-xl mb-3">Add room</div>
-        <div className="space-y-3">
-          <input
-            className="input w-full" placeholder="Room number" autoFocus
-            value={form.number}
-            onChange={(e) => setForm({
-              ...form, number: e.target.value,
-              floor: floorTouched ? form.floor : inferFloor(e.target.value),
-            })}
-          />
-          <select className="input w-full" value={form.room_type} onChange={(e) => setForm({ ...form, room_type: e.target.value })}>
-            <option value="">Room type…</option>
-            {roomTypes?.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
-          </select>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              className="input" inputMode="numeric" placeholder="Floor (auto)"
-              title="Fills itself from the room number — type to override"
-              value={form.floor}
-              onChange={(e) => { setFloorTouched(true); setForm({ ...form, floor: e.target.value.replace(/\D/g, "") }); }}
-            />
-            <input
-              className="input" placeholder="View (optional)"
-              value={form.view} onChange={(e) => setForm({ ...form, view: e.target.value })}
-            />
-          </div>
-          {branchOptions.length > 1 && (
-            <select className="input w-full" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}>
-              <option value="">Branch…</option>
-              {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          )}
-          <label className="flex items-center gap-2 text-sm text-body">
-            <input type="checkbox" checked={form.smoking} onChange={(e) => setForm({ ...form, smoking: e.target.checked })} />
-            Smoking room
-          </label>
-        </div>
-        <div className="flex gap-2 mt-4">
+    <Modal
+      open
+      onClose={onClose}
+      title="Add room"
+      maxWidth="max-w-[380px]"
+      footer={
+        <>
           <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
           <button
             className="btn-primary flex-1"
@@ -263,8 +250,45 @@ function AddRoomModal({ onClose }: { onClose: () => void }) {
           >
             Add room
           </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <input
+          className="input w-full" placeholder="Room number" autoFocus
+          value={form.number}
+          onChange={(e) => setForm({
+            ...form, number: e.target.value,
+            floor: floorTouched ? form.floor : inferFloor(e.target.value),
+          })}
+        />
+        <select className="input w-full" value={form.room_type} onChange={(e) => setForm({ ...form, room_type: e.target.value })}>
+          <option value="">Room type…</option>
+          {roomTypes?.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
+        </select>
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            className="input" inputMode="numeric" placeholder="Floor (auto)"
+            title="Fills itself from the room number — type to override"
+            value={form.floor}
+            onChange={(e) => { setFloorTouched(true); setForm({ ...form, floor: e.target.value.replace(/\D/g, "") }); }}
+          />
+          <input
+            className="input" placeholder="View (optional)"
+            value={form.view} onChange={(e) => setForm({ ...form, view: e.target.value })}
+          />
         </div>
+        {branchOptions.length > 1 && (
+          <select className="input w-full" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })}>
+            <option value="">Branch…</option>
+            {branchOptions.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        )}
+        <label className="flex items-center gap-2 text-sm text-body">
+          <input type="checkbox" checked={form.smoking} onChange={(e) => setForm({ ...form, smoking: e.target.checked })} />
+          Smoking room
+        </label>
       </div>
-    </div>
+    </Modal>
   );
 }

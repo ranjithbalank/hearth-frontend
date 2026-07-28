@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DoorOpen, Plus, Sparkles, UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
-import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
+import { Badge, Card, EmptyState, Modal, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { fmtDate } from "../../lib/date";
 import { money } from "../../lib/money";
@@ -25,7 +26,7 @@ export function FrontDesk() {
   const qc = useQueryClient();
   const ask = usePrompt();
   const toast = useToast();
-  const { property } = useApp();
+  const { property, canAccess } = useApp();
   const [walkin, setWalkin] = useState(false);
   const [hkPick, setHkPick] = useState(false);
   const [roomService, setRoomService] = useState(false);
@@ -73,14 +74,21 @@ export function FrontDesk() {
   return (
     <div>
       <PageHeader
+        icon={<DoorOpen size={20} />}
         title="Front Desk"
         subtitle="Arrivals & walk-in check-in"
         action={
           <div className="flex items-center gap-2">
             {property?.entitlement?.restaurant && (
-              <button className="btn-outline text-sm" onClick={() => setRoomService(true)}>🍽 Order food</button>
+              <button className="btn-outline text-sm" onClick={() => setRoomService(true)}>
+                <UtensilsCrossed size={15} /> Order food
+              </button>
             )}
-            <button className="btn-outline text-sm" onClick={() => setHkPick(true)}>🧹 Request cleaning</button>
+            {canAccess("housekeeping") && (
+              <button className="btn-outline text-sm" onClick={() => setHkPick(true)}>
+                <Sparkles size={15} /> Request cleaning
+              </button>
+            )}
             <Badge tone="pine">{arrivals?.length ?? 0} arriving</Badge>
           </div>
         }
@@ -93,8 +101,10 @@ export function FrontDesk() {
       {walkin && <WalkInForm onCancel={() => setWalkin(false)} onCreated={(id) => nav(`/checkin?reservation=${id}`)} />}
 
       {/* Dedicated walk-in area — guests arriving without a booking */}
-      <div data-tour="landing-frontdesk" className="rounded-card border-2 border-dashed border-pine/30 bg-pine-50/40 p-5 mb-6 flex items-center gap-4">
-        <div className="h-12 w-12 rounded-xl bg-pine flex items-center justify-center text-white text-xl">＋</div>
+      <div data-tour="landing-frontdesk" className="rounded-card border-2 border-dashed border-pine/30 bg-gradient-to-br from-pine-50 to-gold-50/50 p-5 mb-6 flex items-center gap-4 animate-fade-in-up">
+        <div className="h-12 w-12 rounded-xl bg-gradient-primary shadow-sm flex items-center justify-center text-white shrink-0">
+          <Plus size={22} />
+        </div>
         <div className="flex-1">
           <div className="font-semibold text-ink">Walk-in guest</div>
           <div className="text-sm text-muted">No booking? Register the guest and check them in straight away.</div>
@@ -210,31 +220,28 @@ function RequestCleaningModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="font-display text-xl mb-1">Request cleaning</div>
-        <div className="text-xs text-muted mb-3">
-          Occupied rooms (guest asked for service) and vacated rooms. Housekeeping is notified instantly.
-        </div>
-        <input className="input w-full mb-3" placeholder="Note (e.g. guest asked for turndown at 6pm)"
-          value={note} onChange={(e) => setNote(e.target.value)} />
-        <div className="grid grid-cols-3 gap-2">
-          {candidates.map((r) => (
-            <button key={r.id} disabled={busy}
-              className="card p-3 text-center hover:bg-cream"
-              onClick={() => request(r)}>
-              <div className="font-display text-lg">{r.number}</div>
-              <div className="text-[10px] uppercase tracking-wide text-muted">{r.status_label}</div>
-            </button>
-          ))}
-          {!candidates.length && (
-            <div className="col-span-3 text-sm text-muted text-center py-6">
-              No occupied or vacated-dirty rooms pending — all requests are already raised.
-            </div>
-          )}
-        </div>
-        <button className="btn-ghost w-full mt-3" onClick={onClose}>Cancel</button>
+    <Modal open onClose={onClose} title="Request cleaning" maxWidth="max-w-[420px]"
+      footer={<button className="btn-ghost w-full" onClick={onClose}>Cancel</button>}>
+      <div className="text-xs text-muted mb-3">
+        Occupied rooms (guest asked for service) and vacated rooms. Housekeeping is notified instantly.
       </div>
-    </div>
+      <input className="input w-full mb-3" placeholder="Note (e.g. guest asked for turndown at 6pm)"
+        value={note} onChange={(e) => setNote(e.target.value)} />
+      <div className="grid grid-cols-3 gap-2">
+        {candidates.map((r) => (
+          <button key={r.id} disabled={busy}
+            className="card-interactive p-3 text-center"
+            onClick={() => request(r)}>
+            <div className="font-display text-lg">{r.number}</div>
+            <div className="text-[10px] uppercase tracking-wide text-muted">{r.status_label}</div>
+          </button>
+        ))}
+        {!candidates.length && (
+          <div className="col-span-3 text-sm text-muted text-center py-6">
+            No occupied or vacated-dirty rooms pending — all requests are already raised.
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }

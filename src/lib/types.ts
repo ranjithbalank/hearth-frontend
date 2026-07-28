@@ -72,6 +72,24 @@ export interface Entitlement {
   rms: boolean;
   bar_mode: "separate" | "combined";
   kds_partial_ready: boolean;
+  /** Raw per-feature owner overrides ({module: bool}); empty = edition defaults. */
+  features?: Record<string, boolean>;
+  /** Server-resolved effective on/off for every feature (entitlement ∧ toggle ∧
+   *  prerequisites). Authoritative for nav/route gating — see canAccess. */
+  features_effective?: Record<string, boolean>;
+}
+
+/** One row of the static feature model (GET /auth/feature-model/) — drives the
+ *  Settings → Features admin toggles. */
+export interface FeatureSpec {
+  key: string;
+  label: string;
+  group: string;
+  entitlement: string | null;
+  requires: string[];
+  toggleable: boolean;
+  default: boolean;
+  note: string;
 }
 
 export interface Property {

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Settings as SettingsIcon } from "lucide-react";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -16,7 +17,7 @@ import {
   ChecklistItemsPanel, CurrencyPanel, DepartmentsPanel, DesignationsPanel, KitchenStationsPanel,
   LinenItemsPanel, PaymentMethodsPanel,
 } from "./Masters";
-import type { Branch, BranchAccess, Entitlement, Role, User } from "../../lib/types";
+import type { Branch, BranchAccess, Entitlement, FeatureSpec, Role, User } from "../../lib/types";
 
 const PROTECTED_ROLES: Role[] = ["Super Admin", "Managing Director", "General Manager"];
 
@@ -970,6 +971,88 @@ function DocumentNumberingPanel() {
   );
 }
 
+/** Per-feature on/off, within the licensed edition. Turning a feature off hides
+ *  its screens + blocks its APIs; the dependency engine (server-side) pulls
+ *  prerequisites on when you enable, and cascades dependents off when you
+ *  disable, so the combination is always valid. */
+function FeaturesPanel() {
+  const { property, refreshProperty } = useApp();
+  const [saving, setSaving] = useState<string | null>(null);
+  const { data: model } = useQuery({
+    queryKey: ["feature-model"],
+    queryFn: async () => (await api.get<{ features: FeatureSpec[] }>("/auth/feature-model/")).data.features,
+  });
+
+  const eff = property?.entitlement.features_effective ?? {};
+  const isOn = (k: string) => eff[k] !== false;
+
+  async function setFeature(key: string, enabled: boolean) {
+    setSaving(key);
+    try {
+      await api.patch("/auth/entitlements/", { feature: key, enabled });
+      await refreshProperty();
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  if (!model) return <Card><div className="text-sm text-muted">Loading features…</div></Card>;
+
+  const toggleable = model.filter((f) => f.toggleable);
+  const groups = [...new Set(toggleable.map((f) => f.group))];
+  const label = (k: string) => model.find((f) => f.key === k)?.label ?? k;
+
+  return (
+    <Card>
+      <div className="font-semibold mb-1">Features</div>
+      <div className="text-sm text-muted mb-5">
+        Turn off what this property doesn't use. Prerequisites switch on automatically when
+        you enable something; turning a feature off also turns off anything that depends on it.
+      </div>
+      <div className="space-y-6">
+        {groups.map((g) => (
+          <div key={g}>
+            <div className="text-xs font-bold uppercase tracking-wide text-pine mb-2">{g}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {toggleable.filter((f) => f.group === g).map((f) => {
+                const on = isOn(f.key);
+                // A prerequisite that's currently off blocks enabling this one.
+                const missing = f.requires.filter((r) => !isOn(r));
+                const blocked = !on && missing.length > 0;
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => !blocked && setFeature(f.key, !on)}
+                    disabled={saving === f.key || blocked}
+                    title={blocked ? `Needs ${missing.map(label).join(", ")}` : f.note}
+                    className={`text-left rounded-card border p-4 transition-all duration-150 ${
+                      on ? "border-pine bg-pine-50" : "border-hairline"
+                    } ${blocked ? "opacity-50 cursor-not-allowed" : "hover:shadow-card-hover"}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">{f.label}</span>
+                      <span className={`pill ${on ? "bg-pine text-white" : "bg-hairline text-muted"}`}>
+                        {on ? "On" : "Off"}
+                      </span>
+                    </div>
+                    {f.note && !blocked && <div className="text-xs text-muted mt-1">{f.note}</div>}
+                    {blocked && (
+                      <div className="text-xs text-clay mt-1">Needs {missing.map(label).join(", ")}</div>
+                    )}
+                    {f.requires.length > 0 && !blocked && (
+                      <div className="text-[11px] text-muted mt-1">Requires {f.requires.map(label).join(", ")}</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 const SECTIONS = [
   { key: "property", label: "Property Details" },
   { key: "billtemplate_invoice", label: "Bill Template — Hotel" },
@@ -981,6 +1064,7 @@ const SECTIONS = [
   { key: "barmode", label: "Bar Operating Mode" },
   { key: "kds", label: "Kitchen Display" },
   { key: "entitlements", label: "Edition Entitlements" },
+  { key: "features", label: "Features" },
   { key: "users", label: "Users & Roles" },
   { key: "audit", label: "Audit Log" },
   { key: "currency", label: "Currency", group: "Masters" },
@@ -1042,7 +1126,7 @@ export function Settings() {
 
   return (
     <div>
-      <PageHeader title="Settings" subtitle={`${property?.name} · edition: ${property?.edition}`} />
+      <PageHeader icon={<SettingsIcon size={20} />} title="Settings" subtitle={`${property?.name} · edition: ${property?.edition}`} />
 
       <div className="flex flex-col md:flex-row gap-4 items-start">
         <nav data-tour="landing-settings" className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible md:w-44 md:shrink-0 pb-1 md:pb-0">
@@ -1182,6 +1266,8 @@ export function Settings() {
               </div>
             </Card>
           )}
+
+          {activeSection === "features" && <FeaturesPanel />}
 
           {activeSection === "users" && (
             <>

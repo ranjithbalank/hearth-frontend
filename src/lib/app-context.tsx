@@ -110,9 +110,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // as a separate operation — in Combined mode drinks live in the one
     // restaurant POS instead, so hide Bar POS / Bar Table / Bar Menu Master.
     if (module === "barpos" && property?.entitlement.bar_mode === "combined") return false;
+    const ent: Entitlement | undefined = property?.entitlement;
+    // The owner's per-feature configuration, resolved server-side (entitlement ∧
+    // toggle ∧ prerequisites) — authoritative when present. A module absent from
+    // the map is a shared service with no toggle, so it stays visible.
+    if (ent?.features_effective && ent.features_effective[module] === false) return false;
+    // Fallback for pre-setup / older payloads without the resolved map: the
+    // legacy edition-flag check (MODULE_ENTITLEMENT mirrors the backend).
     const flag = MODULE_ENTITLEMENT[module];
     if (!flag) return true;
-    const ent: Entitlement | undefined = property?.entitlement;
     return ent ? Boolean(ent[flag]) : true;
   }
 
