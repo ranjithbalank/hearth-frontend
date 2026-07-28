@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { useId } from "react";
 
 /** SVG column chart — no chart library needed. Labels never tilt or
@@ -52,8 +51,10 @@ export function BarChart({ bars }: { bars: { name: string; value: number }[] }) 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible">
       <defs>
+        {/* Saturated top stop so a tall bar's upper reach doesn't wash out
+            (pine-500 → pine-700 rather than a pale pine-400 top). */}
         <linearGradient id={`bc-grad-${uid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#60A5FA" />
+          <stop offset="0%" stopColor="#3B82F6" />
           <stop offset="100%" stopColor="#1D4ED8" />
         </linearGradient>
       </defs>
@@ -67,14 +68,14 @@ export function BarChart({ bars }: { bars: { name: string; value: number }[] }) 
         return (
           <g key={`${b.name}-${i}`}>
             <title>{`${b.name}: ${b.value.toLocaleString("en-IN")}`}</title>
-            <motion.path
+            {/* Static path — a framer-motion scaleY grow-in with a px
+                transform-origin mis-scaled bars inside the responsive viewBox
+                (bars rendered as slivers). Correct heights matter more than the
+                animation. */}
+            <path
               d={roundedTop(x, baseline - h, bw * 0.64, h)}
               fill={`url(#bc-grad-${uid})`}
-              initial={{ scaleY: 0, opacity: 0 }}
-              animate={{ scaleY: 1, opacity: 1 }}
-              whileHover={{ opacity: 0.85 }}
-              style={{ transformOrigin: `${cx}px ${baseline}px` }}
-              transition={{ duration: 0.5, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+              className="transition-opacity hover:opacity-80"
             />
             <text x={cx} y={baseline - h - 5} textAnchor="middle" fontSize={bw < 36 ? 8.5 : 10} className="fill-body font-medium">
               {Math.round(b.value).toLocaleString("en-IN")}

@@ -611,21 +611,25 @@ export function Pos() {
                     Phone (captain view): keep the card compact, switch bills inside the order screen. */}
                 {checks.length ? (
                   <>
-                    <div className="mt-2 space-y-1 hidden md:block">
-                      {checks.map((o, ix) => (
-                        <button
-                          key={o.id}
-                          disabled={lockedForMe}
-                          className="w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 disabled:cursor-not-allowed bg-cream hover:bg-hairline"
-                          onClick={(e) => { e.stopPropagation(); if (!lockedForMe) openTable(t, o.id); }}
-                        >
-                          <span>G{ix + 1}{o.status === "billed" ? " 🧾" : ""}</span>
-                          <span>{money(o.totals.total)}</span>
-                        </button>
-                      ))}
+                    <div className="mt-2 hidden md:block">
+                      {/* Cap the bill list so a table with many split checks scrolls
+                          inside a bounded card instead of towering over its neighbours. */}
+                      <div className="space-y-1 max-h-44 overflow-y-auto pr-0.5">
+                        {checks.map((o, ix) => (
+                          <button
+                            key={o.id}
+                            disabled={lockedForMe}
+                            className="w-full rounded-lg px-2 py-1 text-xs font-medium text-left flex justify-between gap-1 disabled:cursor-not-allowed bg-cream hover:bg-hairline"
+                            onClick={(e) => { e.stopPropagation(); if (!lockedForMe) openTable(t, o.id); }}
+                          >
+                            <span>G{ix + 1}{o.status === "billed" ? " 🧾" : ""}</span>
+                            <span>{money(o.totals.total)}</span>
+                          </button>
+                        ))}
+                      </div>
                       <button
                         disabled={lockedForMe}
-                        className="w-full rounded-lg px-2 py-1 text-xs text-left disabled:cursor-not-allowed bg-surface border border-dashed border-hairline hover:bg-cream text-muted"
+                        className="w-full mt-1 rounded-lg px-2 py-1 text-xs text-left disabled:cursor-not-allowed bg-surface border border-dashed border-hairline hover:bg-cream text-muted"
                         title="Another party at this table — separate bill"
                         onClick={(e) => { e.stopPropagation(); if (!lockedForMe) openTable(t, null); }}
                       >

@@ -297,7 +297,10 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                     <td className="px-4 py-3 text-right text-pine">{Number(r.purchased)} {r.unit}</td>
                     <td className="px-4 py-3 text-right">{Number(r.consumed)} {r.unit}</td>
                     <td className="px-4 py-3 text-right text-clay">{Number(r.wasted)} {r.unit}</td>
-                    <td className="px-4 py-3 text-right text-muted">{Number(r.in_stock)} {r.unit}</td>
+                    <td className={`px-4 py-3 text-right tabular-nums ${Number(r.in_stock) < 0 ? "text-clay font-semibold" : "text-muted"}`}>
+                      {Number(r.in_stock)} {r.unit}
+                      {Number(r.in_stock) < 0 && <span className="ml-1 text-[10px] font-bold uppercase">oversold</span>}
+                    </td>
                     <td className="px-4 py-3 text-right font-medium">{r.consumption_cost == null ? "—" : money(r.consumption_cost)}</td>
                   </tr>
                 ))}
@@ -335,7 +338,10 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                   <td className="px-4 py-3 text-xs text-muted font-mono">{i.code}</td>
                   <td className="px-4 py-3 font-medium">{i.name}</td>
                   <td className="px-4 py-3 text-muted text-xs">{i.category || "—"}</td>
-                  <td className="px-4 py-3 text-right">{Number(i.current_stock)} {i.unit}</td>
+                  <td className={`px-4 py-3 text-right tabular-nums ${
+                    Number(i.current_stock) < 0 ? "text-clay font-semibold"
+                      : Number(i.current_stock) <= Number(i.reorder_level) ? "text-amber-600 font-medium" : ""
+                  }`}>{Number(i.current_stock)} {i.unit}</td>
                   <td className="px-4 py-3 text-right text-muted">{Number(i.min_stock_level)} / {Number(i.reorder_level)}</td>
                   <td className="px-4 py-3 text-right">{i.unit_cost == null ? "—" : money(i.unit_cost)}</td>
                   <td className="px-4 py-3 text-muted text-xs">{i.storage_location || "—"}</td>

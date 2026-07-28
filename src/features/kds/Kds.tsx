@@ -31,6 +31,7 @@ function elapsedMins(t: Ticket): number | null {
 }
 
 function fmtElapsed(mins: number): string {
+  if (mins >= 1440) return `${Math.floor(mins / 1440)}d+`;   // cap runaway/stale tickets at days
   if (mins >= 60) return `${Math.floor(mins / 60)}h ${Math.floor(mins % 60)}m`;
   return `${Math.floor(mins)}:${String(Math.floor((mins % 1) * 60)).padStart(2, "0")}`;
 }
@@ -95,7 +96,7 @@ export function Kds() {
             <Badge tone={perf.avg_prep_minutes <= 15 ? "pine" : perf.avg_prep_minutes <= 25 ? "amber" : "clay"}>
               avg prep {perf.avg_prep_minutes} min
             </Badge>
-            <span className="text-muted text-xs">{perf.tickets} tickets · 7 days</span>
+            <span className="text-muted text-xs">{perf.tickets} ticket{perf.tickets === 1 ? "" : "s"} · 7 days</span>
           </div>
         ) : undefined}
       />
@@ -163,7 +164,7 @@ export function Kds() {
                         </span>
                         {it.qty}× {it.name}
                       </span>
-                      <span className="text-muted text-xs">{it.station}</span>
+                      {it.station && it.station !== t.station && <span className="text-muted text-xs">{it.station}</span>}
                     </button>
                   ))}
                 </div>
@@ -172,7 +173,7 @@ export function Kds() {
                   {t.items.map((it, i) => (
                     <div key={i} className="flex justify-between text-sm">
                       <span>{it.qty}× {it.name}</span>
-                      <span className="text-muted text-xs">{it.station}</span>
+                      {it.station && it.station !== t.station && <span className="text-muted text-xs">{it.station}</span>}
                     </div>
                   ))}
                 </div>
