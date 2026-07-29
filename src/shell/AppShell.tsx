@@ -10,7 +10,7 @@ import { useToast } from "../design/Toast";
 import { Logo } from "../design/ui";
 import { api } from "../lib/api";
 import { useApp } from "../lib/app-context";
-import { fmtDate } from "../lib/date";
+import { fmtDate, greeting } from "../lib/date";
 import { NAV } from "../lib/modules";
 import { NOTIFICATION_ROUTES } from "../lib/notifications";
 import { useOnlineStatus } from "../lib/useOnline";
@@ -461,7 +461,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               className="flex justify-center py-2 sticky top-[57px] z-10"
             >
               <div className="flex items-center gap-2 bg-success-50 text-success text-sm font-semibold px-4 py-1.5 rounded-full shadow-sm">
-                <span>Welcome, {welcomeName}!</span>
+                <span>{greeting(welcomeName)}!</span>
                 <button
                   onClick={() => setWelcomeName(null)}
                   aria-label="Dismiss welcome banner"
