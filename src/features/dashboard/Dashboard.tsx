@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowRight, Bell, DoorOpen, LayoutDashboard, Percent, Sparkles, TrendingUp, UtensilsCrossed, Wallet } from "lucide-react";
+import { ArrowRight, Bell, CalendarRange, ChefHat, DoorOpen, LayoutDashboard, Percent, Receipt, Sparkles, TrendingUp, UtensilsCrossed, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Badge, Card, PageHeader, Spinner, Stat, Tabs } from "../../design/ui";
@@ -41,7 +41,6 @@ function loadViewMode(): ViewMode {
 }
 
 export function Dashboard() {
-  const nav = useNavigate();
   const { user } = useApp();
   const canApprove = MENU_APPROVER_ROLES.includes(user?.role ?? "");
   const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
@@ -87,95 +86,9 @@ export function Dashboard() {
         }
       />
 
-      {viewMode === "analytical" ? <AnalyticalView data={data} /> : <DataView data={data} />}
-
-      {(data.receivables || canApprove) && (
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          {data.receivables && (
-            <button
-              onClick={() => nav("/crm")}
-              className="card-interactive group p-5 text-left w-full flex items-center justify-between"
-            >
-              <div>
-                <div className="text-xs uppercase tracking-wide text-muted">Accounts receivable</div>
-                <div className={`stat-num text-2xl mt-1 ${Number(data.receivables.total) > 0 ? "text-clay" : "text-pine"}`}>
-                  {money(data.receivables.total)}
-                </div>
-                <div className="text-sm text-muted mt-1">
-                  {data.receivables.corporate_accounts} corporate account(s) · {money(data.receivables.corporate)} bill-to-company
-                </div>
-              </div>
-              <span className="text-pine text-sm font-medium flex items-center gap-1 shrink-0">
-                View ledger <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
-              </span>
-            </button>
-          )}
-
-          {canApprove && (
-            <button
-              onClick={() => nav("/recipes?tab=pending")}
-              className="card-interactive group p-5 text-left w-full flex items-center justify-between"
-            >
-              <div>
-                <div className="text-xs uppercase tracking-wide text-muted">Dish approvals</div>
-                <div className={`stat-num text-2xl mt-1 ${(pendingDishes?.length ?? 0) > 0 ? "text-clay" : "text-pine"}`}>
-                  {pendingDishes?.length ?? 0} pending
-                </div>
-                <div className="text-sm text-muted mt-1">
-                  {(pendingDishes?.length ?? 0) > 0
-                    ? "New dish(es) proposed by Chef — waiting on your sign-off"
-                    : "All caught up — no new dishes waiting"}
-                </div>
-              </div>
-              <span className="text-pine text-sm font-medium flex items-center gap-1 shrink-0">
-                Review <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
-              </span>
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="grid grid-cols-3 gap-4 mt-4">
-        {data.rooms && (
-          <button className="card-interactive group p-5 text-left flex items-start gap-3" onClick={() => nav("/frontdesk")}>
-            <span className="shrink-0 grid place-items-center w-10 h-10 rounded-xl bg-pine-50 text-pine">
-              <DoorOpen size={18} />
-            </span>
-            <div className="min-w-0">
-              <div className="font-semibold flex items-center gap-1">
-                Front Desk <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </div>
-              <div className="text-sm text-muted mt-1">Check in arrivals, manage folios</div>
-            </div>
-          </button>
-        )}
-        {data.fnb && (
-          <button className="card-interactive group p-5 text-left flex items-start gap-3" onClick={() => nav("/pos")}>
-            <span className="shrink-0 grid place-items-center w-10 h-10 rounded-xl bg-clay-50 text-clay">
-              <UtensilsCrossed size={18} />
-            </span>
-            <div className="min-w-0">
-              <div className="font-semibold flex items-center gap-1">
-                Restaurant POS <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </div>
-              <div className="text-sm text-muted mt-1">Take orders, fire KOTs, settle</div>
-            </div>
-          </button>
-        )}
-        {data.rooms && (
-          <button className="card-interactive group p-5 text-left flex items-start gap-3" onClick={() => nav("/housekeeping")}>
-            <span className="shrink-0 grid place-items-center w-10 h-10 rounded-xl bg-gold-50 text-gold-700">
-              <Sparkles size={18} />
-            </span>
-            <div className="min-w-0">
-              <div className="font-semibold flex items-center gap-1">
-                Housekeeping <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-              </div>
-              <div className="text-sm text-muted mt-1">Room status &amp; turnaround</div>
-            </div>
-          </button>
-        )}
-      </div>
+      {viewMode === "analytical"
+        ? <AnalyticalView data={data} pendingDishes={pendingDishes} canApprove={canApprove} />
+        : <DataView data={data} />}
     </div>
   );
 }
@@ -255,10 +168,22 @@ interface Alert { severity: string; module: string; title: string; detail: strin
  *  dashboard for beyond the numbers: who's arriving today, and what needs
  *  attention right now. Both reuse the same endpoints Front Desk and the
  *  header bell already poll, so there's no new backend surface here. */
-function TodayPanel({ hasRooms }: { hasRooms: boolean }) {
+function TodayPanel({
+  hasRooms,
+  receivables,
+  pendingDishes,
+  canApprove,
+}: {
+  hasRooms: boolean;
+  receivables?: DashboardData["receivables"];
+  pendingDishes?: unknown[];
+  canApprove?: boolean;
+}) {
   const nav = useNavigate();
   const { canAccess } = useApp();
   const showNotif = canAccess("notifications");
+  const arReceivable = receivables && Number(receivables.total) > 0;
+  const dishCount = pendingDishes?.length ?? 0;
   const { data: arrivals } = useQuery({
     queryKey: ["arrivals"],
     queryFn: async () => (await api.get<Reservation[]>("/reservations/arrivals/")).data,
@@ -321,6 +246,24 @@ function TodayPanel({ hasRooms }: { hasRooms: boolean }) {
           ) : <div className="text-xs text-muted">All clear — nothing waiting</div>}
         </button>
       )}
+
+      {receivables && (
+        <button onClick={() => nav("/crm")} className="text-left group border-t border-hairline pt-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Receipt size={15} className={arReceivable ? "text-clay shrink-0" : "text-muted shrink-0"} /> Receivables
+          </div>
+          <span className={`stat-num text-sm ${arReceivable ? "text-clay" : "text-muted"}`}>{money(receivables.total)}</span>
+        </button>
+      )}
+
+      {canApprove && (
+        <button onClick={() => nav("/recipes?tab=pending")} className="text-left group border-t border-hairline pt-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <ChefHat size={15} className={dishCount ? "text-amber-600 shrink-0" : "text-muted shrink-0"} /> Dish approvals
+          </div>
+          <Badge tone={dishCount ? "amber" : "muted"}>{dishCount} pending</Badge>
+        </button>
+      )}
     </Card>
   );
 }
@@ -344,20 +287,30 @@ function ProportionRow({ label, display, pct, fill }: { label: string; display: 
   );
 }
 
-function AnalyticalView({ data }: { data: DashboardData }) {
+function AnalyticalView({
+  data,
+  pendingDishes,
+  canApprove,
+}: {
+  data: DashboardData;
+  pendingDishes?: unknown[];
+  canApprove?: boolean;
+}) {
+  const nav = useNavigate();
   const rooms = data.rooms;
   const fnb = data.fnb;
   const roomsTotal = rooms?.rooms_total || 0;
-  const revenueMixTotal = rooms && fnb ? num(rooms.room_revenue) + num(fnb.fnb_sales) : 0;
-  const fnbTotal = fnb ? Object.values(fnb.by_mode).reduce((s, v) => s + num(v), 0) : 0;
 
   return (
     <>
-      <div className="grid grid-cols-4 gap-4">
+      {/* Drill-through KPI row — tap a metric to jump to where you act on it. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {rooms && (
           <>
-            {/* Bespoke hero tile: occupancy magnitude as a ring + the exact number. */}
-            <div className="relative overflow-hidden rounded-card p-5 bg-gradient-ink text-white shadow-md animate-fade-in-up flex items-center justify-between gap-2">
+            <button
+              onClick={() => nav("/livegrid")}
+              className="relative overflow-hidden rounded-card p-5 bg-gradient-ink text-white shadow-md animate-fade-in-up flex items-center justify-between gap-2 text-left cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-lg"
+            >
               <div className="pointer-events-none absolute -right-6 -top-10 w-32 h-32 rounded-full bg-pine-400/20 blur-2xl" aria-hidden />
               <div className="relative">
                 <div className="stat-num text-3xl text-white">{rooms.occupancy_pct}%</div>
@@ -367,70 +320,133 @@ function AnalyticalView({ data }: { data: DashboardData }) {
               <RadialGauge pct={rooms.occupancy_pct} size={72} thickness={8}>
                 <Percent size={15} className="text-white/70" />
               </RadialGauge>
-            </div>
-            <Stat delayMs={60} icon={<Wallet size={16} />} label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
-            <Stat delayMs={120} icon={<TrendingUp size={16} />} label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
+            </button>
+            <Stat delayMs={60} onClick={() => nav("/reports")} icon={<Wallet size={16} />} label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
+            <Stat delayMs={120} onClick={() => nav("/reports")} icon={<TrendingUp size={16} />} label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
           </>
         )}
         {fnb && (
-          <Stat tone={rooms ? undefined : "dark"} delayMs={rooms ? 180 : 0} icon={<UtensilsCrossed size={16} />} label="F&B sales" value={money(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
+          <Stat tone={rooms ? undefined : "dark"} delayMs={rooms ? 180 : 0} onClick={() => nav("/pos")} icon={<UtensilsCrossed size={16} />} label="F&B sales" value={money(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
         )}
       </div>
 
+      {/* Revenue chart + a single "what needs me" attention hub */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 items-stretch">
         <div className="lg:col-span-2">
           <RevenueTrendCard />
         </div>
-        <TodayPanel hasRooms={!!(rooms && roomsTotal > 0)} />
+        <TodayPanel
+          hasRooms={!!(rooms && roomsTotal > 0)}
+          receivables={data.receivables}
+          pendingDishes={pendingDishes}
+          canApprove={canApprove}
+        />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 items-start">
-        {rooms && roomsTotal > 0 && (
-          <Card>
-            <div className="font-semibold mb-4">Room status mix</div>
-            <Donut
-              centerLabel="rooms"
-              slices={[
-                { label: "Occupied", value: rooms.occupied, color: "#2563EB", display: `${rooms.occupied} rms` },
-                { label: "Available", value: rooms.available, color: "#16A34A", display: `${rooms.available} rms` },
-                { label: "Dirty / OOO", value: rooms.dirty + rooms.ooo, color: "#D97706", display: `${rooms.dirty + rooms.ooo} rms` },
-              ]}
-            />
-          </Card>
-        )}
-
-        {rooms && fnb && revenueMixTotal > 0 && (
-          <Card>
-            <div className="font-semibold mb-4">Revenue mix</div>
-            <Donut
-              centerLabel="revenue"
-              centerValue={money(revenueMixTotal)}
-              slices={[
-                { label: "Rooms", value: num(rooms.room_revenue), color: "#2563EB", display: money(rooms.room_revenue) },
-                { label: "F&B", value: num(fnb.fnb_sales), color: "#DC2626", display: money(fnb.fnb_sales) },
-              ]}
-            />
-          </Card>
-        )}
-
-        {fnb && fnbTotal > 0 && (
-          <Card className={rooms && roomsTotal > 0 && revenueMixTotal > 0 ? "" : "md:col-span-2"}>
-            <div className="font-semibold mb-4">F&amp;B sales by mode</div>
-            <div className="grid grid-cols-1 gap-y-3">
-              {(["dinein", "takeaway", "delivery"] as const).map((m) => (
-                <ProportionRow
-                  key={m}
-                  label={m === "dinein" ? "Dine-in" : m === "takeaway" ? "Takeaway" : "Delivery"}
-                  display={money(fnb.by_mode[m] ?? 0)}
-                  pct={Math.round((num(fnb.by_mode[m] ?? 0) / fnbTotal) * 100)}
-                  fill="bg-pine"
-                />
-              ))}
-            </div>
-          </Card>
-        )}
+      {/* One interactive breakdown (tabbed) + compact quick actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 items-stretch">
+        <div className="lg:col-span-2">
+          <BreakdownCard data={data} />
+        </div>
+        <QuickActions hasRooms={!!rooms} hasFnb={!!fnb} />
       </div>
     </>
+  );
+}
+
+/** The three "mix" views (room status / revenue / F&B mode) collapsed into one
+ *  card with a segmented control — swap the view instead of stacking three. */
+function BreakdownCard({ data }: { data: DashboardData }) {
+  const rooms = data.rooms;
+  const fnb = data.fnb;
+  const roomsTotal = rooms?.rooms_total || 0;
+  const revenueMixTotal = rooms && fnb ? num(rooms.room_revenue) + num(fnb.fnb_sales) : 0;
+  const fnbTotal = fnb ? Object.values(fnb.by_mode).reduce((s, v) => s + num(v), 0) : 0;
+
+  const tabs: { value: string; label: string }[] = [];
+  if (rooms && roomsTotal > 0) tabs.push({ value: "rooms", label: "Room status" });
+  if (rooms && fnb && revenueMixTotal > 0) tabs.push({ value: "revenue", label: "Revenue" });
+  if (fnb && fnbTotal > 0) tabs.push({ value: "fnb", label: "F&B by mode" });
+  const [tab, setTab] = useState(tabs[0]?.value ?? "rooms");
+  if (!tabs.length) return null;
+  const active = tabs.some((t) => t.value === tab) ? tab : tabs[0].value;
+
+  return (
+    <Card className="h-full">
+      <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+        <div className="font-semibold">Breakdown</div>
+        {tabs.length > 1 && <Tabs value={active} onChange={setTab} options={tabs} />}
+      </div>
+      {active === "rooms" && rooms && (
+        <Donut
+          centerLabel="rooms"
+          slices={[
+            { label: "Occupied", value: rooms.occupied, color: "#2563EB", display: `${rooms.occupied} rms` },
+            { label: "Available", value: rooms.available, color: "#16A34A", display: `${rooms.available} rms` },
+            { label: "Dirty / OOO", value: rooms.dirty + rooms.ooo, color: "#D97706", display: `${rooms.dirty + rooms.ooo} rms` },
+          ]}
+        />
+      )}
+      {active === "revenue" && rooms && fnb && (
+        <Donut
+          centerLabel="revenue"
+          centerValue={money(revenueMixTotal)}
+          slices={[
+            { label: "Rooms", value: num(rooms.room_revenue), color: "#2563EB", display: money(rooms.room_revenue) },
+            { label: "F&B", value: num(fnb.fnb_sales), color: "#DC2626", display: money(fnb.fnb_sales) },
+          ]}
+        />
+      )}
+      {active === "fnb" && fnb && (
+        <div className="grid grid-cols-1 gap-y-3 pt-1">
+          {(["dinein", "takeaway", "delivery"] as const).map((m) => (
+            <ProportionRow
+              key={m}
+              label={m === "dinein" ? "Dine-in" : m === "takeaway" ? "Takeaway" : "Delivery"}
+              display={money(fnb.by_mode[m] ?? 0)}
+              pct={Math.round((num(fnb.by_mode[m] ?? 0) / fnbTotal) * 100)}
+              fill="bg-pine"
+            />
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** Compact one-tap jumps to the screens a manager lands on next. */
+function QuickActions({ hasRooms, hasFnb }: { hasRooms: boolean; hasFnb: boolean }) {
+  const nav = useNavigate();
+  const { canAccess } = useApp();
+  const actions = [
+    hasRooms && canAccess("frontdesk") && { icon: DoorOpen, label: "Front Desk", desc: "Arrivals & folios", to: "/frontdesk", chip: "bg-pine-50 text-pine" },
+    hasRooms && canAccess("reservations") && { icon: CalendarRange, label: "Reservations", desc: "Bookings & availability", to: "/reservations", chip: "bg-info-50 text-info" },
+    hasFnb && canAccess("pos") && { icon: UtensilsCrossed, label: "Restaurant POS", desc: "Orders, KOTs & settle", to: "/pos", chip: "bg-clay-50 text-clay" },
+    hasRooms && canAccess("housekeeping") && { icon: Sparkles, label: "Housekeeping", desc: "Room turnaround", to: "/housekeeping", chip: "bg-gold-50 text-gold-700" },
+  ].filter(Boolean) as { icon: typeof DoorOpen; label: string; desc: string; to: string; chip: string }[];
+  if (!actions.length) return null;
+  return (
+    <Card className="h-full">
+      <div className="font-semibold mb-3">Quick actions</div>
+      <div className="space-y-2">
+        {actions.map((a) => (
+          <button
+            key={a.to}
+            onClick={() => nav(a.to)}
+            className="group w-full flex items-center gap-3 rounded-xl border border-hairline px-3 py-2.5 text-left transition-all duration-150 hover:border-pine-200 hover:bg-cream"
+          >
+            <span className={`shrink-0 grid place-items-center w-9 h-9 rounded-xl ${a.chip}`}>
+              <a.icon size={17} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="font-medium text-sm">{a.label}</div>
+              <div className="text-xs text-muted truncate">{a.desc}</div>
+            </div>
+            <ArrowRight size={15} className="text-muted shrink-0 transition-transform group-hover:translate-x-1" />
+          </button>
+        ))}
+      </div>
+    </Card>
   );
 }
 

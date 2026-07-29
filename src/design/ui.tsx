@@ -50,6 +50,7 @@ export function Stat({
   deltaLabel,
   icon,
   delayMs,
+  onClick,
 }: {
   label: string;
   value: ReactNode;
@@ -62,13 +63,22 @@ export function Stat({
   icon?: ReactNode;
   /** stagger multiple Stats in a row: delayMs={i * 60} */
   delayMs?: number;
+  /** makes the whole tile a drill-through — hover lift + keyboard-activatable */
+  onClick?: () => void;
 }) {
   const dark = tone === "dark";
+  const interactive = !!onClick;
   return (
     <div
+      onClick={onClick}
+      role={interactive ? "button" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={interactive ? (e) => e.key === "Enter" && onClick!() : undefined}
       className={clsx(
         "relative overflow-hidden rounded-card p-5 animate-fade-in-up",
         dark ? "bg-gradient-ink text-white shadow-md" : "card",
+        interactive && "cursor-pointer transition-all duration-150 hover:-translate-y-0.5 " +
+          (dark ? "hover:shadow-lg" : "hover:shadow-card-hover hover:border-pine-200"),
       )}
       style={delayMs ? { animationDelay: `${delayMs}ms` } : undefined}
     >
