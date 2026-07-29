@@ -7,20 +7,27 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
+import { money } from "../../lib/money";
 
-interface Item { id: number; title: string; detail: string }
+interface Item { id: number; title: string; detail: string; meta?: string; amount?: string }
 interface Section { key: string; title: string; route: string; items: Item[] }
 
-/** Which icon each section wears and how its actions hit the existing
- *  endpoints — the inbox never invents new approval rules, it only fronts
- *  the flows that already enforce them server-side. */
-const SECTION_META: Record<string, { icon: string; approve: string; reject?: "reason" | "note" }> = {
-  po: { icon: "procurement", approve: "Approve" },
-  indents: { icon: "matreq", approve: "Approve" },
-  issues: { icon: "matreq", approve: "Issue" },
-  dishes: { icon: "recipes", approve: "Approve", reject: "reason" },
-  leave: { icon: "leave", approve: "Approve", reject: "note" },
+/** Per-section presentation + how its action hits the existing endpoints. The
+ *  inbox never invents approval rules — it fronts flows enforced server-side.
+ *  `confirm` gates the consequential ones (spend / stock movement); `tone:issue`
+ *  marks the fulfilment stage so it doesn't read as another sign-off. */
+const SECTION_META: Record<string, {
+  icon: string; approve: string; reject?: "reason" | "note";
+  purpose: string; confirm?: "money" | "stock"; tone?: "issue";
+}> = {
+  po: { icon: "procurement", approve: "Approve", purpose: "Spend awaiting your sign-off", confirm: "money" },
+  indents: { icon: "matreq", approve: "Approve", purpose: "Stock requested by departments" },
+  issues: { icon: "matreq", approve: "Issue", purpose: "Release approved stock from the store", confirm: "stock", tone: "issue" },
+  dishes: { icon: "recipes", approve: "Approve", reject: "reason", purpose: "New menu items pending review" },
+  leave: { icon: "leave", approve: "Approve", reject: "note", purpose: "Time-off awaiting sign-off" },
 };
+
+const FALLBACK_META = { icon: "notifications", approve: "Approve", purpose: "Awaiting your action" } as const;
 
 function actionUrl(section: string, id: number, decision: "approve" | "reject") {
   switch (section) {
@@ -64,6 +71,28 @@ export function Approvals() {
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not complete", "error"),
   });
 
+  /** Consequential actions (releasing spend or stock) confirm first; the rest
+   *  are a single tap. */
+  async function approve(section: string, item: Item) {
+    const meta = SECTION_META[section];
+    if (meta?.confirm === "money") {
+      const ok = await ask({
+        title: `Approve ${item.title}?`,
+        message: `Authorises spend of ${item.amount ? money(item.amount) : "this order"} — ${item.detail}.`,
+        confirm: true, confirmLabel: "Approve spend",
+      });
+      if (!ok) return;
+    } else if (meta?.confirm === "stock") {
+      const ok = await ask({
+        title: `Issue ${item.title}?`,
+        message: "Releases the stock from the store. This can't be undone here.",
+        confirm: true, confirmLabel: "Issue stock",
+      });
+      if (!ok) return;
+    }
+    act.mutate({ section, id: item.id, decision: "approve" });
+  }
+
   async function reject(section: string, item: Item) {
     const reason = await ask({
       title: `Reject — ${item.title}`,
@@ -80,6 +109,7 @@ export function Approvals() {
     <div>
       <PageHeader
         icon={<ClipboardCheck size={20} />}
+        eyebrow="Requests & approvals"
         title="Approvals"
         subtitle="Everything awaiting your sign-off"
         action={<Badge tone={data.count ? "clay" : "pine"}>{data.count} waiting</Badge>}
@@ -90,40 +120,58 @@ export function Approvals() {
       ) : (
         <div className="space-y-4">
           {data.sections.map((s) => {
-            const meta = SECTION_META[s.key] ?? { icon: "notifications", approve: "Approve" };
+            const meta = SECTION_META[s.key] ?? FALLBACK_META;
+            const issue = meta.tone === "issue";
             return (
-              <Card key={s.key}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2 font-semibold">
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-pine-50 text-pine">
+              <Card key={s.key} className={issue ? "border-l-4 border-l-amber" : undefined}>
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className={`inline-flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${
+                      issue ? "bg-amber-50 text-amber" : "bg-pine-50 text-pine"}`}>
                       <NavIcon name={meta.icon} />
                     </span>
-                    {s.title}
-                    <Badge tone="amber">{s.items.length}</Badge>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-ink truncate">{s.title}</span>
+                        <Badge tone={issue ? "amber" : "pine"}>{s.items.length}</Badge>
+                      </div>
+                      <div className="text-xs text-muted truncate">{meta.purpose}</div>
+                    </div>
                   </div>
-                  <button className="text-sm text-pine" onClick={() => nav(s.route)}>
+                  <button className="text-sm text-pine hover:underline underline-offset-2 shrink-0"
+                    onClick={() => nav(s.route)}>
                     Open screen →
                   </button>
                 </div>
-                <div className="divide-y divide-line">
+                <div className="divide-y divide-hairline">
                   {s.items.map((it) => (
-                    <div key={it.id} className="py-2.5 flex items-center gap-3">
+                    <div key={it.id} className="py-3 flex items-center gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{it.title}</div>
-                        <div className="text-sm text-muted truncate">{it.detail}</div>
+                        <div className="font-medium text-ink truncate">{it.title}</div>
+                        <div className="text-sm text-muted truncate">
+                          {it.detail}
+                          {it.meta && <span className="text-muted"> · {it.meta}</span>}
+                        </div>
                       </div>
-                      {meta.reject && (
-                        <button className="btn-ghost text-xs py-1 text-clay"
-                          disabled={act.isPending}
-                          onClick={() => reject(s.key, it)}>
-                          Reject
-                        </button>
+                      {it.amount && (
+                        <div className="font-display text-base text-ink tabular-nums shrink-0 mr-1">
+                          {money(it.amount)}
+                        </div>
                       )}
-                      <button className="btn-outline text-xs py-1"
-                        disabled={act.isPending}
-                        onClick={() => act.mutate({ section: s.key, id: it.id, decision: "approve" })}>
-                        {meta.approve}
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {meta.reject && (
+                          <button className="btn-ghost text-xs py-1 text-clay"
+                            disabled={act.isPending}
+                            onClick={() => reject(s.key, it)}>
+                            Reject
+                          </button>
+                        )}
+                        <button className={`text-xs py-1 ${issue ? "btn-primary" : "btn-outline"}`}
+                          disabled={act.isPending}
+                          onClick={() => approve(s.key, it)}>
+                          {meta.approve}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
