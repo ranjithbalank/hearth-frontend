@@ -158,9 +158,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   // flips true from an actual login() call). Skipped on someone's very first
   // login since the onboarding tour above already opens with its own
   // "Welcome, {role}" step — two welcomes stacking at once would be clutter.
-  // A top banner (not the bottom auto-dismissing Toast) so it reads as a
-  // proper greeting instead of a passing notification — stays until the
-  // user dismisses it or signs out.
+  // A top banner (not the bottom Toast) so it reads as a proper greeting, then
+  // it auto-dismisses after a few seconds (the Dismiss button closes it sooner).
   useEffect(() => {
     if (!justLoggedIn || !user) return;
     let tourAlreadySeen = false;
@@ -172,6 +171,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
     clearJustLoggedIn();
   }, [justLoggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-dismiss the greeting a few seconds after it appears — it's a passing
+  // hello, not a persistent banner. AnimatePresence handles the fade-out.
+  useEffect(() => {
+    if (!welcomeName) return;
+    const t = setTimeout(() => setWelcomeName(null), 5000);
+    return () => clearTimeout(t);
+  }, [welcomeName]);
 
   // Browser-tab title follows the screen (longest path prefix wins, so
   // /store/materials resolves to "Raw Material Master", not "Store Dashboard").
