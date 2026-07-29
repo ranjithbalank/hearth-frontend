@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardCheck } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { NavIcon } from "../../design/NavIcon";
@@ -45,6 +46,7 @@ export function Approvals() {
   const toast = useToast();
   const ask = usePrompt();
   const nav = useNavigate();
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["approvals"],
     queryFn: async () =>
@@ -71,26 +73,33 @@ export function Approvals() {
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not complete", "error"),
   });
 
-  /** Consequential actions (releasing spend or stock) confirm first; the rest
-   *  are a single tap. */
-  async function approve(section: string, item: Item) {
+  /** Flipping the toggle approves / issues. Consequential actions (releasing
+   *  spend or stock) confirm first; the switch springs back if you cancel. */
+  async function flip(section: string, item: Item) {
     const meta = SECTION_META[section];
-    if (meta?.confirm === "money") {
-      const ok = await ask({
-        title: `Approve ${item.title}?`,
-        message: `Authorises spend of ${item.amount ? money(item.amount) : "this order"} — ${item.detail}.`,
-        confirm: true, confirmLabel: "Approve spend",
-      });
-      if (!ok) return;
-    } else if (meta?.confirm === "stock") {
-      const ok = await ask({
-        title: `Issue ${item.title}?`,
-        message: "Releases the stock from the store. This can't be undone here.",
-        confirm: true, confirmLabel: "Issue stock",
-      });
-      if (!ok) return;
+    setPendingId(`${section}:${item.id}`); // optimistic — the switch moves on tap
+    try {
+      if (meta?.confirm === "money") {
+        const ok = await ask({
+          title: `Approve ${item.title}?`,
+          message: `Authorises spend of ${item.amount ? money(item.amount) : "this order"} — ${item.detail}.`,
+          confirm: true, confirmLabel: "Approve spend",
+        });
+        if (!ok) { setPendingId(null); return; }
+      } else if (meta?.confirm === "stock") {
+        const ok = await ask({
+          title: `Issue ${item.title}?`,
+          message: "Releases the stock from the store. This can't be undone here.",
+          confirm: true, confirmLabel: "Issue stock",
+        });
+        if (!ok) { setPendingId(null); return; }
+      }
+      await act.mutateAsync({ section, id: item.id, decision: "approve" });
+    } catch {
+      /* onError surfaces the toast */
+    } finally {
+      setPendingId(null);
     }
-    act.mutate({ section, id: item.id, decision: "approve" });
   }
 
   async function reject(section: string, item: Item) {
@@ -158,7 +167,7 @@ export function Approvals() {
                           {money(it.amount)}
                         </div>
                       )}
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-3 shrink-0">
                         {meta.reject && (
                           <button className="btn-ghost text-xs py-1 text-clay"
                             disabled={act.isPending}
@@ -166,11 +175,13 @@ export function Approvals() {
                             Reject
                           </button>
                         )}
-                        <button className={`text-xs py-1 ${issue ? "btn-primary" : "btn-outline"}`}
+                        <ApproveToggle
+                          label={meta.approve}
+                          tone={issue ? "issue" : "approve"}
+                          on={pendingId === `${s.key}:${it.id}`}
                           disabled={act.isPending}
-                          onClick={() => approve(s.key, it)}>
-                          {meta.approve}
-                        </button>
+                          onFlip={() => flip(s.key, it)}
+                        />
                       </div>
                     </div>
                   ))}
@@ -181,5 +192,30 @@ export function Approvals() {
         </div>
       )}
     </div>
+  );
+}
+
+/** A switch that approves (or issues) on flip — one gesture instead of a button.
+ *  It carries its action as a label so it's never a mystery switch, and the
+ *  confirm dialog still guards the consequential flips (spend / stock). */
+function ApproveToggle({ label, tone, on, disabled, onFlip }: {
+  label: string; tone: "approve" | "issue"; on: boolean; disabled?: boolean; onFlip: () => void;
+}) {
+  const active = tone === "issue" ? "bg-amber" : "bg-success";
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onFlip}
+      className="group inline-flex items-center gap-2 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <span className="text-xs font-medium text-muted group-hover:text-ink transition-colors">{label}</span>
+      <span className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${on ? active : "bg-hairline"}`}>
+        <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${on ? "translate-x-5" : ""}`} />
+      </span>
+    </button>
   );
 }
