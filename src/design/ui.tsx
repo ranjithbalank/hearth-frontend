@@ -2,7 +2,7 @@ import { useIsFetching, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight, Minus, X } from "lucide-react";
-import { useEffect, useId, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 
 import { ErrorState } from "./ErrorState";
 
@@ -406,9 +406,10 @@ export function Modal({
   );
 }
 
-/** Segmented control with a sliding active-pill indicator. Drop-in for the
- *  many hand-rolled pill-toggle groups across the app (view switches, status
- *  filters) when you want the animated indicator instead of instant color swap. */
+/** Segmented control. The active option gets a solid ink pill drawn directly on
+ *  the button, so its white label always sits on a dark ground — an earlier
+ *  version used a separately-positioned indicator at a negative z-index, which
+ *  slipped behind the track and left the active label as white-on-light. */
 export function Tabs<T extends string>({
   value,
   onChange,
@@ -418,22 +419,19 @@ export function Tabs<T extends string>({
   onChange: (v: T) => void;
   options: { value: T; label: string }[];
 }) {
-  const uid = useId();
   return (
     <div className="inline-flex items-center gap-1 rounded-pill bg-hairline p-1">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={clsx("relative pill", value === o.value ? "text-white" : "text-body hover:text-ink")}
-        >
-          {value === o.value && (
-            <motion.span
-              layoutId={`tabs-active-${uid}`}
-              className="absolute inset-0 rounded-pill bg-ink -z-10"
-              transition={{ type: "spring", stiffness: 500, damping: 35 }}
-            />
+          className={clsx(
+            "pill transition-colors duration-150",
+            value === o.value
+              ? "bg-ink text-white shadow-sm"
+              : "text-body hover:text-ink hover:bg-white/70",
           )}
+        >
           {o.label}
         </button>
       ))}
