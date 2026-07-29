@@ -121,10 +121,10 @@ export function printInvoice(
     <div style="margin-top:14px; font-size:13px;">
       <b>Bill to:</b> ${esc(folio.guest_name)}${folio.room_number ? ` &nbsp;·&nbsp; Room ${esc(folio.room_number)}` : ""}
     </div>
-    <table>
+    <div className="overflow-x-auto"><table>
       <thead><tr><th>Description</th>${showType ? "<th>Type</th>" : ""}${showRate ? '<th class="r">GST %</th>' : ""}<th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th><th class="r">Amount</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="${colCount}">No charges</td></tr>`}</tbody>
-    </table>
+    </table></div>
     <div class="tot">
       <div><span>Taxable</span><span>${money(Number(folio.charges_total) - cgst - sgst)}</span></div>
       <div><span>CGST</span><span>${money(cgst)}</span></div>
@@ -176,7 +176,7 @@ export function printKot(order: Order, propertyName: string, override?: KotOverr
       <div class="muted kt">${esc(kotNo) || "#" + order.id} · ${order.table_name ? "Table " + esc(order.table_name) : esc(order.mode || "")}</div>
       <div class="muted kt">${new Date().toLocaleString("en-IN")}</div>
     </div>
-    <table class="kt"><tbody>${lines}</tbody></table>
+    <div className="overflow-x-auto"><table class="kt"><tbody>${lines}</tbody></table></div>
     <div class="foot kt">${esc(propertyName)} · expedite</div>
   </body></html>`;
   openAndPrint(html, 360);
@@ -197,10 +197,10 @@ export function printZReport(z: ZReport, propertyName: string) {
       <div><div class="brand">${esc(propertyName)}</div><div class="muted">Day-end (Z) settlement</div></div>
       <div class="doc"><h1 style="font-size:14px;">Z-REPORT</h1><div class="muted">${new Date().toLocaleDateString("en-IN")}</div></div>
     </div>
-    <table>
+    <div className="overflow-x-auto"><table>
       <thead><tr><th>Tender</th><th class="r">Txns</th><th class="r">Tips</th><th class="r">Amount</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="4">No collections</td></tr>'}</tbody>
-    </table>
+    </table></div>
     <div class="tot" style="width:100%;">
       <div><span>Total tips</span><span>${money(z.tips)}</span></div>
       <div class="grand"><span>Total collected</span><span>${money(z.total)}</span></div>

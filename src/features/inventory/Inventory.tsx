@@ -170,7 +170,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
         </button>
       </div>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Date / time</th>
@@ -198,7 +198,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
             ))}
             {!moves?.length && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted text-sm">No {title.toLowerCase()} in this period.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </>
   );
@@ -279,7 +279,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
             Raw material consumption — purchased vs consumed vs wasted (last {days} days)
           </div>
           <div className="card overflow-x-auto p-0">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
                 <tr>
                   <th className="text-left px-4 py-3">Material</th>
@@ -306,7 +306,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                 ))}
                 {!consumption?.rows.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">No consumption in this period.</td></tr>}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </>
       )}
@@ -317,7 +317,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
           noun="material" invalidate={["ingredients"]}
           hint="Onboarding many materials? Download the format, fill it in Excel (or export from your old system), and upload — opening stock is booked automatically, new categories/units are created for you." />
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">Code</th>
@@ -360,7 +360,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
         </>
       )}
@@ -411,7 +411,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
 
       {tab === "lowstock" && (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">Material</th>
@@ -444,13 +444,13 @@ export function Inventory({ fixedTab, tabGroup, title }: {
               ))}
               {!low.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted text-sm">Nothing below reorder level — stock is healthy.</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
       {tab === "expiry" && (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">Material</th>
@@ -481,7 +481,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
               })}
               {!expiring?.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-muted text-sm">Nothing expiring in the next 30 days.</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
         </div>
@@ -524,7 +524,7 @@ function StockCountSheet({ materials, onSaved, q, setQ }: {
         <span className="text-xs text-muted">Enter the physically counted quantity — the difference posts as a count movement.</span>
       </div>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Material</th>
@@ -560,7 +560,7 @@ function StockCountSheet({ materials, onSaved, q, setQ }: {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </>
   );

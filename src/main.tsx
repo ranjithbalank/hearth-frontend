@@ -32,3 +32,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </ErrorBoundary>
   </React.StrictMode>,
 );
+
+// Register the service worker so Hearth is installable as a standalone app
+// (desktop / mobile) and the shell survives a dropped connection. Only in a
+// prod build — in dev the Vite HMR socket must own the page.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      /* install is a progressive enhancement — ignore registration failure */
+    });
+  });
+}

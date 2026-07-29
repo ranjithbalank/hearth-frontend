@@ -219,7 +219,7 @@ export function Housekeeping() {
         </div>
       )}
 
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {ordered.map((r) => (
           <div key={r.id} className={`card p-4 ${r.cleaning_requested ? "ring-2 ring-clay/60" : ""}`}>
             <div className="flex items-center justify-between">

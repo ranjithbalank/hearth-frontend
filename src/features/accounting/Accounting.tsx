@@ -89,7 +89,7 @@ export function Accounting() {
               Print Z-report
             </button>
           </div>
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="text-muted text-xs uppercase">
               <tr><th className="text-left py-2">Tender</th><th className="text-right py-2">Txns</th><th className="text-right py-2">Tips</th><th className="text-right py-2">Amount</th></tr>
             </thead>
@@ -104,7 +104,7 @@ export function Accounting() {
               ))}
               {!dayend.tenders.length && <tr><td colSpan={4} className="py-3 text-center text-muted">No collections yet.</td></tr>}
             </tbody>
-          </table>
+          </table></div>
           <div className="flex justify-between border-t border-hairline pt-3 mt-2 font-semibold">
             <span>Total collected</span><span>{money(dayend.total)}</span>
           </div>

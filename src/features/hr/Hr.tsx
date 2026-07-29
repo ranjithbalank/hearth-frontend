@@ -231,7 +231,7 @@ export function Hr() {
 
       {tab === "roster" && (
         <Card className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="text-muted text-xs uppercase">
               <tr>
                 <th className="text-left py-2 pr-4">Employee</th>
@@ -276,7 +276,7 @@ export function Hr() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           <div className="flex gap-3 mt-3 text-xs text-muted">
             <span>M Morning</span><span>E Evening</span><span>N Night</span><span>O Off</span>
           </div>
@@ -305,7 +305,7 @@ export function Hr() {
             <span className="text-xs text-muted">Tap a mark for each employee — P present · ½ half day · L paid leave · A absent</span>
           </div>
           <Card className="p-0 overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <tbody>
                 {staff.filter((e) => e.status === "Active").map((e) => {
                   const current = att?.marks[String(e.id)];
@@ -331,7 +331,7 @@ export function Hr() {
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </Card>
         </>
       )}
@@ -417,7 +417,7 @@ function PayrollSheet({ payroll, month, setMonth, canManage }: {
       </div>
 
       <Card className="p-0 overflow-x-auto">
-        <table className="w-full text-sm whitespace-nowrap">
+        <div className="overflow-x-auto"><table className="w-full text-sm whitespace-nowrap">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Employee</th>
@@ -478,7 +478,7 @@ function PayrollSheet({ payroll, month, setMonth, canManage }: {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
       <div className="flex items-center gap-4 mt-3">
         <button className="btn-outline text-sm" onClick={() => exportCsv(payroll)}>Export CSV</button>
@@ -783,7 +783,7 @@ function AdvancesPanel({ employees, canManage }: { employees: Employee[]; canMan
         <Card className="text-sm text-muted">No {showSettled ? "" : "active "}advances or loans.</Card>
       ) : (
         <Card className="p-0 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">Employee</th>
@@ -827,7 +827,7 @@ function AdvancesPanel({ employees, canManage }: { employees: Employee[]; canMan
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </Card>
       )}
       <div className="text-xs text-muted mt-3">

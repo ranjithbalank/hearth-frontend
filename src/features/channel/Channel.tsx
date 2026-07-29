@@ -93,7 +93,7 @@ export function Channel() {
       </div>
 
       <Card className="mb-4 overflow-x-auto">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="text-muted text-xs uppercase">
             <tr>
               <th className="text-left py-2 pr-4">Room type</th>
@@ -116,7 +116,7 @@ export function Channel() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
 
       <Card>

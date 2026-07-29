@@ -104,7 +104,7 @@ export function Kds() {
       {!data?.length ? (
         <EmptyState title="No active tickets" hint="Fired KOTs appear here." />
       ) : (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {data.map((t) => {
             const mins = elapsedMins(t);
             const urgency =

@@ -112,7 +112,7 @@ export function Employees() {
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add employee</div>
-        <div className="grid grid-cols-4 gap-2 mb-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
           <input className="input" placeholder="Name" value={f.name} onChange={(e) => setF({ ...f, name: personName(e.target.value) })} />
           <select className="input" value={f.department} onChange={(e) => setF({ ...f, department: e.target.value })}>
             <option value="">Department…</option>
@@ -144,7 +144,7 @@ export function Employees() {
       </Card>
 
       <Card className="overflow-hidden p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Name</th>
@@ -247,7 +247,7 @@ export function Employees() {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );

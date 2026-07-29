@@ -196,7 +196,7 @@ function UsersPanel() {
         Add user
       </button>
 
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead className="text-muted text-xs uppercase">
           <tr>
             <th className="text-left py-2">Name</th><th className="text-left py-2">Username</th>
@@ -285,7 +285,7 @@ function UsersPanel() {
             );
           })}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }
@@ -532,7 +532,7 @@ function InvoiceBillTemplatePanel() {
             </div>
           </div>
           <div className="border-t-2 border-pine my-2" />
-          <table className="w-full text-[10px]">
+          <div className="overflow-x-auto"><table className="w-full text-[10px]">
             <thead>
               <tr className="text-muted border-b border-hairline">
                 <th className="text-left font-normal py-1">Description</th>
@@ -555,7 +555,7 @@ function InvoiceBillTemplatePanel() {
                 <td className="text-right py-1">4,480.00</td>
               </tr>
             </tbody>
-          </table>
+          </table></div>
           <div className={`border-t border-hairline pt-2 mt-2 text-[10px] text-muted text-${footerAlign}`}>
             {letterheadPreviewLines(footer)}
             <div className="text-center mt-1 opacity-60">{property?.name} · computer-generated, no signature required</div>
@@ -655,7 +655,7 @@ function PosBillTemplatePanel() {
           <div className="text-[9px] text-muted">Table 4</div>
           <div className={`text-[9px] text-muted mt-1 text-${headerAlign}`}>{letterheadPreviewLines(header)}</div>
           <div className="border-t border-pine my-2" />
-          <table className="w-full text-[9px] text-left">
+          <div className="overflow-x-auto"><table className="w-full text-[9px] text-left">
             <thead>
               <tr className="text-muted border-b border-hairline">
                 <th className="font-normal py-1">Item</th>
@@ -672,7 +672,7 @@ function PosBillTemplatePanel() {
                 <td className="text-right py-1">800.00</td>
               </tr>
             </tbody>
-          </table>
+          </table></div>
           <div className={`border-t border-hairline pt-2 mt-2 text-[9px] text-muted text-${footerAlign}`}>
             {letterheadPreviewLines(footer)}
             <div className="mt-1 opacity-60">Thank you · {property?.name}</div>

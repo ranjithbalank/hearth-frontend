@@ -35,7 +35,7 @@ export function TaxGst() {
         action={<button className="btn-primary" onClick={exportCsv}>Export GSTR-1</button>}
       />
       <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Rate</th>
@@ -59,7 +59,7 @@ export function TaxGst() {
             ))}
             {!data.length && <tr><td colSpan={6} className="px-4 py-6 text-center text-muted">No taxable sales yet.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

@@ -68,7 +68,7 @@ export function AuditLogPanel() {
       </div>
       {isLoading ? <Spinner /> : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="text-muted text-xs uppercase">
               <tr>
                 <th className="text-left py-2 pr-3">When</th>
@@ -99,7 +99,7 @@ export function AuditLogPanel() {
                 <tr><td colSpan={5} className="py-6 text-center text-muted text-sm">No entries match.</td></tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
     </Card>

@@ -111,7 +111,7 @@ export function RoleMatrix() {
           Full screen reclaims the app sidebar/header, so the table gets most
           of the viewport instead of stopping short for chrome that's gone. */}
       <Card className={`overflow-auto !p-0 ${fullScreen ? "max-h-[calc(100vh-180px)]" : "max-h-[calc(100vh-230px)]"}`}>
-        <table className="text-sm border-separate border-spacing-0 min-w-full">
+        <div className="overflow-x-auto"><table className="text-sm border-separate border-spacing-0 min-w-full">
           <thead>
             <tr>
               <th className="text-left px-4 py-3 sticky left-0 top-0 z-30 bg-cream min-w-[210px] text-xs uppercase tracking-wide text-muted border-b border-r border-hairline">
@@ -152,7 +152,7 @@ export function RoleMatrix() {
               </Fragment>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
 
       <p className="text-xs text-muted mt-3">

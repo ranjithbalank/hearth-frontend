@@ -210,7 +210,7 @@ export function Crm() {
       </div>
 
       <Card className="overflow-hidden p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Name</th>
@@ -265,7 +265,7 @@ export function Crm() {
               </td></tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );
@@ -318,7 +318,7 @@ function ProfileDrawer({ customer, onClose }: { customer: Customer; onClose: () 
         </div>
         {isLoading || !data ? <Spinner /> : (
           <>
-            <div className="grid grid-cols-4 gap-2 my-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 my-4">
               <div className="card p-3 text-center">
                 <div className="stat-num text-xl">{data.stats.stays}</div>
                 <div className="text-[11px] text-muted">Stays</div>
@@ -555,7 +555,7 @@ function TiersPanel() {
         <button className="btn-primary" disabled={!f.name.trim() || create.isPending}
           onClick={() => create.mutate()}>Add</button>
       </div>
-      <table className="w-full text-sm mb-6">
+      <div className="overflow-x-auto"><table className="w-full text-sm mb-6">
         <thead className="text-muted text-xs uppercase">
           <tr>
             <th className="text-left py-2">Tier</th>
@@ -585,7 +585,7 @@ function TiersPanel() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }
@@ -641,7 +641,7 @@ function RewardsPanel() {
         <button className="btn-primary" disabled={!f.name.trim() || !f.points_cost || !f.value || create.isPending}
           onClick={() => create.mutate()}>Add</button>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead className="text-muted text-xs uppercase">
           <tr>
             <th className="text-left py-2">Reward</th>
@@ -671,7 +671,7 @@ function RewardsPanel() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }

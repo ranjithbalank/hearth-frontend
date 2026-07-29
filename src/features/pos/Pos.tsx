@@ -1052,7 +1052,7 @@ export function Pos() {
         <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={() => setShowTablePick(false)}>
           <div className="card p-5 w-[560px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="font-display text-xl mb-4">Switch table</div>
-            <div className="grid grid-cols-4 gap-2 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
               {tables?.map((t) => (
                 <button
                   key={t.id}

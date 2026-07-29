@@ -417,7 +417,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main
         ref={mainRef}
         onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
-        className="flex-1 overflow-y-auto flex flex-col"
+        className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden flex flex-col"
       >
         <header
           className={`flex items-center gap-3 px-6 py-3 border-b border-hairline bg-surface/80 backdrop-blur sticky top-0 z-10 transition-shadow duration-200 ${

@@ -45,7 +45,7 @@ export function GstMaster() {
       </Card>
 
       <Card className="overflow-hidden p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Slab</th>
@@ -64,7 +64,7 @@ export function GstMaster() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );

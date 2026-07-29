@@ -19,7 +19,7 @@ export function Vendors() {
     <div>
       <PageHeader icon={<Handshake size={20} />} title="Vendors" subtitle="Service vendors · contracts & terms" />
       <Card className="overflow-hidden p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Vendor</th>
@@ -40,7 +40,7 @@ export function Vendors() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );

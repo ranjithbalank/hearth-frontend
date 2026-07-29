@@ -92,7 +92,7 @@ function SimpleMasterPanel({ title, subtitle, endpoint, queryKey, placeholder }:
         <button className="btn-primary" disabled={!name.trim() || create.isPending}
           onClick={() => create.mutate()}>Add</button>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead className="text-muted text-xs uppercase">
           <tr><th className="text-left py-2">Name</th><th className="text-right py-2">Status</th><th className="w-16" /></tr>
         </thead>
@@ -112,7 +112,7 @@ function SimpleMasterPanel({ title, subtitle, endpoint, queryKey, placeholder }:
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }
@@ -194,7 +194,7 @@ export function PaymentMethodsPanel() {
         <button className="btn-primary" disabled={!f.name.trim() || create.isPending}
           onClick={() => create.mutate()}>Add</button>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead className="text-muted text-xs uppercase">
           <tr>
             <th className="text-left py-2">Tender</th>
@@ -233,7 +233,7 @@ export function PaymentMethodsPanel() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }
@@ -287,7 +287,7 @@ export function KitchenStationsPanel() {
         <button className="btn-primary" disabled={!f.name.trim() || create.isPending}
           onClick={() => create.mutate()}>Add</button>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead className="text-muted text-xs uppercase">
           <tr>
             <th className="text-left py-2">Station</th>
@@ -324,7 +324,7 @@ export function KitchenStationsPanel() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }
@@ -377,7 +377,7 @@ export function ChecklistItemsPanel() {
         <button className="btn-primary" disabled={!f.label.trim() || create.isPending}
           onClick={() => create.mutate()}>Add</button>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead className="text-muted text-xs uppercase">
           <tr>
             <th className="text-left py-2">Checklist item</th>
@@ -403,7 +403,7 @@ export function ChecklistItemsPanel() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }
@@ -454,7 +454,7 @@ export function LinenItemsPanel() {
         <button className="btn-primary" disabled={!f.name.trim() || create.isPending}
           onClick={() => create.mutate()}>Add</button>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead className="text-muted text-xs uppercase">
           <tr>
             <th className="text-left py-2">Linen item</th>
@@ -480,7 +480,7 @@ export function LinenItemsPanel() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }

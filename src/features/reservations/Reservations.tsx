@@ -160,7 +160,7 @@ export function Reservations() {
       )}
 
       <div className="card overflow-hidden p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Guest</th>
@@ -237,7 +237,7 @@ export function Reservations() {
               </td></tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );
@@ -270,7 +270,7 @@ function ChangeRoomModal({
       ) : !opts?.length ? (
         <div className="text-sm text-muted text-center py-6">No alternative rooms available right now.</div>
       ) : (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {opts.map((o) => (
             <button key={o.id} className="card-interactive p-3 text-center" onClick={() => onPick(o.id)}>
               <div className="font-display text-lg">{o.number}</div>

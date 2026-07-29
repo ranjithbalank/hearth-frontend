@@ -68,7 +68,7 @@ export function BarTableMaster() {
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add bar table</div>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <input className="input" placeholder="Name (e.g. B7)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input className="input" placeholder="Section" value={form.section} onChange={(e) => setForm({ ...form, section: e.target.value })} />
           <input className="input" inputMode="numeric" placeholder="Seats" value={form.seats} onChange={(e) => setForm({ ...form, seats: digits(e.target.value, 3) })} />

@@ -195,7 +195,7 @@ export function Reports() {
                   <BarChart bars={report.bars} />
                 ) : (
                   <div className="overflow-x-auto rounded-card border border-hairline max-w-xl">
-                    <table className="w-full text-sm">
+                    <div className="overflow-x-auto"><table className="w-full text-sm">
                       <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
                         <tr>
                           <th className="px-4 py-2.5 text-left">{report.series_label}</th>
@@ -212,7 +212,7 @@ export function Reports() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </table></div>
                   </div>
                 )}
 
@@ -223,7 +223,7 @@ export function Reports() {
                       Records ({report.records.rows.length})
                     </div>
                     <div className="overflow-x-auto rounded-card border border-hairline">
-                      <table className="w-full text-sm">
+                      <div className="overflow-x-auto"><table className="w-full text-sm">
                         <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
                           <tr>
                             {report.records.columns.map((c) => (
@@ -248,7 +248,7 @@ export function Reports() {
                               className="px-4 py-6 text-center text-muted text-sm">No records yet.</td></tr>
                           )}
                         </tbody>
-                      </table>
+                      </table></div>
                     </div>
                   </div>
                 )}
@@ -260,7 +260,7 @@ export function Reports() {
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Quick exports</div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {QUICK_EXPORTS.filter((r) => allowed.has(r.key)).map((r) => (
             <div key={r.key} className="rounded-card border border-hairline p-3">
               <div className="font-medium text-sm mb-2">{r.label}</div>

@@ -180,7 +180,7 @@ export function NewRawMaterial() {
         Items to add ({staged.length})
       </div>
       <div className="card overflow-x-auto p-0 mb-4">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Material</th>
@@ -219,7 +219,7 @@ export function NewRawMaterial() {
               </td></tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
 
       <div className="flex justify-end gap-2">

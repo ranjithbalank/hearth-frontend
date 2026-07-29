@@ -1,11 +1,24 @@
 {
   "name": "Hearth — Hotel & Restaurant OS",
   "short_name": "Hearth",
+  "description": "Run your hotel, restaurant and banquets from one system — front desk, POS, kitchen, housekeeping, inventory and live analytics.",
   "start_url": "/",
+  "scope": "/",
+  "id": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#F5F7FA",
   "theme_color": "#0F1E33",
+  "categories": ["business", "productivity"],
   "icons": [
-    { "src": "/hearth.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    { "src": "/hearth.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/hearth.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Dashboard", "short_name": "Dashboard", "url": "/dashboard" },
+    { "name": "Front Desk", "short_name": "Front Desk", "url": "/frontdesk" },
+    { "name": "Restaurant POS", "short_name": "POS", "url": "/pos" },
+    { "name": "Reservations", "short_name": "Bookings", "url": "/reservations" }
   ]
 }

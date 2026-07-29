@@ -41,7 +41,7 @@ export function Booking() {
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
       {stats && (
-        <div className="grid grid-cols-4 gap-4 mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
           <Stat tone="dark" label="Direct share" value={`${stats.direct_share_pct}%`} />
           <Stat label="Direct bookings" value={stats.direct_bookings} />
           <Stat label="OTA bookings" value={stats.ota_bookings} />

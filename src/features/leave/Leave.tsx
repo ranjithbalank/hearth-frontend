@@ -132,7 +132,7 @@ function MyPayslips() {
   }
   return (
     <Card className="p-0 overflow-hidden">
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto"><table className="w-full text-sm">
         <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
           <tr>
             <th className="text-left px-4 py-3">Month</th>
@@ -158,7 +158,7 @@ function MyPayslips() {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </Card>
   );
 }
@@ -475,7 +475,7 @@ function TypesMaster() {
   return (
     <>
       <Card className="p-0 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Type</th>
@@ -500,7 +500,7 @@ function TypesMaster() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </Card>
       <button className="btn-outline mt-3 text-sm" onClick={() => setDraft({ ...EMPTY_TYPE })}>
         ＋ Add leave type

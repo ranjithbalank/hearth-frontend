@@ -81,7 +81,7 @@ export function BranchMaster() {
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add branch</div>
-        <div className="grid grid-cols-4 gap-2 mb-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
           <input className="input" placeholder="Name (e.g. Hearth Grand — Downtown)" value={f.name}
             onChange={(e) => setF({ ...f, name: e.target.value })} />
           <input className="input font-mono" placeholder="Code (e.g. DTN)" value={f.code}
@@ -104,7 +104,7 @@ export function BranchMaster() {
       </Card>
 
       <Card className="overflow-hidden p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Code</th>
@@ -187,7 +187,7 @@ export function BranchMaster() {
               <tr><td colSpan={8} className="px-4 py-8 text-center text-muted">No branches yet — add the first one above.</td></tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </Card>
     </div>
   );

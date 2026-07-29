@@ -127,7 +127,7 @@ export function Customers() {
         <input className="input ml-auto w-56" placeholder="Search name or mobile…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
       <Card className="overflow-hidden p-0">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
             <tr>
               <th className="text-left px-4 py-3">Name</th>
@@ -160,7 +160,7 @@ export function Customers() {
             ))}
             {!rows.length && <tr><td colSpan={7} className="px-4 py-6 text-center text-muted">No customers.</td></tr>}
           </tbody>
-        </table>
+        </table></div>
       </Card>
 
       {viewId !== null && <GuestModal id={viewId} onClose={() => setViewId(null)} />}

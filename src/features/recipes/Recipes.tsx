@@ -195,7 +195,7 @@ export function Recipes() {
 
       {tab === "mapping" && (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
               <tr>
                 <th className="text-left px-4 py-3">Menu item</th>
@@ -241,7 +241,7 @@ export function Recipes() {
               ))}
               {!mapping?.length && <tr><td colSpan={canSeeCost ? 6 : 5} className="px-4 py-8 text-center text-muted text-sm">No menu items yet.</td></tr>}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -259,7 +259,7 @@ export function Recipes() {
             </span>
           </div>
           <div className="card overflow-x-auto p-0">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="w-full text-sm">
               <thead className="bg-cream text-muted text-xs uppercase tracking-wide">
                 <tr>
                   <th className="text-left px-4 py-3">Dish</th>
@@ -294,7 +294,7 @@ export function Recipes() {
                   </td></tr>
                 )}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </>
       )}

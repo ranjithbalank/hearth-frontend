@@ -423,7 +423,7 @@ export function Folios() {
               </div>
             )}
 
-            <table className="w-full text-sm mb-4">
+            <div className="overflow-x-auto"><table className="w-full text-sm mb-4">
               <thead className="text-muted text-xs uppercase">
                 <tr>
                   <th className="text-left py-2">Charge</th>
@@ -468,7 +468,7 @@ export function Folios() {
                   <tr><td colSpan={4} className="py-4 text-center text-muted">No charges posted yet.</td></tr>
                 )}
               </tbody>
-            </table>
+            </table></div>
 
             <div className="flex justify-between border-t border-hairline pt-3 text-sm">
               <span className="text-muted">Charges</span><span>{money(sel.charges_total)}</span>
