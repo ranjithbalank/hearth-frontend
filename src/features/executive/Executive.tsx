@@ -25,6 +25,8 @@ interface ExecData {
   trend?: TrendData;
   forward?: Forward;
   receivables_detail?: Receivables;
+  channels?: { label: string; value: number }[];
+  top_receivables?: { name: string; amount: string; type: string }[];
 }
 
 const TABS: { key: View; label: string }[] = [
@@ -183,7 +185,73 @@ function AllView({ data }: { data: ExecData }) {
         <ForwardCard forward={data.forward} />
         <ReceivablesCard rec={data.receivables_detail} fallback={data.kpis.receivables} />
       </div>
+
+      {/* Acquisition mix + credit concentration — where business comes from and
+          who owes us, the analytical layer the operational dashboard never carries. */}
+      <div className="grid md:grid-cols-2 gap-4 mt-4 items-start">
+        <ChannelsCard channels={data.channels} />
+        <TopReceivablesCard rows={data.top_receivables} />
+      </div>
     </>
+  );
+}
+
+const CHANNEL_COLORS = ["#2563EB", "#0891B2", "#D97706", "#7C3AED", "#DC2626"];
+
+function ChannelsCard({ channels }: { channels?: { label: string; value: number }[] }) {
+  if (!channels?.length) return null;
+  const total = channels.reduce((a, c) => a + c.value, 0) || 1;
+  return (
+    <Card>
+      <div className="font-semibold">Booking channels</div>
+      <div className="text-xs text-muted mb-4">Share of confirmed bookings by source</div>
+      <div className="space-y-3">
+        {channels.map((c, i) => {
+          const pct = Math.round((c.value / total) * 100);
+          return (
+            <div key={c.label}>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-body">{c.label}</span>
+                <span className="text-muted tabular-nums">{c.value} · {pct}%</span>
+              </div>
+              <div className="h-2 rounded-pill bg-hairline overflow-hidden">
+                <div className="h-full rounded-pill" style={{ width: `${pct}%`, background: CHANNEL_COLORS[i % CHANNEL_COLORS.length] }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+function TopReceivablesCard({ rows }: { rows?: { name: string; amount: string; type: string }[] }) {
+  if (!rows?.length) return null;
+  const max = Math.max(...rows.map((r) => num(r.amount)), 1);
+  return (
+    <Card>
+      <div className="font-semibold">Top accounts receivable</div>
+      <div className="text-xs text-muted mb-4">Largest balances owed to us</div>
+      <div className="space-y-3">
+        {rows.map((r, i) => (
+          <div key={`${r.name}-${i}`} className="flex items-center gap-3">
+            <span className="w-4 text-xs text-muted tabular-nums text-right shrink-0">{i + 1}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-medium text-ink truncate">{r.name}</span>
+                <span className="text-sm font-semibold tabular-nums text-ink shrink-0">{money(r.amount)}</span>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="flex-1 h-1.5 rounded-pill bg-hairline overflow-hidden">
+                  <div className="h-full rounded-pill bg-gradient-primary" style={{ width: `${Math.round((num(r.amount) / max) * 100)}%` }} />
+                </div>
+                <span className="text-[10px] uppercase tracking-wide text-muted shrink-0">{r.type}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
