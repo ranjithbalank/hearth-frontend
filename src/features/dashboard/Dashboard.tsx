@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowRight, Bell, CalendarRange, ChefHat, DoorOpen, LayoutDashboard, Percent, Receipt, Sparkles, TrendingUp, UtensilsCrossed, Wallet } from "lucide-react";
+import { ArrowRight, Bell, CalendarRange, ChefHat, DoorOpen, LayoutDashboard, LogOut, PartyPopper, Percent, Receipt, Sparkles, TrendingUp, UtensilsCrossed, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Badge, Card, PageHeader, Spinner, Stat, Tabs } from "../../design/ui";
@@ -20,7 +20,21 @@ interface DashboardData {
   rooms?: { occupancy_pct: number; adr: number; revpar: number; occupied: number; rooms_total: number; room_revenue: string; available: number; dirty: number; ooo: number };
   fnb?: { fnb_sales: string; order_count: number; by_mode: Record<string, string> };
   receivables?: { total: string; corporate: string; corporate_accounts: number };
-  trend?: { days: string[]; rooms?: number[]; fnb?: number[] };
+  trend?: { days: string[]; rooms?: number[]; fnb?: number[]; banquets?: number[] };
+}
+
+/** Last-7-days revenue and the % change vs the previous 7, read straight off
+ *  the daily trend series the dashboard already returns — so an owner sees
+ *  momentum ("▲ 12% vs last week"), not just a running total. */
+function weekOnWeek(trend?: DashboardData["trend"]) {
+  if (!trend?.days?.length) return { total: 0, delta: undefined as number | undefined };
+  const series = [trend.rooms, trend.fnb, trend.banquets].filter(Boolean) as number[][];
+  const n = trend.days.length;
+  const sum = (a: number, b: number) =>
+    series.reduce((s, arr) => s + arr.slice(a, b).reduce((x, v) => x + (v || 0), 0), 0);
+  const last7 = sum(Math.max(0, n - 7), n);
+  const prev7 = sum(Math.max(0, n - 14), Math.max(0, n - 7));
+  return { total: last7, delta: prev7 > 0 ? Math.round(((last7 - prev7) / prev7) * 100) : undefined };
 }
 
 // Whoever can sign off a Chef-proposed dish gets a standing reminder here —
@@ -194,14 +208,29 @@ function TodayPanel({
     queryFn: async () => (await api.get<{ count: number; alerts: Alert[] }>("/notifications/")).data,
     enabled: showNotif,
   });
+  // Due-out (departures) — same source Front Desk uses: in-house stays whose
+  // checkout date has arrived.
+  const { data: allRes } = useQuery({
+    queryKey: ["reservations"],
+    queryFn: async () => (await api.get<Reservation[]>("/reservations/")).data,
+    enabled: hasRooms,
+  });
+  const showBanquets = canAccess("banquets");
+  const { data: banq } = useQuery({
+    queryKey: ["banquets"],
+    queryFn: async () => (await api.get<{ events: { event_date: string; status: string }[] }>("/banquets/")).data,
+    enabled: showBanquets,
+  });
 
   if (!hasRooms && !showNotif) return null;
 
   const today = new Date().toISOString().slice(0, 10);
   const todaysArrivals = (arrivals ?? []).filter((a) => a.checkin_date <= today);
+  const dueOut = (allRes ?? []).filter((r) => r.status === "in_house" && r.checkout_date <= today).length;
+  const banquetsToday = (banq?.events ?? []).filter((e) => e.event_date === today).length;
 
   return (
-    <Card className="h-full flex flex-col gap-5">
+    <Card className="h-full flex flex-col gap-4">
       <div className="font-semibold">Today at a glance</div>
 
       {hasRooms && (
@@ -226,6 +255,24 @@ function TodayPanel({
               )}
             </div>
           ) : <div className="text-xs text-muted">No arrivals due today</div>}
+        </button>
+      )}
+
+      {hasRooms && (
+        <button onClick={() => nav("/folios")} className="text-left group border-t border-hairline pt-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <LogOut size={15} className={dueOut ? "text-info shrink-0" : "text-muted shrink-0"} /> Due out today
+          </div>
+          <Badge tone={dueOut ? "info" : "muted"}>{dueOut}</Badge>
+        </button>
+      )}
+
+      {showBanquets && (
+        <button onClick={() => nav("/banquets")} className="text-left group border-t border-hairline pt-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <PartyPopper size={15} className={banquetsToday ? "text-gold-700 shrink-0" : "text-muted shrink-0"} /> Banquets today
+          </div>
+          <Badge tone={banquetsToday ? "gold" : "muted"}>{banquetsToday}</Badge>
         </button>
       )}
 
@@ -287,6 +334,27 @@ function ProportionRow({ label, display, pct, fill }: { label: string; display: 
   );
 }
 
+/** Compact secondary stat — lighter than the headline KPI tiles, with an
+ *  optional week-on-week delta pill. */
+function MiniStat({ label, value, sub, delta }: { label: string; value: string; sub?: string; delta?: number }) {
+  return (
+    <Card className="!p-4 animate-fade-in-up">
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <div className="stat-num text-xl">{value}</div>
+        {delta !== undefined && (
+          <span className={`pill text-[10px] gap-0.5 ${
+            delta > 0 ? "bg-success-50 text-success" : delta < 0 ? "bg-clay-50 text-clay" : "bg-hairline text-muted"
+          }`}>
+            {delta > 0 ? "▲" : delta < 0 ? "▼" : "–"} {Math.abs(delta) > 999 ? ">999" : Math.abs(delta)}%
+          </span>
+        )}
+      </div>
+      <div className="text-xs text-muted mt-1">{label}</div>
+      {sub && <div className="text-[11px] text-muted mt-0.5">{sub}</div>}
+    </Card>
+  );
+}
+
 function AnalyticalView({
   data,
   pendingDishes,
@@ -300,11 +368,25 @@ function AnalyticalView({
   const rooms = data.rooms;
   const fnb = data.fnb;
   const roomsTotal = rooms?.rooms_total || 0;
+  const fnbRev = fnb ? num(fnb.fnb_sales) : 0;
+  const covers = fnb?.order_count ?? 0;
+  const aov = covers ? fnbRev / covers : 0;
+  const wow = weekOnWeek(data.trend);
+
+  const miniStats = [
+    { label: "Revenue · last 7 days", value: money(wow.total), delta: wow.delta },
+    fnb && { label: "Covers", value: String(covers), sub: `avg check ${money(aov)}` },
+    rooms && { label: "Available to sell", value: String(rooms.available), sub: `of ${roomsTotal} rooms` },
+    rooms && { label: "Needs cleaning", value: String(rooms.dirty + rooms.ooo), sub: "dirty / out of order" },
+  ].filter(Boolean) as { label: string; value: string; sub?: string; delta?: number }[];
 
   return (
     <>
+      {/* Fast actions first — a manager reaches these in one tap, no scroll. */}
+      <QuickActions hasRooms={!!rooms} hasFnb={!!fnb} />
+
       {/* Drill-through KPI row — tap a metric to jump to where you act on it. */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
         {rooms && (
           <>
             <button
@@ -330,6 +412,15 @@ function AnalyticalView({
         )}
       </div>
 
+      {/* Secondary metrics band — the numbers an owner scans after the headline KPIs. */}
+      {miniStats.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+          {miniStats.map((m, i) => (
+            <MiniStat key={i} {...m} />
+          ))}
+        </div>
+      )}
+
       {/* Revenue chart + a single "what needs me" attention hub */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 items-stretch">
         <div className="lg:col-span-2">
@@ -343,12 +434,9 @@ function AnalyticalView({
         />
       </div>
 
-      {/* One interactive breakdown (tabbed) + compact quick actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 items-stretch">
-        <div className="lg:col-span-2">
-          <BreakdownCard data={data} />
-        </div>
-        <QuickActions hasRooms={!!rooms} hasFnb={!!fnb} />
+      {/* Interactive breakdown (tabbed) — full width now actions moved up top */}
+      <div className="mt-4">
+        <BreakdownCard data={data} />
       </div>
     </>
   );
@@ -414,39 +502,35 @@ function BreakdownCard({ data }: { data: DashboardData }) {
   );
 }
 
-/** Compact one-tap jumps to the screens a manager lands on next. */
+/** Fast one-tap jumps — a compact horizontal bar at the TOP of the dashboard,
+ *  so the screens a manager reaches for are a single click away, not a scroll. */
 function QuickActions({ hasRooms, hasFnb }: { hasRooms: boolean; hasFnb: boolean }) {
   const nav = useNavigate();
   const { canAccess } = useApp();
   const actions = [
-    hasRooms && canAccess("frontdesk") && { icon: DoorOpen, label: "Front Desk", desc: "Arrivals & folios", to: "/frontdesk", chip: "bg-pine-50 text-pine" },
-    hasRooms && canAccess("reservations") && { icon: CalendarRange, label: "Reservations", desc: "Bookings & availability", to: "/reservations", chip: "bg-info-50 text-info" },
-    hasFnb && canAccess("pos") && { icon: UtensilsCrossed, label: "Restaurant POS", desc: "Orders, KOTs & settle", to: "/pos", chip: "bg-clay-50 text-clay" },
-    hasRooms && canAccess("housekeeping") && { icon: Sparkles, label: "Housekeeping", desc: "Room turnaround", to: "/housekeeping", chip: "bg-gold-50 text-gold-700" },
-  ].filter(Boolean) as { icon: typeof DoorOpen; label: string; desc: string; to: string; chip: string }[];
+    hasRooms && canAccess("frontdesk") && { icon: DoorOpen, label: "Front Desk", to: "/frontdesk", chip: "bg-pine-50 text-pine" },
+    hasRooms && canAccess("reservations") && { icon: CalendarRange, label: "Reservations", to: "/reservations", chip: "bg-info-50 text-info" },
+    hasRooms && canAccess("livegrid") && { icon: LayoutDashboard, label: "Live Grid", to: "/livegrid", chip: "bg-pine-50 text-pine" },
+    hasFnb && canAccess("pos") && { icon: UtensilsCrossed, label: "Restaurant POS", to: "/pos", chip: "bg-clay-50 text-clay" },
+    hasFnb && canAccess("kds") && { icon: ChefHat, label: "Kitchen", to: "/kds", chip: "bg-amber-50 text-amber-600" },
+    hasRooms && canAccess("housekeeping") && { icon: Sparkles, label: "Housekeeping", to: "/housekeeping", chip: "bg-gold-50 text-gold-700" },
+  ].filter(Boolean) as { icon: typeof DoorOpen; label: string; to: string; chip: string }[];
   if (!actions.length) return null;
   return (
-    <Card className="h-full">
-      <div className="font-semibold mb-3">Quick actions</div>
-      <div className="space-y-2">
-        {actions.map((a) => (
-          <button
-            key={a.to}
-            onClick={() => nav(a.to)}
-            className="group w-full flex items-center gap-3 rounded-xl border border-hairline px-3 py-2.5 text-left transition-all duration-150 hover:border-pine-200 hover:bg-cream"
-          >
-            <span className={`shrink-0 grid place-items-center w-9 h-9 rounded-xl ${a.chip}`}>
-              <a.icon size={17} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="font-medium text-sm">{a.label}</div>
-              <div className="text-xs text-muted truncate">{a.desc}</div>
-            </div>
-            <ArrowRight size={15} className="text-muted shrink-0 transition-transform group-hover:translate-x-1" />
-          </button>
-        ))}
-      </div>
-    </Card>
+    <div className="flex flex-wrap items-center gap-2">
+      {actions.map((a) => (
+        <button
+          key={a.to}
+          onClick={() => nav(a.to)}
+          className="group flex items-center gap-2 rounded-xl border border-hairline bg-surface px-3.5 py-2 text-sm font-medium transition-all duration-150 hover:border-pine-200 hover:bg-cream hover:-translate-y-0.5 active:translate-y-0"
+        >
+          <span className={`shrink-0 grid place-items-center w-7 h-7 rounded-lg ${a.chip}`}>
+            <a.icon size={15} />
+          </span>
+          {a.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
