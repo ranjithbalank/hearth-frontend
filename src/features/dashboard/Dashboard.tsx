@@ -402,7 +402,9 @@ function AnalyticalView({
       {/* Fast actions first — a manager reaches these in one tap, no scroll. */}
       <QuickActions hasRooms={!!rooms} hasFnb={!!fnb} />
 
-      {/* Drill-through KPI row — tap a metric to jump to where you act on it. */}
+      {/* KPI row — Occupancy and F&B drill through to where you act on them;
+          ADR / RevPAR are computed rates with no single screen to act on, so
+          they're display-only (no false affordance). */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
         {rooms && (
           <>
@@ -420,8 +422,8 @@ function AnalyticalView({
                 <Percent size={15} className="text-white/70" />
               </RadialGauge>
             </button>
-            <Stat delayMs={60} onClick={() => nav("/reports")} icon={<Wallet size={16} />} label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
-            <Stat delayMs={120} onClick={() => nav("/reports")} icon={<TrendingUp size={16} />} label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
+            <Stat delayMs={60} icon={<Wallet size={16} />} label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
+            <Stat delayMs={120} icon={<TrendingUp size={16} />} label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
           </>
         )}
         {fnb && (
