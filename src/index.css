@@ -59,6 +59,24 @@
   .pill {
     @apply inline-flex items-center rounded-pill text-xs font-bold px-2.5 py-1 transition-colors duration-150;
   }
+  /* Interactive filter / tab chip — bigger tap target and a defined edge so it
+     doesn't read as a flat little tag. Pair .chip with .chip-on / .chip-off. */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-pill text-[13px] font-semibold px-3.5 py-1.5
+      border transition-all duration-150 cursor-pointer select-none
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .chip-on {
+    @apply bg-ink text-white border-ink shadow-sm;
+  }
+  .chip-off {
+    @apply bg-surface text-muted border-hairline hover:text-ink hover:border-pine-200 hover:bg-cream;
+  }
+  /* Segmented-control option (sits inside a rounded-pill bg-hairline track) —
+     same larger size as a chip but borderless, since the track is its frame. */
+  .seg {
+    @apply rounded-pill text-sm font-semibold px-4 py-1.5 transition-colors duration-150 cursor-pointer;
+  }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold
       text-sm px-4 py-2 transition-all duration-150 ease-smooth disabled:opacity-50

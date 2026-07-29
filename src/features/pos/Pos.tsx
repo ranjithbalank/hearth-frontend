@@ -786,12 +786,12 @@ export function Pos() {
           {/* Mobile: categories as a swipeable chip row instead of the rail. */}
           <div className="flex lg:hidden items-center gap-1 mb-3 overflow-x-auto pb-1 rounded-pill bg-hairline p-1">
             <button onClick={() => setCat(null)}
-              className={`pill shrink-0 ${!cat ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+              className={`seg shrink-0 ${!cat ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
               All
             </button>
             {cats?.map((c) => (
               <button key={c.id} onClick={() => setCat(c.id)}
-                className={`pill shrink-0 ${cat === c.id ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+                className={`seg shrink-0 ${cat === c.id ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
                 {c.name}
               </button>
             ))}
@@ -811,7 +811,7 @@ export function Pos() {
                   <button
                     key={d}
                     onClick={() => setDiet(diet === d ? "" : d)}
-                    className={`pill flex items-center gap-1.5 ${active ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}
+                    className={`seg flex items-center gap-1.5 ${active ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}
                   >
                     <span className={`h-2 w-2 rounded-full ${d === "veg" ? "bg-pine" : d === "egg" ? "bg-amber-500" : "bg-clay"}`} />
                     {d === "veg" ? "Veg" : d === "egg" ? "Egg" : "Non-veg"}
@@ -1261,7 +1261,7 @@ function FinalBillModal({
               <span className="text-muted">Send bill via</span>
               {(["sms", "whatsapp"] as const).map((ch) => (
                 <button key={ch} onClick={() => setReceipt(ch)}
-                  className={`pill ${receipt === ch ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+                  className={`chip ${receipt === ch ? "chip-on" : "chip-off"}`}>
                   {ch === "sms" ? "SMS" : "💬 WhatsApp"}
                 </button>
               ))}
@@ -1690,7 +1690,7 @@ function ReserveModal({ tables, onDone, onCancel }: { tables: Table[]; onDone: (
         <div className="grid grid-cols-2 gap-2 mb-3">
           {["reservation", "waitlist"].map((k) => (
             <button key={k} onClick={() => setF({ ...f, kind: k })}
-              className={`pill justify-center ${f.kind === k ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              className={`chip justify-center ${f.kind === k ? "chip-on" : "chip-off"}`}>
               {k === "reservation" ? "Reservation" : "Walk-in waitlist"}
             </button>
           ))}

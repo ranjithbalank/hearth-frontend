@@ -426,7 +426,7 @@ export function Tabs<T extends string>({
           key={o.value}
           onClick={() => onChange(o.value)}
           className={clsx(
-            "pill transition-colors duration-150",
+            "rounded-pill text-sm font-semibold px-4 py-1.5 transition-colors duration-150",
             value === o.value
               ? "bg-ink text-white shadow-sm"
               : "text-body hover:text-ink hover:bg-white/70",

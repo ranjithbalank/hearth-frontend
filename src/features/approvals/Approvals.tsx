@@ -198,11 +198,10 @@ export function Approvals() {
                 const secIssue = SECTION_META[sec.key]?.tone === "issue";
                 return (
                   <button key={sec.key} onClick={() => setActive(sec.key)}
-                    className={`pill inline-flex items-center gap-2 transition-colors ${
-                      on ? "bg-ink text-white" : "bg-hairline text-body hover:bg-line"}`}>
+                    className={`chip ${on ? "chip-on" : "chip-off"}`}>
                     {SECTION_META[sec.key]?.tab ?? sec.title}
-                    <span className={`text-[11px] font-semibold leading-none rounded-full px-1.5 py-0.5 min-w-[18px] text-center ${
-                      on ? "bg-white/25 text-white" : secIssue ? "bg-amber-50 text-amber" : "bg-white text-pine"}`}>
+                    <span className={`text-[11px] font-bold leading-none rounded-full px-1.5 py-0.5 min-w-[18px] text-center ${
+                      on ? "bg-white/20 text-white" : secIssue ? "bg-amber-50 text-amber" : "bg-pine-50 text-pine"}`}>
                       {sec.items.length}
                     </span>
                   </button>

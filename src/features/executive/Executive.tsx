@@ -61,7 +61,7 @@ export function Executive() {
       <div data-tour="landing-executive" className="flex gap-2 mb-4">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setView(t.key)}
-            className={`pill ${view === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            className={`chip ${view === t.key ? "chip-on" : "chip-off"}`}>
             {t.label}
           </button>
         ))}

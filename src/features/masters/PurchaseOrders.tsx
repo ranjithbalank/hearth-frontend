@@ -53,7 +53,7 @@ export function PurchaseOrders() {
       <div className="flex gap-2 mb-4">
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`pill capitalize ${tab === t ? "bg-ink text-white" : "bg-hairline text-body"}`}>{t}</button>
+            className={`chip capitalize ${tab === t ? "chip-on" : "chip-off"}`}>{t}</button>
         ))}
       </div>
       <div className="space-y-3">

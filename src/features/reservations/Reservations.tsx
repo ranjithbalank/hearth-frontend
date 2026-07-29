@@ -110,7 +110,7 @@ export function Reservations() {
             const n = countOf(s.key);
             return (
               <button key={s.key} onClick={() => setStatus(s.key)}
-                className={`pill flex items-center gap-1.5 ${
+                className={`seg flex items-center gap-1.5 ${
                   active ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
                 {s.label}
                 <span className={`inline-flex items-center justify-center min-w-[1.4em] h-[1.5em]

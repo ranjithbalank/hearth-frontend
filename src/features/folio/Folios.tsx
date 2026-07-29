@@ -276,7 +276,7 @@ export function Folios() {
           <div className="flex gap-1 rounded-pill bg-hairline p-1 mb-2 shrink-0">
             {(["open", "settled", "all"] as const).map((s) => (
               <button key={s} onClick={() => setStatusFilter(s)}
-                className={`pill flex-1 capitalize flex items-center justify-center gap-1.5 ${
+                className={`seg flex-1 capitalize flex items-center justify-center gap-1.5 ${
                   statusFilter === s ? "bg-ink text-white" : "bg-transparent text-body hover:bg-white/70"}`}>
                 {s}
                 <span className={`inline-flex items-center justify-center min-w-[1.4em] h-[1.5em]

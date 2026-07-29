@@ -161,7 +161,7 @@ export function Hr() {
       <div data-tour="landing-hr" className="flex items-center gap-2 mb-4 flex-wrap">
         {(["roster", "attendance", "payroll", "advances"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`pill capitalize ${tab === t ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            className={`chip capitalize ${tab === t ? "chip-on" : "chip-off"}`}>
             {t}
           </button>
         ))}

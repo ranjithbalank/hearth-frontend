@@ -62,7 +62,7 @@ export function Reconciliation() {
           <div className="flex gap-2">
             {[7, 30].map((d) => (
               <button key={d} onClick={() => setDays(d)}
-                className={`pill ${days === d ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+                className={`chip ${days === d ? "chip-on" : "chip-off"}`}>
                 {d} days
               </button>
             ))}

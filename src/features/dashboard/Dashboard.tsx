@@ -150,14 +150,12 @@ function RevenueTrendCard() {
         <div className="flex flex-wrap items-center gap-1">
           {TREND_RANGES.map((r) => (
             <button key={r.key} onClick={() => setRange(r.key)}
-              className={`pill text-xs px-2.5 py-0.5 ${
-                range === r.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              className={`chip ${range === r.key ? "chip-on" : "chip-off"}`}>
               {r.label}
             </button>
           ))}
           <button onClick={() => setRange("custom")}
-            className={`pill text-xs px-2.5 py-0.5 ${
-              custom ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            className={`chip ${custom ? "chip-on" : "chip-off"}`}>
             Custom
           </button>
         </div>

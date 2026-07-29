@@ -131,20 +131,20 @@ export function Recipes() {
 
       <div className="flex gap-2 mb-4">
         <button onClick={() => setTab("recipes")}
-          className={`pill ${tab === "recipes" ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+          className={`chip ${tab === "recipes" ? "chip-on" : "chip-off"}`}>
           Recipes &amp; costing
         </button>
         <button onClick={() => setTab("mapping")}
-          className={`pill ${tab === "mapping" ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+          className={`chip ${tab === "mapping" ? "chip-on" : "chip-off"}`}>
           Menu item mapping{unmappedCount ? ` (${unmappedCount} unmapped)` : ""}
         </button>
         <button onClick={() => setTab("consumption")}
-          className={`pill ${tab === "consumption" ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+          className={`chip ${tab === "consumption" ? "chip-on" : "chip-off"}`}>
           Raw material consumption
         </button>
         {canApprove && (
           <button onClick={() => setTab("pending")}
-            className={`pill ${tab === "pending" ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            className={`chip ${tab === "pending" ? "chip-on" : "chip-off"}`}>
             Pending approval{pending?.length ? ` (${pending.length})` : ""}
           </button>
         )}
@@ -250,7 +250,7 @@ export function Recipes() {
           <div className="flex gap-2 mb-3">
             {[7, 30, 90].map((d) => (
               <button key={d} onClick={() => setDays(d)}
-                className={`pill text-xs ${days === d ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+                className={`chip ${days === d ? "chip-on" : "chip-off"}`}>
                 Last {d} days
               </button>
             ))}

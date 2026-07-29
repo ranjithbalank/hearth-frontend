@@ -185,7 +185,7 @@ export function Crm() {
               : k === "due" ? dueCount : data.length - dueCount;
             return (
               <button key={k} onClick={() => setFilter(k)}
-                className={`pill flex items-center gap-1.5 ${
+                className={`seg flex items-center gap-1.5 ${
                   active ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
                 {label}
                 <span className={`inline-flex items-center justify-center min-w-[1.4em] h-[1.5em]

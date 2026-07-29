@@ -119,7 +119,7 @@ export function Customers() {
         <div className="flex gap-1 rounded-pill bg-hairline p-1">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`pill ${tab === t.key ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+              className={`seg ${tab === t.key ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
               {t.label}
             </button>
           ))}

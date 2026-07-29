@@ -313,12 +313,12 @@ export function BarPos() {
         <div>
           <div className="flex flex-wrap gap-1 rounded-pill bg-hairline p-1 mb-3">
             <button onClick={() => setCat(null)}
-              className={`pill ${!cat ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+              className={`seg ${!cat ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
               All
             </button>
             {cats2.map((c) => (
               <button key={c.id} onClick={() => setCat(c.id)}
-                className={`pill ${cat === c.id ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
+                className={`seg ${cat === c.id ? "bg-ink text-white shadow-sm" : "bg-transparent text-body hover:bg-white/70"}`}>
                 {c.name}
               </button>
             ))}

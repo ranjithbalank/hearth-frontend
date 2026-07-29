@@ -156,7 +156,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
       <div className="flex gap-2 mb-3 items-center flex-wrap">
         {[7, 30, 90].map((d) => (
           <button key={d} onClick={() => setDays(d)}
-            className={`pill text-xs ${days === d ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+            className={`chip ${days === d ? "chip-on" : "chip-off"}`}>
             Last {d} days
           </button>
         ))}
@@ -239,7 +239,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
           <div className="flex gap-2 mb-4 flex-wrap">
             {visibleTabs.map((t) => (
               <button key={t.key} onClick={() => setTab(t.key)}
-                className={`pill text-xs ${tab === t.key ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+                className={`chip ${tab === t.key ? "chip-on" : "chip-off"}`}>
                 {t.label}
                 {t.key === "lowstock" && low.length ? ` (${low.length})` : ""}
               </button>
@@ -390,7 +390,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
         <>
           {MOVE_KINDS.map(([k, label]) => (
             <button key={k} onClick={() => setMoveKind(k)}
-              className={`pill text-xs ${moveKind === k ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+              className={`chip ${moveKind === k ? "chip-on" : "chip-off"}`}>
               {label}
             </button>
           ))}

@@ -172,7 +172,7 @@ export function Reports() {
                     return (
                       <button key={p.label}
                         onClick={() => { setFrom(r.from); setTo(r.to); }}
-                        className={`pill text-xs ${active ? "bg-ink text-white" : "bg-hairline text-body"}`}>
+                        className={`chip ${active ? "chip-on" : "chip-off"}`}>
                         {p.label}
                       </button>
                     );
