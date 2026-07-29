@@ -12,7 +12,7 @@ import { NavIcon } from "../../design/NavIcon";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { fmtDate, greeting } from "../../lib/date";
-import { money, num, currencySymbol } from "../../lib/money";
+import { money, num, compactMoney } from "../../lib/money";
 import type { Reservation } from "../../lib/types";
 
 interface DashboardData {
@@ -120,17 +120,6 @@ const TREND_RANGES = [
 
 /** Revenue trend with its own range picker — presets or a custom window.
  *  Series follow role/entitlement scoping server-side. */
-/** Compact Indian-format money for headline totals (₹6.15L, ₹1.2Cr) so a
- *  long range's sum stays a glanceable figure instead of a wall of digits.
- *  Uses the active currency symbol — never hardcodes ₹. */
-function compactMoney(n: number): string {
-  const s = currencySymbol();
-  if (n >= 1e7) return `${s}${(n / 1e7).toFixed(2)}Cr`;
-  if (n >= 1e5) return `${s}${(n / 1e5).toFixed(2)}L`;
-  if (n >= 1e3) return `${s}${(n / 1e3).toFixed(1)}k`;
-  return `${s}${Math.round(n).toLocaleString("en-IN")}`;
-}
-
 function RevenueTrendCard() {
   const [range, setRange] = useState("14");
   const [from, setFrom] = useState("");

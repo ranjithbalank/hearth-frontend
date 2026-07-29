@@ -41,3 +41,15 @@ export function money(value: string | number): string {
 export function num(value: string | number): number {
   return typeof value === "string" ? Number(value) : value;
 }
+
+/** Compact Indian-format money for headline totals (₹6.15L, ₹1.2Cr) so a long
+ *  range's sum stays glanceable instead of a wall of digits. Uses the active
+ *  currency symbol — never hardcodes ₹. */
+export function compactMoney(value: string | number): string {
+  const n = typeof value === "string" ? Number(value) : value;
+  const v = isNaN(n) ? 0 : n;
+  if (v >= 1e7) return `${activeSymbol}${(v / 1e7).toFixed(2)}Cr`;
+  if (v >= 1e5) return `${activeSymbol}${(v / 1e5).toFixed(2)}L`;
+  if (v >= 1e3) return `${activeSymbol}${(v / 1e3).toFixed(1)}k`;
+  return `${activeSymbol}${Math.round(v).toLocaleString("en-IN")}`;
+}
