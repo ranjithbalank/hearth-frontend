@@ -51,6 +51,7 @@ export function Executive() {
     <div>
       <PageHeader
         icon={<Gauge size={20} />}
+        eyebrow="Group performance"
         title="Executive Overview"
         subtitle={`${greeting(user?.name?.split(" ")[0])} · ${fmtDate(new Date().toISOString())}${asOf}`}
       />

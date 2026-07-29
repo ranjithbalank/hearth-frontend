@@ -86,6 +86,7 @@ export function Dashboard() {
     <div>
       <PageHeader
         icon={<LayoutDashboard size={20} />}
+        eyebrow="Operations · today"
         title={title}
         subtitle={`${greeting(firstName)} · ${fmtDate(new Date().toISOString())}${asOf ? ` · as of ${asOf}` : ""}`}
         action={
