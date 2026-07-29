@@ -15,6 +15,10 @@ type View = "all" | "hotel" | "restaurant";
 interface TrendData { days: string[]; rooms?: number[]; fnb?: number[]; banquets?: number[] }
 interface Forward { arrivals_7d: number; in_house: number; banquets_upcoming?: number; banquets_value?: string }
 interface Receivables { total: string; corporate: string; corporate_accounts: number }
+interface Forecast {
+  days: string[]; occ_pct: number[]; on_books: number[]; revenue: number[];
+  arrivals: number[]; departures: number[]; rooms_total: number;
+}
 
 interface ExecData {
   view: View;
@@ -27,6 +31,7 @@ interface ExecData {
   receivables_detail?: Receivables;
   channels?: { label: string; value: number }[];
   top_receivables?: { name: string; amount: string; type: string }[];
+  forecast?: Forecast;
 }
 
 const TABS: { key: View; label: string }[] = [
@@ -140,6 +145,59 @@ function TrajectoryCard({ trend }: { trend?: TrendData }) {
   );
 }
 
+/** Forward occupancy from reservations on the books — the pickup curve for the
+ *  coming fortnight, the future half of the analytics story that pairs with the
+ *  trajectory above. Each night is a gauge (fill = how full), shaded light→dark
+ *  by occupancy; the nightly detail is on hover. */
+function ForecastCard({ forecast }: { forecast?: Forecast }) {
+  if (!forecast) return null;
+  const sum7 = (a: number[]) => a.slice(0, 7).reduce((x, y) => x + y, 0);
+  const avg7 = Math.round(sum7(forecast.occ_pct) / 7);
+  const rev7 = sum7(forecast.revenue);
+  const arr7 = sum7(forecast.arrivals);
+  const shade = (p: number) => (p >= 70 ? "#1D4ED8" : p >= 40 ? "#3B82F6" : p > 0 ? "#93C5FD" : "#CBD5E1");
+  return (
+    <Card accent>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <div className="font-semibold">Occupancy forecast</div>
+        <span className="text-xs text-muted">on the books · next 14 nights</span>
+      </div>
+      <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 mb-4">
+        <span className="font-display text-2xl text-ink tabular-nums">{avg7}%</span>
+        <span className="text-xs text-muted">avg occupancy · next 7 nights</span>
+        <span className="text-sm text-body ml-auto tabular-nums">{compactMoney(rev7)}
+          <span className="text-muted"> rooms revenue booked</span></span>
+      </div>
+      <div className="flex items-stretch gap-1.5 h-36">
+        {forecast.days.map((d, i) => {
+          const pct = forecast.occ_pct[i];
+          return (
+            <div key={d} className="flex-1 flex flex-col items-center min-w-0"
+              title={`${d} · ${pct}% · ${forecast.on_books[i]}/${forecast.rooms_total} rooms · ${forecast.arrivals[i]} in / ${forecast.departures[i]} out`}>
+              <span className="text-[10px] text-muted tabular-nums mb-1">{Math.round(pct)}</span>
+              <div className="relative w-full flex-1 bg-hairline/60 rounded-t overflow-hidden">
+                <div className="absolute bottom-0 inset-x-0 rounded-t transition-[filter] hover:brightness-110"
+                  style={{ height: `${Math.max(pct, 1.5)}%`, background: shade(pct) }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-1.5 mt-1.5">
+        {forecast.days.map((d) => (
+          <div key={d} className="flex-1 text-center text-[9px] text-muted truncate">{d.split(" ")[0]}</div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-muted">
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#93C5FD" }} />under 40%</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#3B82F6" }} />40–70%</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: "#1D4ED8" }} />over 70%</span>
+        <span className="ml-auto tabular-nums">{arr7} arrivals · next 7 nights</span>
+      </div>
+    </Card>
+  );
+}
+
 /** Icon · label · figure line for the briefing panels (on the books, AR). */
 function BriefRow({ icon, label, sub, value, tone }: {
   icon: ReactNode; label: string; sub?: string; value: ReactNode; tone?: "default" | "warn";
@@ -174,6 +232,9 @@ function AllView({ data }: { data: ExecData }) {
 
       {/* Hero: are we growing? 30-day trajectory + week-on-week momentum. */}
       <div className="mt-4"><TrajectoryCard trend={data.trend} /></div>
+
+      {/* Where we're headed — forward pickup to pair with the trajectory above. */}
+      <div className="mt-4"><ForecastCard forecast={data.forecast} /></div>
 
       {/* Composition · forward demand · cash owed — the rest of the C-suite read. */}
       <div className="grid md:grid-cols-3 gap-4 mt-4 items-start">
@@ -316,6 +377,8 @@ function HotelView({ data }: { data: ExecData }) {
       </div>
 
       <div className="mt-4"><TrajectoryCard trend={data.trend} /></div>
+
+      <div className="mt-4"><ForecastCard forecast={data.forecast} /></div>
 
       <div className="grid md:grid-cols-2 gap-4 mt-4 items-start">
         <ChannelsCard channels={data.channels} />
