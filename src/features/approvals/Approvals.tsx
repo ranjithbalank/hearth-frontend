@@ -18,17 +18,17 @@ interface Section { key: string; title: string; route: string; items: Item[] }
  *  `confirm` gates the consequential ones (spend / stock movement); `tone:issue`
  *  marks the fulfilment stage so it doesn't read as another sign-off. */
 const SECTION_META: Record<string, {
-  icon: string; approve: string; reject?: "reason" | "note";
+  icon: string; approve: string; tab: string; reject?: "reason" | "note";
   purpose: string; confirm?: "money" | "stock"; tone?: "issue";
 }> = {
-  po: { icon: "procurement", approve: "Approve", purpose: "Spend awaiting your sign-off", confirm: "money" },
-  indents: { icon: "matreq", approve: "Approve", purpose: "Stock requested by departments" },
-  issues: { icon: "matreq", approve: "Issue", purpose: "Release approved stock from the store", confirm: "stock", tone: "issue" },
-  dishes: { icon: "recipes", approve: "Approve", reject: "reason", purpose: "New menu items pending review" },
-  leave: { icon: "leave", approve: "Approve", reject: "note", purpose: "Time-off awaiting sign-off" },
+  po: { icon: "procurement", approve: "Approve", tab: "Purchase orders", purpose: "Spend awaiting your sign-off", confirm: "money" },
+  indents: { icon: "matreq", approve: "Approve", tab: "Material requests", purpose: "Stock requested by departments" },
+  issues: { icon: "matreq", approve: "Issue", tab: "Ready to issue", purpose: "Release approved stock from the store", confirm: "stock", tone: "issue" },
+  dishes: { icon: "recipes", approve: "Approve", tab: "New dishes", reject: "reason", purpose: "New menu items pending review" },
+  leave: { icon: "leave", approve: "Approve", tab: "Leave", reject: "note", purpose: "Time-off awaiting sign-off" },
 };
 
-const FALLBACK_META = { icon: "notifications", approve: "Approve", purpose: "Awaiting your action" } as const;
+const FALLBACK_META = { icon: "notifications", approve: "Approve", tab: "Other", purpose: "Awaiting your action" } as const;
 
 function actionUrl(section: string, id: number, decision: "approve" | "reject") {
   switch (section) {
@@ -47,6 +47,7 @@ export function Approvals() {
   const ask = usePrompt();
   const nav = useNavigate();
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [active, setActive] = useState<string | null>(null);
   const { data, isLoading } = useQuery({
     queryKey: ["approvals"],
     queryFn: async () =>
@@ -113,6 +114,68 @@ export function Approvals() {
   }
 
   if (isLoading || !data) return <Spinner />;
+  // Show one queue at a time behind tabs — no scrolling past sections you don't
+  // want. Falls back to the first section when the active one empties out.
+  const current = data.sections.find((s) => s.key === active) ?? data.sections[0];
+
+  function renderSection(s: Section) {
+    const meta = SECTION_META[s.key] ?? FALLBACK_META;
+    const issue = meta.tone === "issue";
+    return (
+      <Card className={issue ? "border-l-4 border-l-amber" : undefined}>
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className={`inline-flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${
+              issue ? "bg-amber-50 text-amber" : "bg-pine-50 text-pine"}`}>
+              <NavIcon name={meta.icon} />
+            </span>
+            <div className="min-w-0">
+              <div className="font-semibold text-ink truncate">{s.title}</div>
+              <div className="text-xs text-muted truncate">{meta.purpose}</div>
+            </div>
+          </div>
+          <button className="text-sm text-pine hover:underline underline-offset-2 shrink-0"
+            onClick={() => nav(s.route)}>
+            Open screen →
+          </button>
+        </div>
+        <div className="divide-y divide-hairline">
+          {s.items.map((it) => (
+            <div key={it.id} className="py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-ink truncate">{it.title}</div>
+                <div className="text-sm text-muted truncate">
+                  {it.detail}
+                  {it.meta && <span className="text-muted"> · {it.meta}</span>}
+                </div>
+              </div>
+              {it.amount && (
+                <div className="font-display text-base text-ink tabular-nums shrink-0 mr-1">
+                  {money(it.amount)}
+                </div>
+              )}
+              <div className="flex items-center gap-3 shrink-0">
+                {meta.reject && (
+                  <button className="btn-ghost text-xs py-1 text-clay"
+                    disabled={act.isPending}
+                    onClick={() => reject(s.key, it)}>
+                    Reject
+                  </button>
+                )}
+                <ApproveToggle
+                  label={meta.approve}
+                  tone={issue ? "issue" : "approve"}
+                  on={pendingId === `${s.key}:${it.id}`}
+                  disabled={act.isPending}
+                  onFlip={() => flip(s.key, it)}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <div>
@@ -123,73 +186,32 @@ export function Approvals() {
         subtitle="Everything awaiting your sign-off"
         action={<Badge tone={data.count ? "clay" : "pine"}>{data.count} waiting</Badge>}
       />
-      {!data.sections.length ? (
+      {!current ? (
         <EmptyState title="All caught up"
           hint="Nothing is waiting on you — new requests will appear here." />
       ) : (
-        <div className="space-y-4">
-          {data.sections.map((s) => {
-            const meta = SECTION_META[s.key] ?? FALLBACK_META;
-            const issue = meta.tone === "issue";
-            return (
-              <Card key={s.key} className={issue ? "border-l-4 border-l-amber" : undefined}>
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className={`inline-flex items-center justify-center w-9 h-9 rounded-xl shrink-0 ${
-                      issue ? "bg-amber-50 text-amber" : "bg-pine-50 text-pine"}`}>
-                      <NavIcon name={meta.icon} />
+        <>
+          {data.sections.length > 1 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {data.sections.map((sec) => {
+                const on = current.key === sec.key;
+                const secIssue = SECTION_META[sec.key]?.tone === "issue";
+                return (
+                  <button key={sec.key} onClick={() => setActive(sec.key)}
+                    className={`pill inline-flex items-center gap-2 transition-colors ${
+                      on ? "bg-ink text-white" : "bg-hairline text-body hover:bg-line"}`}>
+                    {SECTION_META[sec.key]?.tab ?? sec.title}
+                    <span className={`text-[11px] font-semibold leading-none rounded-full px-1.5 py-0.5 min-w-[18px] text-center ${
+                      on ? "bg-white/25 text-white" : secIssue ? "bg-amber-50 text-amber" : "bg-white text-pine"}`}>
+                      {sec.items.length}
                     </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-ink truncate">{s.title}</span>
-                        <Badge tone={issue ? "amber" : "pine"}>{s.items.length}</Badge>
-                      </div>
-                      <div className="text-xs text-muted truncate">{meta.purpose}</div>
-                    </div>
-                  </div>
-                  <button className="text-sm text-pine hover:underline underline-offset-2 shrink-0"
-                    onClick={() => nav(s.route)}>
-                    Open screen →
                   </button>
-                </div>
-                <div className="divide-y divide-hairline">
-                  {s.items.map((it) => (
-                    <div key={it.id} className="py-3 flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-ink truncate">{it.title}</div>
-                        <div className="text-sm text-muted truncate">
-                          {it.detail}
-                          {it.meta && <span className="text-muted"> · {it.meta}</span>}
-                        </div>
-                      </div>
-                      {it.amount && (
-                        <div className="font-display text-base text-ink tabular-nums shrink-0 mr-1">
-                          {money(it.amount)}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-3 shrink-0">
-                        {meta.reject && (
-                          <button className="btn-ghost text-xs py-1 text-clay"
-                            disabled={act.isPending}
-                            onClick={() => reject(s.key, it)}>
-                            Reject
-                          </button>
-                        )}
-                        <ApproveToggle
-                          label={meta.approve}
-                          tone={issue ? "issue" : "approve"}
-                          on={pendingId === `${s.key}:${it.id}`}
-                          disabled={act.isPending}
-                          onFlip={() => flip(s.key, it)}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+                );
+              })}
+            </div>
+          )}
+          {renderSection(current)}
+        </>
       )}
     </div>
   );
