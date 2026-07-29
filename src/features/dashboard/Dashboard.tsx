@@ -23,6 +23,8 @@ interface DashboardData {
   trend?: { days: string[]; rooms?: number[]; fnb?: number[]; banquets?: number[] };
 }
 
+const pct = (v: number, total: number) => (total ? Math.round((v / total) * 100) : 0);
+
 /** Last-7-days revenue and the % change vs the previous 7, read straight off
  *  the daily trend series the dashboard already returns — so an owner sees
  *  momentum ("▲ 12% vs last week"), not just a running total. */
@@ -421,10 +423,13 @@ function AnalyticalView({
         </div>
       )}
 
-      {/* Revenue chart + a single "what needs me" attention hub */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 items-stretch">
-        <div className="lg:col-span-2">
+      {/* Left column stacks the wide content (revenue chart + breakdown); the
+          tall attention hub runs full-height alongside it — no dead space, and
+          the breakdown isn't stranded full-width. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4 items-start">
+        <div className="lg:col-span-2 flex flex-col gap-4">
           <RevenueTrendCard />
+          <BreakdownCard data={data} />
         </div>
         <TodayPanel
           hasRooms={!!(rooms && roomsTotal > 0)}
@@ -432,11 +437,6 @@ function AnalyticalView({
           pendingDishes={pendingDishes}
           canApprove={canApprove}
         />
-      </div>
-
-      {/* Interactive breakdown (tabbed) — full width now actions moved up top */}
-      <div className="mt-4">
-        <BreakdownCard data={data} />
       </div>
     </>
   );
@@ -466,33 +466,46 @@ function BreakdownCard({ data }: { data: DashboardData }) {
         {tabs.length > 1 && <Tabs value={active} onChange={setTab} options={tabs} />}
       </div>
       {active === "rooms" && rooms && (
-        <Donut
-          centerLabel="rooms"
-          slices={[
-            { label: "Occupied", value: rooms.occupied, color: "#2563EB", display: `${rooms.occupied} rms` },
-            { label: "Available", value: rooms.available, color: "#16A34A", display: `${rooms.available} rms` },
-            { label: "Dirty / OOO", value: rooms.dirty + rooms.ooo, color: "#D97706", display: `${rooms.dirty + rooms.ooo} rms` },
-          ]}
-        />
+        <div className="grid md:grid-cols-2 gap-x-8 gap-y-5 items-center">
+          <Donut
+            centerLabel="rooms"
+            slices={[
+              { label: "Occupied", value: rooms.occupied, color: "#2563EB", display: `${rooms.occupied} rms` },
+              { label: "Available", value: rooms.available, color: "#16A34A", display: `${rooms.available} rms` },
+              { label: "Dirty / OOO", value: rooms.dirty + rooms.ooo, color: "#D97706", display: `${rooms.dirty + rooms.ooo} rms` },
+            ]}
+          />
+          <div className="space-y-3">
+            <ProportionRow label="Occupied" display={`${rooms.occupied} rms`} pct={pct(rooms.occupied, roomsTotal)} fill="bg-pine" />
+            <ProportionRow label="Available to sell" display={`${rooms.available} rms`} pct={pct(rooms.available, roomsTotal)} fill="bg-success" />
+            <ProportionRow label="Dirty / out of order" display={`${rooms.dirty + rooms.ooo} rms`} pct={pct(rooms.dirty + rooms.ooo, roomsTotal)} fill="bg-amber" />
+          </div>
+        </div>
       )}
       {active === "revenue" && rooms && fnb && (
-        <Donut
-          centerLabel="revenue"
-          centerValue={money(revenueMixTotal)}
-          slices={[
-            { label: "Rooms", value: num(rooms.room_revenue), color: "#2563EB", display: money(rooms.room_revenue) },
-            { label: "F&B", value: num(fnb.fnb_sales), color: "#DC2626", display: money(fnb.fnb_sales) },
-          ]}
-        />
+        <div className="grid md:grid-cols-2 gap-x-8 gap-y-5 items-center">
+          <Donut
+            centerLabel="revenue"
+            centerValue={money(revenueMixTotal)}
+            slices={[
+              { label: "Rooms", value: num(rooms.room_revenue), color: "#2563EB", display: money(rooms.room_revenue) },
+              { label: "F&B", value: num(fnb.fnb_sales), color: "#DC2626", display: money(fnb.fnb_sales) },
+            ]}
+          />
+          <div className="space-y-3">
+            <ProportionRow label="Rooms" display={money(rooms.room_revenue)} pct={pct(num(rooms.room_revenue), revenueMixTotal)} fill="bg-pine" />
+            <ProportionRow label="F&B" display={money(fnb.fnb_sales)} pct={pct(num(fnb.fnb_sales), revenueMixTotal)} fill="bg-clay" />
+          </div>
+        </div>
       )}
       {active === "fnb" && fnb && (
-        <div className="grid grid-cols-1 gap-y-3 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-3 pt-1">
           {(["dinein", "takeaway", "delivery"] as const).map((m) => (
             <ProportionRow
               key={m}
               label={m === "dinein" ? "Dine-in" : m === "takeaway" ? "Takeaway" : "Delivery"}
               display={money(fnb.by_mode[m] ?? 0)}
-              pct={Math.round((num(fnb.by_mode[m] ?? 0) / fnbTotal) * 100)}
+              pct={pct(num(fnb.by_mode[m] ?? 0), fnbTotal)}
               fill="bg-pine"
             />
           ))}
