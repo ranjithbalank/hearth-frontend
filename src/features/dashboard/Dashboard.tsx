@@ -12,7 +12,7 @@ import { NavIcon } from "../../design/NavIcon";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { fmtDate, greeting } from "../../lib/date";
-import { money, num } from "../../lib/money";
+import { money, num, currencySymbol } from "../../lib/money";
 import type { Reservation } from "../../lib/types";
 
 interface DashboardData {
@@ -120,6 +120,17 @@ const TREND_RANGES = [
 
 /** Revenue trend with its own range picker — presets or a custom window.
  *  Series follow role/entitlement scoping server-side. */
+/** Compact Indian-format money for headline totals (₹6.15L, ₹1.2Cr) so a
+ *  long range's sum stays a glanceable figure instead of a wall of digits.
+ *  Uses the active currency symbol — never hardcodes ₹. */
+function compactMoney(n: number): string {
+  const s = currencySymbol();
+  if (n >= 1e7) return `${s}${(n / 1e7).toFixed(2)}Cr`;
+  if (n >= 1e5) return `${s}${(n / 1e5).toFixed(2)}L`;
+  if (n >= 1e3) return `${s}${(n / 1e3).toFixed(1)}k`;
+  return `${s}${Math.round(n).toLocaleString("en-IN")}`;
+}
+
 function RevenueTrendCard() {
   const [range, setRange] = useState("14");
   const [from, setFrom] = useState("");
@@ -133,6 +144,14 @@ function RevenueTrendCard() {
     queryFn: async () =>
       (await api.get<TrendData>(`/reports/revenue-trend/?_=1${qs}`)).data,
   });
+
+  // Period total for the selected range — a headline that follows the range
+  // picker, so the chart answers "how much" before you read the shape.
+  const sum = (xs?: number[]) => (xs ?? []).reduce((a, b) => a + b, 0);
+  const grand = trend ? sum(trend.rooms) + sum(trend.fnb) + sum(trend.banquets) : 0;
+  const rangeLabel = custom
+    ? from && to ? `${fmtDate(from)} – ${fmtDate(to)}` : "custom range"
+    : (TREND_RANGES.find((r) => r.key === range)?.label ?? `${range} days`);
 
   return (
     <Card accent>
@@ -153,6 +172,12 @@ function RevenueTrendCard() {
           </button>
         </div>
       </div>
+      {trend && (
+        <div className="flex items-baseline gap-2 mb-3 -mt-0.5">
+          <span className="font-display text-2xl text-ink tabular-nums">{compactMoney(grand)}</span>
+          <span className="text-xs text-muted">total revenue · {rangeLabel}</span>
+        </div>
+      )}
       {custom && (
         <div className="flex items-center gap-2 mb-3">
           <input type="date" value={from} max={to || undefined}
