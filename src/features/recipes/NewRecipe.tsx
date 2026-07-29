@@ -105,7 +105,7 @@ export function NewRecipe() {
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">1 · The dish</div>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           <div className="col-span-2">
             <label className="text-xs text-muted">Dish name *</label>
             <input className="input w-full" autoFocus placeholder="e.g. Chicken Fried Rice"

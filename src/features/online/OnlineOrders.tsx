@@ -106,7 +106,7 @@ export function OnlineOrders() {
       {!data?.length ? (
         <EmptyState title="No live online orders" hint="Use +Zomato / +Swiggy to simulate an incoming order." />
       ) : (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {data.map((o) => {
             const next = NEXT[o.online_status];
             const mins = elapsedMins(o);

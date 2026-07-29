@@ -143,7 +143,7 @@ export function Reservations() {
       </div>
 
       {avail && (
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           {avail.map((a) => (
             <button key={a.room_type}
               className={`card-interactive p-5 text-left ${rtype === a.room_type ? "ring-2 ring-pine" : ""}`}

@@ -233,7 +233,7 @@ export function PageHeader({
   eyebrow?: string;
 }) {
   return (
-    <div className="flex items-end justify-between mb-6 gap-4 animate-fade-in-down">
+    <div className="flex flex-wrap items-end justify-between mb-6 gap-3 animate-fade-in-down">
       <div className="flex items-center gap-3 min-w-0">
         {icon && (
           <span className="hidden sm:grid place-items-center w-11 h-11 rounded-2xl bg-gradient-primary text-white shrink-0 shadow-sm">

@@ -130,7 +130,7 @@ export function Crm() {
         }
       />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <Stat tone="dark" delayMs={0} icon={<Users size={16} />} label="Customers" value={data.length} />
         <Stat delayMs={60} icon={<Award size={16} />} label="Loyalty points" value={loyalty.toLocaleString("en-IN")} />
         <Stat delayMs={120} icon={<Wallet size={16} />} label="Outstanding (BTC/AR)" value={money(outstanding)} />

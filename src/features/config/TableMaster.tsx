@@ -162,7 +162,7 @@ export function TableMaster() {
         {Object.entries(groups).map(([sec, list]) => (
           <div key={sec}>
             <div className="text-xs uppercase tracking-wide text-muted mb-2">{sec}</div>
-            <div className="grid grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
               {list.map((t) => (
                 <div key={t.id} className="card p-3 text-center">
                   <div className="font-display text-lg">{t.name}</div>

@@ -151,7 +151,7 @@ export function Recipes() {
       </div>
 
       {tab === "recipes" && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {data.map((r) => (
             <Card key={r.id}>
               <div className="flex items-center justify-between">

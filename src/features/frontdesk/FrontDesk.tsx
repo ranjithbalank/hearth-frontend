@@ -227,7 +227,7 @@ function RequestCleaningModal({ onClose }: { onClose: () => void }) {
       </div>
       <input className="input w-full mb-3" placeholder="Note (e.g. guest asked for turndown at 6pm)"
         value={note} onChange={(e) => setNote(e.target.value)} />
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         {candidates.map((r) => (
           <button key={r.id} disabled={busy}
             className="card-interactive p-3 text-center"

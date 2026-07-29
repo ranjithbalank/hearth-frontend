@@ -65,7 +65,7 @@ export function RoomMaster() {
         hint="Setting up the whole property? Download the format, list every room with its type and rate, and upload once — room types are created for you." />
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add room type</div>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
           <input className="input font-mono" placeholder="Code" value={form.code}
             onChange={(e) => setForm({ ...form, code: e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 8) })} />
           <input className="input" placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />

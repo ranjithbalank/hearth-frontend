@@ -119,7 +119,7 @@ export function NewRawMaterial() {
         Add one raw material at a time — for bulk onboarding use the Import card on Raw Material Master.
       </div>
       <Card className="mb-4">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="col-span-1">
             <label className="text-xs text-muted">Raw material name *</label>
             <input className="input w-full" autoFocus placeholder="e.g. Basmati Rice"

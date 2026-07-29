@@ -250,7 +250,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
 
       {tab === "dashboard" && (
         <>
-          <div className="grid grid-cols-5 gap-4 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-4">
             <Stat tone="dark" delayMs={0} icon={<Package size={16} />} label="Materials tracked" value={data.length} />
             <Stat delayMs={50} icon={<Wallet size={16} />} label="Stock value" value={stockValue == null ? "—" : money(stockValue)} />
             <Stat delayMs={100} icon={<TriangleAlert size={16} />} label="Below reorder level" value={low.length} />
@@ -259,7 +259,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
           </div>
 
           {/* Deep links to the sibling screens the spec lists as tabs (§6) */}
-          <div className="grid grid-cols-6 gap-3 mb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-4">
             {[
               { label: "Supplier Master", path: "/masters/suppliers" },
               { label: "Purchase Entry / GRN", path: "/procurement" },

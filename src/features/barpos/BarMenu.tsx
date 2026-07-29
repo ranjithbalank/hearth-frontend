@@ -115,7 +115,7 @@ export function BarMenu() {
 
       <Card className="mb-4">
         <div className="font-semibold mb-3">Add a beverage</div>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
           <input className="input" placeholder="Name (e.g. Gin & Tonic)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <select className="input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             <option value="">Category…</option>

@@ -97,7 +97,7 @@ export function RoomServiceFlow({ onClose }: { onClose: () => void }) {
             <div className="font-display text-xl mb-1">Room service — pick a room</div>
             <div className="text-sm text-muted mb-3">In-house guests with an open folio</div>
             {isLoading ? <Spinner /> : (
-              <div className="grid grid-cols-3 gap-2 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 overflow-y-auto">
                 {inhouse.map((f) => (
                   <button key={f.id} className="card-interactive p-3 text-center"
                     onClick={() => { setFolio(f); setStep("menu"); }}>

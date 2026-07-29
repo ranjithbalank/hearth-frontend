@@ -1583,7 +1583,7 @@ function TillModal({ till, onClose }: { till: TillSession | null; onClose: () =>
 
         {closed ? (
           <>
-            <div className="grid grid-cols-3 gap-2 text-center mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center mb-4">
               <div className="card p-3"><div className="text-xs text-muted">Expected</div><div className="font-semibold">{money(closed.expected_cash ?? 0)}</div></div>
               <div className="card p-3"><div className="text-xs text-muted">Counted</div><div className="font-semibold">{money(closed.counted_cash ?? 0)}</div></div>
               <div className={`card p-3 ${Number(closed.variance) !== 0 ? "bg-clay/10" : "bg-pine-50"}`}>
@@ -1868,7 +1868,7 @@ function OfflineBilling({ mode, table, onQueued }: { mode: string; table: Table 
 
   return (
     <div className="grid grid-cols-[1fr_340px] gap-4">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         {menu.filter((m) => m.available).map((m) => (
           <button key={m.id} className="card-interactive p-3 text-left"
             onClick={() => setCart((c) => ({ ...c, [m.id]: (c[m.id] ?? 0) + 1 }))}>

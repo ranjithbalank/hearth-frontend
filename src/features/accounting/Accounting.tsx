@@ -52,7 +52,7 @@ export function Accounting() {
       />
       {msg && <div className="card p-3 mb-4 bg-pine-50 text-pine font-medium">{msg}</div>}
 
-      <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
         <Stat tone="dark" label="Total receivables" value={money(totalAr)} />
         <Stat label="AR accounts" value={ar.length} />
         <Stat label="Audits run" value={audits?.length ?? 0} />
