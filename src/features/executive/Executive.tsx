@@ -108,6 +108,38 @@ function GrowthPill({ pct }: { pct: number }) {
   );
 }
 
+/** Revenue-over-time hero: a 30-day line of whatever streams the trend carries
+ *  (rooms / F&B / banquets), with a compact total and week-on-week momentum.
+ *  Shared by the group view and the hotel/restaurant drill-downs. */
+function TrajectoryCard({ trend }: { trend?: TrendData }) {
+  const daily = trend ? combinedDaily(trend) : [];
+  const trendTotal = daily.reduce((a, b) => a + b, 0);
+  const wow = wowGrowth(daily);
+  return (
+    <Card accent>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <div className="font-semibold">Revenue trajectory</div>
+        <span className="text-xs text-muted">last 30 days</span>
+      </div>
+      <div className="flex items-baseline flex-wrap gap-2 mb-3">
+        <span className="font-display text-2xl text-ink tabular-nums">{compactMoney(trendTotal)}</span>
+        {wow !== null && <GrowthPill pct={wow} />}
+        <span className="text-xs text-muted">week-on-week</span>
+      </div>
+      {trend ? (
+        <LineChart
+          days={trend.days}
+          series={[
+            ...(trend.rooms ? [{ name: "Rooms", color: MIX_COLORS[0], values: trend.rooms }] : []),
+            ...(trend.fnb ? [{ name: "F&B", color: MIX_COLORS[1], values: trend.fnb }] : []),
+            ...(trend.banquets ? [{ name: "Banquets", color: MIX_COLORS[2], values: trend.banquets }] : []),
+          ]}
+        />
+      ) : <Spinner />}
+    </Card>
+  );
+}
+
 /** Icon · label · figure line for the briefing panels (on the books, AR). */
 function BriefRow({ icon, label, sub, value, tone }: {
   icon: ReactNode; label: string; sub?: string; value: ReactNode; tone?: "default" | "warn";
@@ -129,10 +161,6 @@ function BriefRow({ icon, label, sub, value, tone }: {
 
 function AllView({ data }: { data: ExecData }) {
   const total = num(data.kpis.revenue) || 1;
-  const trend = data.trend;
-  const daily = trend ? combinedDaily(trend) : [];
-  const trendTotal = daily.reduce((a, b) => a + b, 0);
-  const wow = wowGrowth(daily);
 
   return (
     <>
@@ -145,27 +173,7 @@ function AllView({ data }: { data: ExecData }) {
       </div>
 
       {/* Hero: are we growing? 30-day trajectory + week-on-week momentum. */}
-      <Card accent className="mt-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-          <div className="font-semibold">Revenue trajectory</div>
-          <span className="text-xs text-muted">last 30 days</span>
-        </div>
-        <div className="flex items-baseline flex-wrap gap-2 mb-3">
-          <span className="font-display text-2xl text-ink tabular-nums">{compactMoney(trendTotal)}</span>
-          {wow !== null && <GrowthPill pct={wow} />}
-          <span className="text-xs text-muted">week-on-week</span>
-        </div>
-        {trend ? (
-          <LineChart
-            days={trend.days}
-            series={[
-              ...(trend.rooms ? [{ name: "Rooms", color: MIX_COLORS[0], values: trend.rooms }] : []),
-              ...(trend.fnb ? [{ name: "F&B", color: MIX_COLORS[1], values: trend.fnb }] : []),
-              ...(trend.banquets ? [{ name: "Banquets", color: MIX_COLORS[2], values: trend.banquets }] : []),
-            ]}
-          />
-        ) : <Spinner />}
-      </Card>
+      <div className="mt-4"><TrajectoryCard trend={data.trend} /></div>
 
       {/* Composition · forward demand · cash owed — the rest of the C-suite read. */}
       <div className="grid md:grid-cols-3 gap-4 mt-4 items-start">
@@ -300,39 +308,73 @@ function HotelView({ data }: { data: ExecData }) {
   if (!rooms) return null;
   return (
     <>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat tone="dark" delayMs={0} label="Occupancy" value={`${rooms.occupancy_pct}%`} sub={`${rooms.occupied}/${rooms.rooms_total} rooms`} />
         <Stat delayMs={60} label="ADR" value={money(rooms.adr)} sub="Average daily rate" />
         <Stat delayMs={120} label="RevPAR" value={money(rooms.revpar)} sub="Revenue per available room" />
-        <Stat delayMs={180} label="Receivables" value={money(data.kpis.receivables)} sub="City ledger / AR" />
+        <Stat delayMs={180} label="Available to sell" value={rooms.available} sub={`${rooms.dirty} dirty · ${rooms.ooo} OOO`} />
       </div>
-      <div className="grid grid-cols-4 gap-4 mt-4">
-        <Stat delayMs={0} label="Total rooms" value={rooms.rooms_total} />
-        <Stat delayMs={60} label="Occupied" value={rooms.occupied} sub="In-house" />
-        <Stat delayMs={120} label="Available to sell" value={rooms.available} sub="Clean & inspected" />
-        <Stat delayMs={180} label="Dirty / OOO" value={`${rooms.dirty} / ${rooms.ooo}`} sub="Being cleaned / out of order" />
+
+      <div className="mt-4"><TrajectoryCard trend={data.trend} /></div>
+
+      <div className="grid md:grid-cols-2 gap-4 mt-4 items-start">
+        <ChannelsCard channels={data.channels} />
+        <ForwardCard forward={data.forward} />
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4 mt-4 items-start">
+        <ReceivablesCard rec={data.receivables_detail} fallback={data.kpis.receivables} />
+        <TopReceivablesCard rows={data.top_receivables} />
       </div>
     </>
   );
 }
 
+const MODE_COLORS = ["#2563EB", "#D97706", "#0891B2", "#7C3AED", "#DC2626"];
+const MODE_LABELS: Record<string, string> = {
+  dinein: "Dine-in", takeaway: "Takeaway", delivery: "Delivery", room: "Room service",
+};
+
 function RestaurantView({ data }: { data: ExecData }) {
   const fnb = data.fnb;
   if (!fnb) return null;
+  const aov = fnb.order_count ? num(fnb.fnb_sales) / fnb.order_count : 0;
+  // Derive slices from every mode present (incl. room-service) and sort by size,
+  // so the donut's parts reconcile with the F&B total in its centre.
+  const modeSlices = Object.entries(fnb.by_mode)
+    .map(([k, v]) => ({ label: MODE_LABELS[k] ?? k, value: num(v) }))
+    .filter((s) => s.value > 0)
+    .sort((a, b) => b.value - a.value);
   return (
     <>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Stat tone="dark" delayMs={0} label="F&B sales" value={money(fnb.fnb_sales)} sub={`${fnb.order_count} orders`} />
-        <Stat delayMs={60} label="Orders" value={fnb.order_count} />
-        <Stat delayMs={120} label="Average order value" value={money(fnb.order_count ? num(fnb.fnb_sales) / fnb.order_count : 0)} />
+        <Stat delayMs={60} label="Orders" value={fnb.order_count} sub="Settled tickets" />
+        <Stat delayMs={120} label="Average order value" value={money(aov)} sub="Per ticket" />
       </div>
-      <div className="grid grid-cols-3 gap-4 mt-4">
-        {(["dinein", "takeaway", "delivery"] as const).map((m, i) => (
-          <Stat key={m} delayMs={i * 60}
-            label={{ dinein: "Dine-in", takeaway: "Takeaway", delivery: "Delivery" }[m]}
-            value={money(fnb.by_mode[m] ?? 0)} />
-        ))}
-      </div>
+
+      <div className="mt-4"><TrajectoryCard trend={data.trend} /></div>
+
+      <Card className="mt-4">
+        <div className="font-semibold">Sales by service mode</div>
+        <div className="text-xs text-muted mb-4">Share of F&B revenue · {money(fnb.fnb_sales)} total</div>
+        <div className="grid sm:grid-cols-2 gap-x-10 gap-y-4">
+          {modeSlices.map((s, i) => {
+            const pct = Math.round((s.value / (num(fnb.fnb_sales) || 1)) * 100);
+            return (
+              <div key={s.label}>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-body">{s.label}</span>
+                  <span className="text-muted tabular-nums">{money(s.value)} · {pct}%</span>
+                </div>
+                <div className="h-2 rounded-pill bg-hairline overflow-hidden">
+                  <div className="h-full rounded-pill" style={{ width: `${pct}%`, background: MODE_COLORS[i % MODE_COLORS.length] }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
     </>
   );
 }
