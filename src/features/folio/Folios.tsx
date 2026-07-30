@@ -27,8 +27,8 @@ function AddChargeModal({ busy, onSave, onClose }: {
 }) {
   const [form, setForm] = useState({ description: "", amount: "", gst_rate: "18" });
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[380px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-3">Add charge</div>
         <div className="space-y-3">
           <input className="input w-full" placeholder="Description (e.g. Laundry — 3 shirts)" autoFocus
@@ -66,8 +66,8 @@ function RecordPaymentModal({ folio, busy, onSave, onClose }: {
     tender: "UPI", amount: String(Math.max(num(folio.balance), 0) || ""), reference: "",
   });
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[380px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">Record payment</div>
         <div className="text-sm text-muted mb-3">
           {folio.guest_name} · balance {money(folio.balance)} — a part-payment keeps the folio open.
@@ -106,8 +106,8 @@ function RegistrationModal({ folioId, onClose }: { folioId: number; onClose: () 
     queryFn: async () => (await api.get<Registration>(`/folios/${folioId}/registration/`)).data,
   });
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[520px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[520px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {isLoading || !reg ? <Spinner /> : (
           <>
             <div className="font-display text-xl mb-1">Registration — {reg.guest_name}</div>
@@ -394,9 +394,9 @@ export function Folios() {
                 onClose={() => setPayingDeposit(false)} />
             )}
             {moveLine && (
-              <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50"
+              <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50 p-4"
                 onClick={() => setMoveLine(null)}>
-                <div className="card p-5 w-[440px] max-h-[80vh] overflow-y-auto"
+                <div className="card p-5 w-full max-w-[440px] max-h-[80vh] overflow-y-auto"
                   onClick={(e) => e.stopPropagation()}>
                   <div className="font-display text-xl mb-1">Move charge</div>
                   <div className="text-sm text-muted mb-4">

@@ -459,8 +459,8 @@ function CampaignModal({ onDone, onCancel }: { onDone: (sent: number, skipped: n
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[440px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50 p-4" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[440px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">New campaign</div>
         <div className="text-xs text-muted mb-4">
           Sent only to customers with marketing consent. Placeholders: {"{name}"}, {"{points}"}.
@@ -493,8 +493,8 @@ function CampaignModal({ onDone, onCancel }: { onDone: (sent: number, skipped: n
 
 function LoyaltyConfigModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[640px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[640px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-4">
           <div className="font-display text-xl">Loyalty tiers &amp; rewards</div>
           <button className="btn-ghost" onClick={onClose}>✕</button>

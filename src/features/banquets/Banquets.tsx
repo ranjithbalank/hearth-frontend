@@ -246,8 +246,8 @@ function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
   const balance = total - Number(f.deposit || 0);
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[520px] max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50 p-4" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[520px] max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-4">{event ? "Adjust event booking" : "New event booking"}</div>
         {err && <div className="text-sm text-clay mb-3">{err}</div>}
 
