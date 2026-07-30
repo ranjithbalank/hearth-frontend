@@ -122,8 +122,8 @@ export function Reconciliation() {
       </div>
 
       {showImport && (
-        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={() => setShowImport(false)}>
-          <div className="card p-5 w-[480px]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={() => setShowImport(false)}>
+          <div className="card p-5 w-full max-w-[480px]" onClick={(e) => e.stopPropagation()}>
             <div className="font-display text-xl mb-2">Import platform payouts</div>
             <div className="text-xs text-muted mb-3">
               Paste one line per payout: <code className="bg-cream px-1 rounded">platform, date, amount, reference</code>

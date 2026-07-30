@@ -89,8 +89,8 @@ export function RoomServiceFlow({ onClose }: { onClose: () => void }) {
   const inhouse = (folios ?? []).filter((f) => f.room_number);
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[520px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[520px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
 
         {step === "room" && (
           <>

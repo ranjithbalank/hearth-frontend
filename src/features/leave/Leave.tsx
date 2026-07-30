@@ -389,8 +389,8 @@ function ApplyModal({ onDone, onCancel }: { onDone: (who: string) => void; onCan
   });
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[440px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[440px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">Apply for leave</div>
         <div className="text-sm text-muted mb-4">
           Goes to the department&apos;s manager first, then HR for final approval —
@@ -511,8 +511,8 @@ function TypesMaster() {
       </div>
 
       {draft && (
-        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={() => setDraft(null)}>
-          <div className="card p-5 w-[400px]" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={() => setDraft(null)}>
+          <div className="card p-5 w-full max-w-[400px]" onClick={(e) => e.stopPropagation()}>
             <div className="font-display text-xl mb-3">{draft.id ? "Edit leave type" : "New leave type"}</div>
             <label className="block mb-3">
               <span className="text-xs text-muted uppercase tracking-wide">Name</span>

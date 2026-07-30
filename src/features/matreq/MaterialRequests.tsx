@@ -252,8 +252,8 @@ function NewRequestModal({ role, onDone, onCancel }: {
   });
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[480px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[480px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">Request materials</div>
         <div className="text-sm text-muted mb-3">
           Raised in your name — <b>{DEPT_APPROVER_LABEL[department] ?? "a manager"}</b> approves it,

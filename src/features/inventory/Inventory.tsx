@@ -642,8 +642,8 @@ function StockActionModal({ kind, ing, onDone, onCancel }: {
     || (kind === "waste" && !reason.trim())
     || (kind === "transfer" && !location.trim());
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[380px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">{titles[kind]}</div>
         <div className="text-sm text-muted mb-4">{ing.name} · in stock {Number(ing.current_stock)} {ing.unit}</div>
         <div className="grid gap-2">

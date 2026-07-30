@@ -30,8 +30,8 @@ export function WalkInForm({ onCancel, onCreated }: { onCancel: () => void; onCr
   const picked = types?.find((t) => t.code === form.room_type);
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[440px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[440px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-4">Walk-in guest</div>
         <div className="mb-3">
           <Field label="Guest name" required>

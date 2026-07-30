@@ -29,8 +29,8 @@ function FormModal({
   const valid = fields.every((f) => !f.required || values[f.key].trim());
   const submit = () => valid && onSubmit(values);
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-[70]" onClick={onCancel}>
-      <div className="card p-5 w-[340px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-[70]" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[340px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-lg mb-3">{title}</div>
         <div className="space-y-3">
           {fields.map((f, idx) => (
@@ -375,8 +375,8 @@ function CompleteTaskModal({ task, onCancel, onSubmit }: {
   const [note, setNote] = useState("");
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-[70]" onClick={onCancel}>
-      <div className="card p-5 w-[360px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-[70]" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[360px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-lg mb-1">Complete — room {task.room_number}</div>
         <div className="text-xs text-muted mb-3">Linen issued for this turn (0 to skip an item):</div>
         <div className="space-y-2 mb-3">

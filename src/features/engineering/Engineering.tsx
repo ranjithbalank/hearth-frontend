@@ -120,8 +120,8 @@ function NewWorkOrderModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[420px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">New work order</div>
         <div className="text-xs text-muted mb-3">
           A vacant room goes out of order until the job is done. An occupied

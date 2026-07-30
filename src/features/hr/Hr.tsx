@@ -559,8 +559,8 @@ function InviteModal({ employee, onClose }: { employee: Employee; onClose: () =>
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[420px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">Invite {employee.name}</div>
         {!link ? (
           <>
@@ -626,8 +626,8 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
   const weekly = form.wage_type === "weekly";
   const rateField = daily ? "daily_rate" : weekly ? "weekly_rate" : "monthly_salary";
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[420px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-3">Edit {employee.name}</div>
         {([["name", "Name"], ["department", "Department"], ["role", "Role"]] as const).map(([k, label]) => (
           <label key={k} className="block mb-3">
@@ -861,8 +861,8 @@ function IssueAdvanceModal({ employees, onDone, onCancel }: {
 
   const valid = employee && Number(amount) > 0 && (kind === "advance" || Number(installment) > 0);
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[420px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-3">Issue advance or loan</div>
         <label className="block mb-3">
           <span className="text-xs text-muted uppercase tracking-wide">Employee</span>

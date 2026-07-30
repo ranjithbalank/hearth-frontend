@@ -1049,8 +1049,8 @@ export function Pos() {
       )}
 
       {showTablePick && (
-        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={() => setShowTablePick(false)}>
-          <div className="card p-5 w-[560px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={() => setShowTablePick(false)}>
+          <div className="card p-5 w-full max-w-[560px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="font-display text-xl mb-4">Switch table</div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
               {tables?.map((t) => (
@@ -1086,8 +1086,8 @@ export function Pos() {
       )}
 
       {roomPick && (
-        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={() => setRoomPick(null)}>
-          <div className="card p-5 w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={() => setRoomPick(null)}>
+          <div className="card p-5 w-full max-w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="font-display text-xl mb-1">Room order — which guest?</div>
             <div className="text-xs text-muted mb-4">
               The order opens against this guest's folio — the bill can only post there.
@@ -1199,8 +1199,8 @@ function FinalBillModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[380px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-2">Final bill</div>
         <div className="text-sm bg-amber-50 border border-amber-300 rounded-lg p-3 mb-4">
           ⚠ This prints the final bill and closes the order.
@@ -1345,8 +1345,8 @@ function RefundModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[420px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[420px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-3">Refund a bill</div>
         {!order ? (
           <div className="flex gap-2">
@@ -1408,8 +1408,8 @@ function DiscountModal({ onCancel, onApply }: { onCancel: () => void; onApply: (
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[360px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[360px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-4">Apply discount</div>
         <div className="grid grid-cols-2 gap-2 mb-3">
           <select className="input" value={kind} onChange={(e) => onKind(e.target.value)}>
@@ -1435,8 +1435,8 @@ function DiscountModal({ onCancel, onApply }: { onCancel: () => void; onApply: (
 function CouponModal({ onCancel, onApply }: { onCancel: () => void; onApply: (code: string) => void }) {
   const [code, setCode] = useState("");
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[340px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[340px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-4">Apply coupon</div>
         <input className="input mb-4" placeholder="Coupon code (e.g. WELCOME10)" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
         <div className="flex gap-2">
@@ -1477,8 +1477,8 @@ function ItemPicker({
   );
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[420px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-3">{item.name}</div>
 
         {!!item.variants?.length && (
@@ -1577,8 +1577,8 @@ function TillModal({ till, onClose }: { till: TillSession | null; onClose: () =>
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[420px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[420px] max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-4">{closed ? "Day closed" : state ? "Till session" : "Open till"}</div>
 
         {closed ? (
@@ -1684,8 +1684,8 @@ function ReserveModal({ tables, onDone, onCancel }: { tables: Table[]; onDone: (
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onCancel}>
-      <div className="card p-5 w-[380px]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
+      <div className="card p-5 w-full max-w-[380px]" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-4">Reserve / Waitlist</div>
         <div className="grid grid-cols-2 gap-2 mb-3">
           {["reservation", "waitlist"].map((k) => (
@@ -1785,8 +1785,8 @@ function AssignCaptainsPanel({ tables, onClose }: { tables: Table[]; onClose: ()
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="card p-5 w-[480px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="card p-5 w-full max-w-[480px] max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="font-display text-xl mb-1">Assign captains</div>
         <div className="text-xs text-muted mb-3">
           One captain per table, standing until you change it here. Leave a table "Unassigned" to let any captain take it.
