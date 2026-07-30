@@ -420,7 +420,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden flex flex-col"
       >
         <header
-          className={`flex items-center gap-3 px-6 py-3 border-b border-hairline bg-surface/80 backdrop-blur sticky top-0 z-10 transition-shadow duration-200 ${
+          className={`flex items-center gap-2 sm:gap-3 px-4 md:px-8 py-3 border-b border-hairline bg-surface/80 backdrop-blur sticky top-0 z-10 transition-shadow duration-200 ${
             scrolled ? "shadow-sm" : ""
           }`}
         >
