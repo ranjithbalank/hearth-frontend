@@ -38,6 +38,14 @@ interface TableRes {
 
 const TENDER_LABELS: Record<string, string> = { Cash: "Cash", UPI: "UPI", Gateway: "Card (gateway)" };
 
+/** Divide a total (in paise) into n equal shares that sum back exactly — the
+ *  remainder paise are spread one-each across the first shares. Returns rupees. */
+function equalShares(totalCents: number, n: number): number[] {
+  const base = Math.floor(totalCents / n);
+  const extra = totalCents - base * n;
+  return Array.from({ length: n }, (_, i) => (base + (i < extra ? 1 : 0)) / 100);
+}
+
 // Floor-view urgency: how long a table has been running, not just whether it
 // is. Measured from the oldest open bill at that table (created_at).
 const TABLE_AMBER_MIN = 30;
@@ -293,8 +301,9 @@ export function Pos() {
 
   // One-tap close: print the final bill, settle the payment, free the table.
   const finalBill = useMutation({
-    mutationFn: async ({ tender, cust, receipt, redeem }: {
+    mutationFn: async ({ tender, splits, cust, receipt, redeem }: {
       tender: string;
+      splits?: { tender: string; amount: string }[];
       cust?: { name: string; mobile: string; country: string };
       receipt?: "sms" | "whatsapp";
       redeem?: { reward_id?: number; points?: number };
@@ -310,13 +319,15 @@ export function Pos() {
         await api.post(`/pos/orders/${id}/bill/`);
         downloadBillPdf(id);
       }
-      return (await api.post(`/pos/orders/${id}/settle/`, {
-        tender, receipt, token: tender === "Gateway" ? "tok_demo_card" : undefined,
-      })).data;
+      // A split settles the one bill with N payments; otherwise a single tender.
+      return (await api.post(`/pos/orders/${id}/settle/`, splits
+        ? { splits, receipt }
+        : { tender, receipt, token: tender === "Gateway" ? "tok_demo_card" : undefined })).data;
     },
-    onSuccess: (_d, { tender }) => {
+    onSuccess: (_d, { tender, splits }) => {
       setShowFinal(false);
-      toast(`Final bill settled · ${tender} — table freed`);
+      toast(splits ? `Bill split ${splits.length} ways & settled — table freed`
+        : `Final bill settled · ${tender} — table freed`);
       reset();
     },
     // Bill stays printed if payment fails (e.g. card declined) — settle again from the billed state.
@@ -1119,6 +1130,7 @@ export function Pos() {
             : null}
           onCancel={() => setShowFinal(false)}
           onConfirm={(tender, cust, receipt, redeem) => finalBill.mutate({ tender, cust, receipt, redeem })}
+          onSplit={(splits, cust, receipt, redeem) => finalBill.mutate({ tender: "split", splits, cust, receipt, redeem })}
         />
       )}
     </div>
@@ -1128,7 +1140,7 @@ export function Pos() {
 interface LoyaltyReward { id: number; name: string; points_cost: number; kind: "percent" | "fixed"; value: string }
 
 function FinalBillModal({
-  total, tableName, tenders, busy, initialCustomer, onCancel, onConfirm,
+  total, tableName, tenders, busy, initialCustomer, onCancel, onConfirm, onSplit,
 }: {
   total: string;
   tableName?: string;
@@ -1138,9 +1150,14 @@ function FinalBillModal({
   onCancel: () => void;
   onConfirm: (tender: string, cust?: { name: string; mobile: string; country: string },
     receipt?: "sms" | "whatsapp", redeem?: { reward_id?: number; points?: number }) => void;
+  onSplit: (splits: { tender: string; amount: string }[],
+    cust?: { name: string; mobile: string; country: string },
+    receipt?: "sms" | "whatsapp", redeem?: { reward_id?: number; points?: number }) => void;
 }) {
   // Cash is settled through a change calculator; other tenders settle on one tap.
   const [cashMode, setCashMode] = useState(false);
+  // Split the check equally into N shares, each paying its own tender.
+  const [splitN, setSplitN] = useState(0); // 0 = not splitting
   const [received, setReceived] = useState("");
   // Name and number for the bill — saved to Guest CRM on settle. A known
   // mobile auto-fills the name and shows the guest's loyalty balance.
@@ -1196,6 +1213,21 @@ function FinalBillModal({
   function tap(tn: string) {
     if (tn === "Cash") { setCashMode(true); setReceived(String(Math.ceil(totalNum))); }
     else onConfirm(tn, cust, receipt, redeem);
+  }
+
+  // Split-equally state: N shares that sum to the exact total (remainder paise
+  // spread across the first shares), each with its own tender. Gateway is
+  // excluded — a card charge needs its own token per swipe.
+  const [splitTenders, setSplitTenders] = useState<string[]>([]);
+  const splitOptions = tenders.filter((t) => t !== "Gateway");
+  const shares = splitN >= 2 ? equalShares(Math.round(totalNum * 100), splitN) : [];
+  const splits = shares.map((amt, i) => ({
+    tender: splitTenders[i] ?? splitOptions[0] ?? "Cash", amount: amt.toFixed(2),
+  }));
+  function changeN(n: number) {
+    const k = Math.max(2, Math.min(8, n));
+    setSplitN(k);
+    setSplitTenders((prev) => Array.from({ length: k }, (_, i) => prev[i] ?? splitOptions[0] ?? "Cash"));
   }
 
   return (
@@ -1291,6 +1323,36 @@ function FinalBillModal({
             </button>
             <button className="btn-ghost w-full mt-1" disabled={busy} onClick={() => setCashMode(false)}>← Other tender</button>
           </div>
+        ) : splitN >= 2 ? (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold">Split equally</span>
+              <div className="flex items-center gap-1">
+                <button className="w-7 h-7 rounded-lg border border-hairline text-lg leading-none disabled:opacity-40"
+                  disabled={busy || splitN <= 2} onClick={() => changeN(splitN - 1)} aria-label="Fewer ways">−</button>
+                <span className="tabular-nums font-semibold w-16 text-center text-sm">{splitN} ways</span>
+                <button className="w-7 h-7 rounded-lg border border-hairline text-lg leading-none disabled:opacity-40"
+                  disabled={busy || splitN >= 8} onClick={() => changeN(splitN + 1)} aria-label="More ways">+</button>
+              </div>
+            </div>
+            <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
+              {shares.map((amt, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className="text-xs text-muted w-14 shrink-0">Share {i + 1}</span>
+                  <span className="font-semibold tabular-nums w-20 text-right shrink-0">{money(amt)}</span>
+                  <select className="input py-1 text-xs flex-1" value={splitTenders[i] ?? splitOptions[0] ?? "Cash"}
+                    onChange={(e) => setSplitTenders((p) => p.map((t, j) => (j === i ? e.target.value : t)))}>
+                    {splitOptions.map((t) => <option key={t} value={t}>{TENDER_LABELS[t] ?? t}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+            <button className="btn-primary w-full mt-3" disabled={busy}
+              onClick={() => onSplit(splits, cust, receipt, redeem)}>
+              {busy ? "Settling…" : `Settle ${splitN} shares · ${money(total)}`}
+            </button>
+            <button className="btn-ghost w-full mt-1" disabled={busy} onClick={() => setSplitN(0)}>← Single payment</button>
+          </div>
         ) : (
           <>
             <div className={`grid gap-2 mb-2 ${tenders.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
@@ -1300,6 +1362,11 @@ function FinalBillModal({
                 </button>
               ))}
             </div>
+            {totalNum > 0 && (
+              <button className="btn-ghost w-full mb-1 text-sm" disabled={busy} onClick={() => changeN(2)}>
+                ⑃ Split the bill equally
+              </button>
+            )}
             <button className="btn-ghost w-full" disabled={busy} onClick={onCancel}>Cancel</button>
           </>
         )}
