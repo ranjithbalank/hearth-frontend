@@ -67,14 +67,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
+      // The property read is the app's very first request; on a cold start the
+      // backend may not be listening yet. Retry transient connection failures a
+      // few times so the first-run onboarding gate doesn't briefly fall back to
+      // the wrong step on a boot race (a real HTTP error is not retried).
+      for (let attempt = 0; attempt <= 5; attempt++) {
+        try {
+          await refreshProperty();
+          break;
+        } catch (e: any) {
+          const transient = !e?.response; // network/connection error, not an HTTP status
+          if (!transient || attempt === 5) break;
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        }
+      }
       try {
-        await refreshProperty();
         if (localStorage.getItem("hearth_access")) {
           const { data } = await api.get<User>("/auth/me/");
           setUser(data);
         }
       } catch {
-        /* not logged in / no setup yet */
+        /* not logged in */
       } finally {
         setLoading(false);
       }
