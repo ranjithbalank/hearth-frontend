@@ -159,25 +159,27 @@ export function Login() {
               Forgot password?
             </button>
 
-            <div className="mt-5 border-t border-hairline pt-4">
-              <div className="text-[11px] uppercase tracking-wide text-muted mb-2">Demo roles — tap to sign in</div>
-              <div className="flex flex-wrap gap-1.5">
-                {DEMO.map((d) => (
-                  <button
-                    key={d.username}
-                    disabled={busy}
-                    onClick={() => {
-                      setUsername(d.username);
-                      setPassword("hearth123");
-                      submit(d.username, "hearth123");
-                    }}
-                    className="pill bg-hairline text-body hover:bg-pine-50 hover:text-pine disabled:opacity-50"
-                  >
-                    {d.role}
-                  </button>
-                ))}
+            {property?.demo_logins && (
+              <div className="mt-5 border-t border-hairline pt-4">
+                <div className="text-[11px] uppercase tracking-wide text-muted mb-2">Demo roles — tap to sign in</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {DEMO.map((d) => (
+                    <button
+                      key={d.username}
+                      disabled={busy}
+                      onClick={() => {
+                        setUsername(d.username);
+                        setPassword("hearth123");
+                        submit(d.username, "hearth123");
+                      }}
+                      className="pill bg-hairline text-body hover:bg-pine-50 hover:text-pine disabled:opacity-50"
+                    >
+                      {d.role}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

@@ -99,6 +99,8 @@ export interface Property {
   setup_done: boolean;
   /** First-run: true when no owner account exists yet (create Super Admin first). */
   needs_admin?: boolean;
+  /** True only on a demo install — gates the Login "tap to sign in" chips. */
+  demo_logins?: boolean;
   business_date: string | null;
   gstin: string;
   address: string;
