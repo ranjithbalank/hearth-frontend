@@ -97,6 +97,8 @@ export interface Property {
   name: string;
   edition: "" | "hotel" | "restaurant" | "both";
   setup_done: boolean;
+  /** First-run: true when no owner account exists yet (create Super Admin first). */
+  needs_admin?: boolean;
   business_date: string | null;
   gstin: string;
   address: string;

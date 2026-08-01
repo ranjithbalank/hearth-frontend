@@ -22,6 +22,8 @@ interface AppState {
   /** Re-fetch the logged-in user so shell (name, role, initials) reflects edits. */
   refreshUser: () => Promise<void>;
   setup: (edition: string, name?: string) => Promise<void>;
+  /** First-run only: create the owner / Super Admin on a fresh install. */
+  bootstrapAdmin: (fields: { name: string; username: string; email: string; password: string }) => Promise<void>;
   canAccess: (module: string) => boolean;
   landing: () => string;
   /** The branch the switcher has active (null = "all branches" / no filter). */
@@ -101,6 +103,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await refreshProperty();
   }
 
+  async function bootstrapAdmin(fields: { name: string; username: string; email: string; password: string }) {
+    await api.post("/auth/bootstrap/", fields);
+    await refreshProperty(); // needs_admin flips to false once the owner exists
+  }
+
   function canAccess(module: string) {
     if (!user) return false;
     const allowed = user.allowed_modules;
@@ -152,7 +159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<AppState>(
-    () => ({ user, property, loading, login, logout, refreshProperty, refreshUser, setup, canAccess, landing,
+    () => ({ user, property, loading, login, logout, refreshProperty, refreshUser, setup, bootstrapAdmin, canAccess, landing,
               activeBranch, setBranch, justLoggedIn, clearJustLoggedIn: () => setJustLoggedIn(false) }),
     [user, property, loading, activeBranch, justLoggedIn],
   );

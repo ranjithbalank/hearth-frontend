@@ -53,7 +53,7 @@ import { FeedbackPage, ForgotPasswordPage, GuestNotFound, InvitePage, OrderStatu
 import { Reports } from "./features/reports/Reports";
 import { Reservations } from "./features/reservations/Reservations";
 import { Settings } from "./features/settings/Settings";
-import { Setup } from "./features/auth/Setup";
+import { Onboarding } from "./features/auth/Onboarding";
 import { TaxGst } from "./features/tax/TaxGst";
 
 export default function App() {
@@ -82,8 +82,9 @@ export default function App() {
 
   if (loading) return <Spinner />;
 
-  // One-time property setup gate.
-  if (!property?.setup_done) return <Setup />;
+  // First-run onboarding gate: create the owner account (if none yet), then the
+  // one-time property setup.
+  if (property?.needs_admin || !property?.setup_done) return <Onboarding />;
 
   // Auth gate.
   if (!user) return <Login />;
