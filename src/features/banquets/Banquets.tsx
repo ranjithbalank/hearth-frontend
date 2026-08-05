@@ -7,7 +7,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { fmtDate } from "../../lib/date";
+import { fmtDate, todayISO } from "../../lib/date";
 import { amount, digits, personName } from "../../lib/inputs";
 import { currencySymbol, money } from "../../lib/money";
 import { downloadBeoPdf } from "../print/documents";
@@ -183,7 +183,7 @@ export function Banquets() {
 function BookingForm({ spaces, restaurant, event, onCancel, onSaved }: {
   spaces: Space[]; restaurant: boolean; event?: Event; onCancel: () => void; onSaved: (edited: boolean) => void;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const ns = (v: string | number) => (Number(v) ? String(v) : ""); // hide zeros in edit
   const p = event ? splitPhone(event.contact) : { code: "+91", number: "" };
   const [f, setF] = useState(event ? {

@@ -7,7 +7,7 @@ import { CsvImport } from "../../design/CsvImport";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api, getAccess } from "../../lib/api";
 import { useToast } from "../../design/Toast";
-import { fmtDate } from "../../lib/date";
+import { fmtDate, todayISO } from "../../lib/date";
 import { amount, signedAmount } from "../../lib/inputs";
 import { money } from "../../lib/money";
 
@@ -462,7 +462,7 @@ export function Inventory({ fixedTab, tabGroup, title }: {
             </thead>
             <tbody>
               {expiring?.map((i) => {
-                const expired = i.expiry_date! <= new Date().toISOString().slice(0, 10);
+                const expired = i.expiry_date! <= todayISO();
                 return (
                   <tr key={i.id} className="border-t border-line hover:bg-cream/60 transition-colors">
                     <td className="px-4 py-3 font-medium">{i.name}</td>

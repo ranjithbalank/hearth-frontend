@@ -51,6 +51,7 @@ export function Stat({
   icon,
   delayMs,
   onClick,
+  compact = false,
 }: {
   label: string;
   value: ReactNode;
@@ -65,6 +66,10 @@ export function Stat({
   delayMs?: number;
   /** makes the whole tile a drill-through — hover lift + keyboard-activatable */
   onClick?: () => void;
+  /** Tighter padding and figure, for screens where the tile row competes with a
+   *  chart for the fold — the dashboard's whole point is the chart, and a KPI
+   *  row that pushes it under the fold has won an argument it shouldn't. */
+  compact?: boolean;
 }) {
   const dark = tone === "dark";
   const interactive = !!onClick;
@@ -75,7 +80,8 @@ export function Stat({
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={interactive ? (e) => e.key === "Enter" && onClick!() : undefined}
       className={clsx(
-        "relative overflow-hidden rounded-card p-5 animate-fade-in-up",
+        "relative overflow-hidden rounded-card animate-fade-in-up",
+        compact ? "p-4" : "p-5",
         dark ? "bg-gradient-ink text-white shadow-md" : "card",
         interactive && "cursor-pointer transition-all duration-150 hover:-translate-y-0.5 " +
           (dark ? "hover:shadow-lg" : "hover:shadow-card-hover hover:border-pine-200"),
@@ -90,7 +96,7 @@ export function Stat({
       )}
       <div className="relative flex items-start justify-between gap-3">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <div className={`stat-num text-3xl ${dark ? "text-white" : ""}`}>{value}</div>
+          <div className={clsx("stat-num", compact ? "text-2xl" : "text-3xl", dark && "text-white")}>{value}</div>
           {delta !== undefined && (
             <span
               className={clsx(
@@ -225,7 +231,10 @@ export function PageHeader({
   eyebrow,
 }: {
   title: string;
-  subtitle?: string;
+  /** ReactNode, not string: a screen whose subtitle describes a window the
+   *  reader can change (a period, a range) can put that control here, beside
+   *  the text it governs, instead of exiling it to the action row. */
+  subtitle?: ReactNode;
   action?: ReactNode;
   /** small icon chip to the left of the title */
   icon?: ReactNode;
@@ -243,7 +252,9 @@ export function PageHeader({
         <div className="min-w-0">
           {eyebrow && <div className="text-xs font-bold uppercase tracking-widest text-pine mb-1">{eyebrow}</div>}
           <h1 className="font-display text-3xl font-semibold text-ink tracking-tight truncate">{title}</h1>
-          {subtitle && <p className="text-sm text-muted mt-1">{subtitle}</p>}
+          {subtitle && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-muted mt-1">{subtitle}</div>
+          )}
         </div>
       </div>
       {action}
@@ -414,27 +425,60 @@ export function Tabs<T extends string>({
   value,
   onChange,
   options,
+  iconOnly = false,
+  size = "md",
 }: {
   value: T;
   onChange: (v: T) => void;
-  options: { value: T; label: string }[];
+  /** `icon` is optional — pass a line icon (lucide) at ~14px; it sits before
+   *  the label and inherits the tab's colour in both states. */
+  options: { value: T; label: string; icon?: ReactNode }[];
+  /** Show the icon alone. The label is still required and still reaches
+   *  screen readers and the tooltip — it is hidden, not dropped, so the
+   *  control stays operable without sight of the icon. Only for a set whose
+   *  icons are unambiguous; a header running out of width is the usual
+   *  reason to reach for it. */
+  iconOnly?: boolean;
+  /** "sm" is a lighter, smaller segmented control: a hairline track with a
+   *  white chip on the active option instead of a filled dark pill. For a
+   *  page header, where several controls sit together and the default's
+   *  weight reads as a row of heavy blobs. */
+  size?: "md" | "sm";
 }) {
+  const sm = size === "sm";
   return (
-    <div className="inline-flex items-center gap-1 rounded-pill bg-hairline p-1">
-      {options.map((o) => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          className={clsx(
-            "rounded-pill text-sm font-semibold px-4 py-1.5 transition-colors duration-150",
-            value === o.value
-              ? "bg-ink text-white shadow-sm"
-              : "text-body hover:text-ink hover:bg-white/70",
-          )}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div
+      className={clsx(
+        "inline-flex items-center rounded-pill",
+        sm ? "gap-0.5 p-0.5 bg-cream border border-hairline" : "gap-1 p-1 bg-hairline",
+      )}
+    >
+      {options.map((o) => {
+        const bare = iconOnly && !!o.icon;
+        const on = value === o.value;
+        return (
+          <button
+            key={o.value}
+            onClick={() => onChange(o.value)}
+            title={bare ? o.label : undefined}
+            aria-label={bare ? o.label : undefined}
+            aria-pressed={on}
+            className={clsx(
+              "inline-flex items-center justify-center rounded-pill font-semibold transition-colors duration-150",
+              sm ? "gap-1 text-[13px]" : "gap-1.5 text-sm",
+              sm
+                ? (bare ? "px-2 py-1" : "px-2.5 py-1")
+                : (bare ? "px-2.5 py-1.5" : o.icon ? "px-3.5 py-1.5" : "px-4 py-1.5"),
+              on
+                ? sm ? "bg-surface text-ink shadow-sm" : "bg-ink text-white shadow-sm"
+                : "text-muted hover:text-ink" + (sm ? "" : " hover:bg-white/70"),
+            )}
+          >
+            {o.icon}
+            {bare ? <span className="sr-only">{o.label}</span> : o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

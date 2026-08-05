@@ -8,7 +8,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { fmtDate } from "../../lib/date";
+import { fmtDate, todayISO } from "../../lib/date";
 import { COUNTRY_CODES } from "../../lib/countryCodes";
 import { monthlyEquivalent } from "../../lib/wage";
 import { amount as decimalFilter, digits, personName } from "../../lib/inputs";
@@ -100,8 +100,12 @@ export function Hr() {
   const canManagePayroll = PAYROLL_MANAGERS.has(user?.role ?? "");
   const [tab, setTab] = useState<"roster" | "attendance" | "payroll" | "advances">("roster");
   const [side, setSide] = useState<Side>("all");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  // Local calendar date, not UTC: attendance and payroll are dated to the day
+  // someone actually worked, and the UTC date is yesterday for the whole early
+  // shift in IST — which is when a night team's attendance gets marked. The
+  // month picker has the same trap at every month boundary.
+  const [date, setDate] = useState(todayISO());
+  const [month, setMonth] = useState(todayISO().slice(0, 7));
   const [editing, setEditing] = useState<Employee | null>(null);
   const [inviting, setInviting] = useState<Employee | null>(null);
   const [q, setQ] = useState("");
@@ -110,6 +114,12 @@ export function Hr() {
   const { data, isLoading } = useQuery({
     queryKey: ["hr"],
     queryFn: async () => (await api.get<Employee[]>("/hr/")).data,
+  });
+  // Logins that exist but have no pay record — keyed under ["hr"] so adding
+  // someone to the roster refreshes both lists at once.
+  const { data: unpaid } = useQuery({
+    queryKey: ["hr", "unpaid"],
+    queryFn: async () => (await api.get<UnpaidLogin[]>("/hr/unpaid/")).data,
   });
 
   // Deep-link from Employees master's "View payroll →": /hr?edit=<id> jumps
@@ -124,6 +134,20 @@ export function Hr() {
     }
     setSearchParams((p) => { p.delete("edit"); return p; }, { replace: true });
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The other half of the handover: Settings sends /hr?onboard=<user id> after
+  // creating a login, and lands on that person's pay form with their name and
+  // the link to their account already filled in.
+  useEffect(() => {
+    const userId = searchParams.get("onboard");
+    if (!userId || !unpaid) return;
+    const who = unpaid.find((u) => u.id === Number(userId));
+    if (who) {
+      setTab("roster");
+      setEditing({ ...BLANK_EMPLOYEE, name: who.name, user: who.id });
+    }
+    setSearchParams((p) => { p.delete("onboard"); return p; }, { replace: true });
+  }, [unpaid]); // eslint-disable-line react-hooks/exhaustive-deps
   const { data: att } = useQuery({
     queryKey: ["hr-att", date],
     queryFn: async () => (await api.get<{ date: string; marks: Record<string, string> }>(`/hr/attendance/?date=${date}`)).data,
@@ -231,6 +255,55 @@ export function Hr() {
 
       {tab === "roster" && (
         <Card className="overflow-x-auto">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm text-muted">
+              {staff.length} {staff.length === 1 ? "person" : "people"} on the roster
+            </div>
+            <button className="btn-primary text-sm" onClick={() => setEditing(BLANK_EMPLOYEE)}>
+              + Add employee
+            </button>
+          </div>
+
+          {!!unpaid?.length && (
+            // A login created in Users & Roles isn't a payroll record — the two
+            // are separate on purpose (the roster also covers people who never
+            // get a login). Nothing surfaced the gap though, so anyone added in
+            // Settings silently missed every payroll run. Now HR sees them.
+            <div className="rounded-card border border-amber/40 bg-amber/5 p-3 mb-4">
+              <div className="font-medium text-ink text-sm">
+                {unpaid.length} {unpaid.length === 1 ? "login has" : "logins have"} no pay set up
+              </div>
+              <div className="text-xs text-muted mt-0.5 mb-2.5">
+                Added in Users &amp; Roles but not on the roster — they won't appear in attendance
+                or payroll until you set their department and pay.
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {unpaid.map((u) => (
+                  <button key={u.id} className="pill bg-surface border border-hairline hover:border-pine text-body"
+                    onClick={() => setEditing({ ...BLANK_EMPLOYEE, name: u.name, user: u.id })}>
+                    {u.name} <span className="text-muted">· {u.role}</span>
+                    <span className="text-pine ml-1.5">+ pay</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {!staff.length && (
+            // Nothing here on a fresh install, and until now nothing to click
+            // either — the roster is what attendance, payroll and leave all
+            // hang off, so it can't be a dead end.
+            <div className="text-center py-10">
+              <div className="font-medium text-ink mb-1">No one on the roster yet</div>
+              <div className="text-sm text-muted mb-4">
+                Add your staff here — attendance, payroll and leave all run off this list.
+                You can also import a spreadsheet from the Employees master.
+              </div>
+              <button className="btn-primary text-sm" onClick={() => setEditing(BLANK_EMPLOYEE)}>
+                + Add your first employee
+              </button>
+            </div>
+          )}
+          {!!staff.length && (
           <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="text-muted text-xs uppercase">
               <tr>
@@ -277,9 +350,12 @@ export function Hr() {
               ))}
             </tbody>
           </table></div>
-          <div className="flex gap-3 mt-3 text-xs text-muted">
-            <span>M Morning</span><span>E Evening</span><span>N Night</span><span>O Off</span>
-          </div>
+          )}
+          {!!staff.length && (
+            <div className="flex gap-3 mt-3 text-xs text-muted">
+              <span>M Morning</span><span>E Evening</span><span>N Night</span><span>O Off</span>
+            </div>
+          )}
         </Card>
       )}
 
@@ -600,10 +676,34 @@ function InviteModal({ employee, onClose }: { employee: Employee; onClose: () =>
   );
 }
 
+/** Blank row used when the modal is opened to ADD someone rather than edit. */
+const BLANK_EMPLOYEE: Employee = {
+  id: 0, name: "", department: "", role: "", country_code: "+91", phone: "",
+  shifts: ["M", "M", "M", "M", "M", "M", "O"], status: "Active", wage_type: "monthly",
+  monthly_salary: "0", daily_rate: "0", weekly_rate: "0", statutory: true,
+  has_allowances: true, user: null,
+};
+
+interface UnpaidLogin { id: number; username: string; name: string; role: string }
+
 function EditEmployeeModal({ employee, onClose, onSaved }: {
   employee: Employee; onClose: () => void; onSaved: () => void;
 }) {
   const toast = useToast();
+  // id 0 = a new hire being typed in; anything else is an existing record.
+  const creating = employee.id === 0;
+  // Department and designation are masters (Settings > Masters), and the
+  // backend rejects anything not on them — so they're pickers, not free text.
+  const { data: departments } = useQuery({
+    queryKey: ["master-departments"],
+    queryFn: async () => (await api.get<{ name: string; active: boolean }[]>(
+      "/masters/departments/")).data,
+  });
+  const { data: designations } = useQuery({
+    queryKey: ["master-designations"],
+    queryFn: async () => (await api.get<{ name: string; active: boolean }[]>(
+      "/masters/designations/")).data,
+  });
   const [form, setForm] = useState({
     name: employee.name, department: employee.department, role: employee.role,
     country_code: employee.country_code || "+91", phone: employee.phone ?? "",
@@ -616,7 +716,11 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
     () => DAYS.map((_, i) => employee.shifts[i] ?? "O"));
 
   const save = useMutation({
-    mutationFn: async () => (await api.put(`/hr/${employee.id}/`, { ...form, shifts })).data,
+    mutationFn: async () => (creating
+      // `user` carries the link when this was opened from the "no pay set up"
+      // band, so the roster row and the login end up as one person.
+      ? (await api.post("/hr/", { ...form, shifts, user: employee.user })).data
+      : (await api.put(`/hr/${employee.id}/`, { ...form, shifts })).data),
     onSuccess: onSaved,
     onError: (e: any) => toast(e?.response?.data?.detail ?? "Could not save", "error"),
   });
@@ -628,14 +732,36 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
   return (
     <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div className="card p-5 w-full max-w-[420px]" onClick={(e) => e.stopPropagation()}>
-        <div className="font-display text-xl mb-3">Edit {employee.name}</div>
-        {([["name", "Name"], ["department", "Department"], ["role", "Role"]] as const).map(([k, label]) => (
-          <label key={k} className="block mb-3">
-            <span className="text-xs text-muted uppercase tracking-wide">{label}</span>
-            <input className="input mt-1" value={(form as any)[k]}
-              onChange={(e) => set(k, k === "name" ? personName(e.target.value) : e.target.value)} />
+        <div className="font-display text-xl mb-3">
+          {creating ? "Add employee" : `Edit ${employee.name}`}
+        </div>
+        <label className="block mb-3">
+          <span className="text-xs text-muted uppercase tracking-wide">Name</span>
+          <input className="input mt-1" value={form.name} autoFocus={creating}
+            onChange={(e) => set("name", personName(e.target.value))} />
+        </label>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <label className="block">
+            <span className="text-xs text-muted uppercase tracking-wide">Department</span>
+            <select className="input mt-1" value={form.department}
+              onChange={(e) => set("department", e.target.value)}>
+              <option value="">Choose…</option>
+              {(departments ?? []).filter((d) => d.active).map((d) => (
+                <option key={d.name}>{d.name}</option>
+              ))}
+            </select>
           </label>
-        ))}
+          <label className="block">
+            <span className="text-xs text-muted uppercase tracking-wide">Designation</span>
+            <select className="input mt-1" value={form.role}
+              onChange={(e) => set("role", e.target.value)}>
+              <option value="">Choose…</option>
+              {(designations ?? []).filter((d) => d.active).map((d) => (
+                <option key={d.name}>{d.name}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         <label className="block mb-3">
           <span className="text-xs text-muted uppercase tracking-wide">Phone</span>
           <div className="flex gap-2 mt-1">
@@ -719,9 +845,10 @@ function EditEmployeeModal({ employee, onClose, onSaved }: {
         </div>
         <div className="flex gap-2">
           <button className="btn-ghost flex-1" onClick={onClose}>Cancel</button>
-          <button className="btn-primary flex-1" disabled={!form.name.trim() || save.isPending}
+          <button className="btn-primary flex-1"
+            disabled={!form.name.trim() || !form.department || !form.role || save.isPending}
             onClick={() => save.mutate()}>
-            Save
+            {creating ? "Add employee" : "Save"}
           </button>
         </div>
       </div>

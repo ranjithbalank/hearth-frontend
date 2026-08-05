@@ -72,11 +72,30 @@ function smoothPath(pts: { x: number; y: number }[]): string {
   return d;
 }
 
-export function LineChart({ days, series }: { days: string[]; series: LineSeries[] }) {
+export function LineChart({
+  days,
+  series: allSeries,
+  height = 220,
+}: {
+  days: string[];
+  series: LineSeries[];
+  /** viewBox height. The chart scales to its container's width, so a shorter
+   *  box is a flatter chart — used on the dashboard, where the card has to
+   *  clear the fold on a 768px laptop. */
+  height?: number;
+}) {
   const uid = useId();
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
-  const W = 640, H = 220, padL = 46, padR = 16, padT = 12, padB = 26;
+  // Series the reader has switched off. A banquet contract books its whole
+  // value on one day, which is ten times a day's rooms-and-F&B — so on a shared
+  // axis it flattens the two series a manager actually runs the property by
+  // into a line along the bottom. Hiding it is one click, and the axis rescales
+  // to what is left. Colours stay bound to the stream, never to its position,
+  // so nothing repaints when a series is dropped.
+  const [hidden, setHidden] = useState<Record<string, boolean>>({});
+  const series = allSeries.filter((s) => !hidden[s.name]);
+  const W = 640, H = height, padL = 46, padR = 16, padT = 12, padB = 26;
   const n = days.length;
   const top = niceMax(Math.max(1, ...series.flatMap((s) => s.values)));
   const x = (i: number) => padL + (n < 2 ? 0 : ((W - padL - padR) * i) / (n - 1));
@@ -94,13 +113,31 @@ export function LineChart({ days, series }: { days: string[]; series: LineSeries
 
   return (
     <div className="relative">
-      <div className="flex gap-4 mb-2">
-        {series.map((s) => (
-          <span key={s.name} className="flex items-center gap-1.5 text-xs text-muted">
-            <span className="inline-block w-3 h-0.5 rounded-full" style={{ background: s.color }} />
-            {s.name}
-          </span>
-        ))}
+      <div className="flex gap-1 mb-2 flex-wrap">
+        {allSeries.map((s) => {
+          const off = !!hidden[s.name];
+          const last = allSeries.filter((x) => !hidden[x.name]).length === 1 && !off;
+          return (
+            <button
+              key={s.name}
+              type="button"
+              onClick={() => !last && setHidden((h) => ({ ...h, [s.name]: !h[s.name] }))}
+              aria-pressed={!off}
+              title={last ? "At least one series stays on"
+                : off ? `Show ${s.name}` : `Hide ${s.name}`}
+              className={`flex items-center gap-1.5 text-xs rounded-pill px-2 py-1 transition-colors
+                ${last ? "cursor-default" : "cursor-pointer hover:bg-cream"}
+                ${off ? "text-muted/50" : "text-muted"}`}
+            >
+              <span
+                className="inline-block w-3 h-0.5 rounded-full shrink-0"
+                style={{ background: off ? "transparent" : s.color,
+                         boxShadow: off ? `inset 0 0 0 1px ${s.color}` : undefined }}
+              />
+              <span className={off ? "line-through" : ""}>{s.name}</span>
+            </button>
+          );
+        })}
       </div>
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full overflow-visible"
         onMouseMove={onMove} onMouseLeave={() => setHover(null)}>

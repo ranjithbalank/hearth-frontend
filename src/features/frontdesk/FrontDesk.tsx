@@ -7,7 +7,7 @@ import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, Modal, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
-import { fmtDate } from "../../lib/date";
+import { fmtDate, todayISO } from "../../lib/date";
 import { money } from "../../lib/money";
 import { useApp } from "../../lib/app-context";
 import type { Reservation, Room } from "../../lib/types";
@@ -60,7 +60,7 @@ export function FrontDesk() {
 
   if (isLoading) return <Spinner />;
 
-  const today = property?.business_date ?? new Date().toISOString().slice(0, 10);
+  const today = property?.business_date ?? todayISO();
   const dueOut = (allRes ?? []).filter(
     (r) => r.status === "in_house" && r.checkout_date <= today);
   // The desk works today's list first: overdue, then today, then the future.

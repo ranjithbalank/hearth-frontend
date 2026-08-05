@@ -20,6 +20,14 @@ export function signedAmount(v: string): string {
   return (neg ? "-" : "") + amount(v);
 }
 
+/** The national part of a phone number — digits only, ITU-E.164 length cap.
+ *  The country code is NOT typed into this field; it comes from the picker
+ *  beside it (see design/PhoneInput). Splitting them is what makes a number
+ *  storable one way and searchable at all — before this, phone was a plain
+ *  text input on twelve of the fourteen screens that take one. */
+export const phone = (v: string, max = 15): string =>
+  v.replace(/\D/g, "").slice(0, max);
+
 /** GSTIN: 15-char uppercase alphanumeric (2 state + 10 PAN + 3). */
 export const gstin = (v: string): string =>
   v.replace(/[^0-9A-Za-z]/g, "").toUpperCase().slice(0, 15);
@@ -30,3 +38,11 @@ export const gstin = (v: string): string =>
  *  business/item names or addresses, which legitimately contain numbers. */
 export const personName = (v: string, max = 60): string =>
   v.replace(/[^\p{L}\s.'-]/gu, "").replace(/\s{2,}/g, " ").slice(0, max);
+
+/** A login name: lower-case letters, digits, dot, underscore, hyphen.
+ *  Case-folded here because the server stores usernames lower-case — typing
+ *  "Abishek1828" and "abishek1828" has to reach the same account, not create
+ *  a second one that looks identical on every screen. Mirrors
+ *  accounts/validators.py::validate_username. */
+export const username = (v: string, max = 40): string =>
+  v.toLowerCase().replace(/[^a-z0-9._-]/g, "").replace(/^[^a-z0-9]+/, "").slice(0, max);

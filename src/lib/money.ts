@@ -42,6 +42,19 @@ export function num(value: string | number): number {
   return typeof value === "string" ? Number(value) : value;
 }
 
+/** Money for a dashboard tile — whole units, no paise.
+ *
+ *  A KPI is scanned, not reconciled. Showing paise made every tile a different
+ *  width (₹4,548.57 beside ₹1,08,505.62), so nothing lined up and the longest
+ *  figure collided with its icon at 1366px. Use money() wherever the exact
+ *  amount is the point — folios, bills, reports, the dashboard's own Data view. */
+export function moneyKpi(value: string | number): string {
+  const n = typeof value === "string" ? Number(value) : value;
+  return activeSymbol + new Intl.NumberFormat("en-IN", {
+    maximumFractionDigits: 0,
+  }).format(isNaN(n) ? 0 : n);
+}
+
 /** Compact Indian-format money for headline totals (₹6.15L, ₹1.2Cr) so a long
  *  range's sum stays glanceable instead of a wall of digits. Uses the active
  *  currency symbol — never hardcodes ₹. */

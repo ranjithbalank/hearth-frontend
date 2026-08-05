@@ -5,7 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { Badge, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { amount, digits, personName } from "../../lib/inputs";
+import { amount, digits, personName, phone as phoneFilter } from "../../lib/inputs";
+import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
+import { COUNTRY_CODES } from "../../lib/countryCodes";
+import { todayISO } from "../../lib/date";
 import { currencySymbol, money } from "../../lib/money";
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
@@ -1123,6 +1126,8 @@ export function Pos() {
         <FinalBillModal
           total={order.totals.total}
           tableName={mode === "dinein" ? table?.name : undefined}
+          billNo={order.bill_no}
+          openedAt={order.created_at}
           tenders={tenders}
           busy={finalBill.isPending}
           initialCustomer={order.customer_mobile
@@ -1140,10 +1145,15 @@ export function Pos() {
 interface LoyaltyReward { id: number; name: string; points_cost: number; kind: "percent" | "fixed"; value: string }
 
 function FinalBillModal({
-  total, tableName, tenders, busy, initialCustomer, onCancel, onConfirm, onSplit,
+  total, tableName, billNo, openedAt, tenders, busy, initialCustomer, onCancel, onConfirm, onSplit,
 }: {
   total: string;
   tableName?: string;
+  /** Set once the bill has been raised; empty on a still-open order. */
+  billNo?: string;
+  /** The order's own timestamp — a bill left unsettled overnight keeps its
+   *  real date rather than picking up today's. */
+  openedAt?: string;
   tenders: string[];
   busy: boolean;
   initialCustomer: { name: string; mobile: string } | null;
@@ -1154,6 +1164,7 @@ function FinalBillModal({
     cust?: { name: string; mobile: string; country: string },
     receipt?: "sms" | "whatsapp", redeem?: { reward_id?: number; points?: number }) => void;
 }) {
+  const raised = openedAt ? new Date(openedAt) : new Date();
   // Cash is settled through a change calculator; other tenders settle on one tap.
   const [cashMode, setCashMode] = useState(false);
   // Split the check equally into N shares, each paying its own tender.
@@ -1162,13 +1173,14 @@ function FinalBillModal({
   // Name and number for the bill — saved to Guest CRM on settle. A known
   // mobile auto-fills the name and shows the guest's loyalty balance.
   // Foreign guests keep their country code (stored as "+44 7700123456").
-  const savedCc = (initialCustomer?.mobile ?? "").match(/^(\+\d{1,4})\s*(.*)$/);
-  const [cc, setCc] = useState(savedCc?.[1] ?? "+91");
+  // splitPhone reads every spelling the number may be stored as; the old regex
+  // here only understood the spaced form and mangled the code on anything else.
+  const savedPhone = splitPhone(initialCustomer?.mobile ?? "");
+  const [cc, setCc] = useState(savedPhone.code);
   const [custName, setCustName] = useState(initialCustomer?.name ?? "");
-  const [custMobile, setCustMobile] = useState(
-    digits(savedCc ? savedCc[2] : initialCustomer?.mobile ?? "", 12));
+  const [custMobile, setCustMobile] = useState(savedPhone.number);
   const validMobile = cc === "+91" ? custMobile.length === 10 : custMobile.length >= 6;
-  const fullMobile = cc === "+91" ? custMobile : `${cc} ${custMobile}`;
+  const fullMobile = joinPhone(cc, custMobile);
   const [receipt, setReceipt] = useState<"sms" | "whatsapp">("sms");
   const { data: known } = useQuery({
     queryKey: ["cust-lookup", fullMobile],
@@ -1233,7 +1245,25 @@ function FinalBillModal({
   return (
     <div className="fixed inset-0 bg-ink/40 flex items-center justify-center p-4 z-50" onClick={onCancel}>
       <div className="card p-5 w-full max-w-[380px]" onClick={(e) => e.stopPropagation()}>
-        <div className="font-display text-xl mb-2">Final bill</div>
+        <div className="font-display text-xl mb-1">Final bill</div>
+        {/* Who this bill is, on screen. Before the bill is raised there is no
+            number yet — the series is only allotted on POST /bill/, so that a
+            cancelled checkout never burns an invoice number. Say so rather than
+            showing a blank or a fake one. */}
+        <div className="text-xs text-muted mb-3 flex flex-wrap gap-x-3 gap-y-0.5">
+          <span>
+            Bill No:{" "}
+            {billNo
+              ? <b className="text-ink">{billNo}</b>
+              : <span className="opacity-70">allotted when you print</span>}
+          </span>
+          <span>
+            {raised.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+            {" · "}
+            {raised.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+          {tableName && <span>Table {tableName}</span>}
+        </div>
         <div className="text-sm bg-amber-50 border border-amber-300 rounded-lg p-3 mb-4">
           ⚠ This prints the final bill and closes the order.
           {tableName ? ` Table ${tableName} will be freed for the next guest.` : ""} This cannot be undone.
@@ -1245,15 +1275,15 @@ function FinalBillModal({
         <div className="mb-4">
           <label className="text-xs font-semibold text-muted">Customer name &amp; number — for the bill &amp; loyalty</label>
           <div className="grid grid-cols-[4.5rem_1fr_1fr] gap-2 mt-1">
-            <select className="input py-1.5 text-sm px-1" value={cc} aria-label="Country code"
+            <select className="input py-1.5 text-sm px-1" value={cc} aria-label="Country dialling code"
               onChange={(e) => setCc(e.target.value)}>
-              {["+91", "+44", "+1", "+971", "+65", "+61", "+86", "+49"].map((c) => (
-                <option key={c} value={c}>{c}</option>
+              {COUNTRY_CODES.map((c) => (
+                <option key={c.code} value={c.code}>{c.code}</option>
               ))}
             </select>
-            <input className="input py-1.5 text-sm" placeholder="Mobile" inputMode="numeric"
+            <input className="input py-1.5 text-sm" placeholder="Mobile" type="tel" inputMode="tel"
               value={custMobile}
-              onChange={(e) => setCustMobile(digits(e.target.value, cc === "+91" ? 10 : 12))} />
+              onChange={(e) => setCustMobile(phoneFilter(e.target.value, cc === "+91" ? 10 : 12))} />
             <input className="input py-1.5 text-sm" placeholder="Name"
               value={custName} onChange={(e) => setCustName(personName(e.target.value))} />
           </div>
@@ -1733,13 +1763,18 @@ function TillModal({ till, onClose }: { till: TillSession | null; onClose: () =>
 
 function ReserveModal({ tables, onDone, onCancel }: { tables: Table[]; onDone: () => void; onCancel: () => void }) {
   const toast = useToast();
-  const [f, setF] = useState({ kind: "reservation", name: "", mobile: "", party_size: "2", table: "", time: "" });
+  const [f, setF] = useState({ kind: "reservation", name: "", mobile_code: COUNTRY_CODES[0].code,
+                               mobile: "", party_size: "2", table: "", time: "" });
 
   async function save() {
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      // The host's own calendar day. On the UTC date, a booking taken at
+      // 00:30 IST for 20:00 was stamped with yesterday — a reservation in the
+      // past, which the floor never sees again.
+      const today = todayISO();
       await api.post("/pos/table-reservations/", {
-        kind: f.kind, name: f.name.trim(), mobile: f.mobile, party_size: Number(f.party_size) || 1,
+        kind: f.kind, name: f.name.trim(), mobile: joinPhone(f.mobile_code, f.mobile),
+        party_size: Number(f.party_size) || 1,
         table: f.table || null,
         reserved_for: f.kind === "reservation" && f.time ? `${today}T${f.time}:00` : null,
       });
@@ -1765,8 +1800,14 @@ function ReserveModal({ tables, onDone, onCancel }: { tables: Table[]; onDone: (
         <div className="grid gap-2">
           <input className="input" placeholder="Guest name" value={f.name} onChange={(e) => setF({ ...f, name: personName(e.target.value) })} />
           <div className="grid grid-cols-2 gap-2">
-            <input className="input" placeholder="Mobile (optional)" inputMode="tel"
-              value={f.mobile} onChange={(e) => setF({ ...f, mobile: digits(e.target.value, 10) })} />
+            <PhoneInput
+              code={f.mobile_code}
+              number={f.mobile}
+              onCode={(c) => setF({ ...f, mobile_code: c })}
+              onNumber={(n) => setF({ ...f, mobile: n })}
+              placeholder="Mobile (optional)"
+              ariaLabel="Guest mobile number"
+            />
             <input className="input" placeholder="Party size" inputMode="numeric"
               value={f.party_size} onChange={(e) => setF({ ...f, party_size: digits(e.target.value, 2) })} />
           </div>

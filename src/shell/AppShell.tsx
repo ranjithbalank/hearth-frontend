@@ -28,19 +28,17 @@ function Chevron({ open }: { open: boolean }) {
 
 interface Alert { severity: string; module: string; title: string; detail: string }
 
-/** Only appears for people who actually operate across more than one
- * branch — a Bar Captain or Housekeeping login with a single assignment
- * never sees this, they just land on their branch. */
-function BranchSwitcher() {
-  const { user, activeBranch, setBranch } = useApp();
-  const qc = useQueryClient();
+/** The branches this login may operate in, plus whether they hold the
+ *  all-branch role. Shared so the header switcher and the Dashboard's own
+ *  picker can never disagree about what the list is. */
+export function useBranchOptions() {
+  const { user } = useApp();
   const allBranches = user?.branches === "*";
   const { data: everyBranch } = useQuery({
     queryKey: ["branches"],
     queryFn: async () => (await api.get<{ id: number; name: string; code: string }[]>("/auth/branches/")).data,
     enabled: allBranches,
   });
-
   const options = allBranches
     ? everyBranch ?? []
     : Array.from(
@@ -49,6 +47,16 @@ function BranchSwitcher() {
             .map((a) => [a.branch, { id: a.branch, name: a.branch_name, code: a.branch_code }]),
         ).values(),
       );
+  return { options, allBranches };
+}
+
+/** Only appears for people who actually operate across more than one
+ * branch — a Bar Captain or Housekeeping login with a single assignment
+ * never sees this, they just land on their branch. */
+function BranchSwitcher() {
+  const { activeBranch, setBranch } = useApp();
+  const qc = useQueryClient();
+  const { options, allBranches } = useBranchOptions();
 
   if (options.length <= 1 && !allBranches) return null;
   if (options.length === 0) return null;

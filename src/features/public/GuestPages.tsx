@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Logo, Spinner } from "../../design/ui";
+import { PhoneInput, joinPhone } from "../../design/PhoneInput";
+import { COUNTRY_CODES } from "../../lib/countryCodes";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { currencySymbol } from "../../lib/money";
@@ -123,7 +125,8 @@ export function PreCheckinPage() {
   const [booking, setBooking] = useState("");
   const [verify, setVerify] = useState("");
   const [summary, setSummary] = useState<any>(null);
-  const [d, setD] = useState({ mobile: "", email: "", id_type: "Aadhaar", id_number: "", eta: "", note: "" });
+  const [d, setD] = useState({ mobile_code: COUNTRY_CODES[0].code, mobile: "", email: "",
+                               id_type: "Aadhaar", id_number: "", eta: "", note: "" });
   const [error, setError] = useState("");
 
   async function lookup() {
@@ -140,7 +143,12 @@ export function PreCheckinPage() {
   async function submit() {
     setError("");
     try {
-      await api.post("/public/pre-checkin/", { booking, verify, details: d });
+      // Send the number in the one canonical shape the rest of the product
+      // stores, not the picker's two halves.
+      const { mobile_code, mobile, ...rest } = d;
+      await api.post("/public/pre-checkin/", {
+        booking, verify, details: { ...rest, mobile: joinPhone(mobile_code, mobile) },
+      });
       setStep("done");
     } catch (e: any) {
       setError(e?.response?.data?.detail ?? "Could not save");
@@ -170,8 +178,14 @@ export function PreCheckinPage() {
               {summary.guest_name} · {summary.room_type} · {fmtDate(summary.checkin_date)} → {fmtDate(summary.checkout_date)}
             </div>
             <div className="grid gap-2">
-              <input className="input" placeholder="Mobile" inputMode="tel" value={d.mobile}
-                onChange={(e) => setD({ ...d, mobile: e.target.value.replace(/\D/g, "").slice(0, 10) })} />
+              <PhoneInput
+                code={d.mobile_code}
+                number={d.mobile}
+                onCode={(c) => setD({ ...d, mobile_code: c })}
+                onNumber={(n) => setD({ ...d, mobile: n })}
+                placeholder="Mobile"
+                ariaLabel="Your mobile number"
+              />
               <input className="input" placeholder="Email (optional)" value={d.email}
                 onChange={(e) => setD({ ...d, email: e.target.value })} />
               <div className="grid grid-cols-2 gap-2">

@@ -7,7 +7,7 @@ import { useToast } from "../../design/Toast";
 import { Badge, Card, EmptyState, PageHeader, Spinner } from "../../design/ui";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
-import { fmtDate } from "../../lib/date";
+import { fmtDate, todayISO } from "../../lib/date";
 import { money } from "../../lib/money";
 import { downloadPayslipPdf } from "../print/documents";
 
@@ -352,7 +352,7 @@ function RequestList({ rows, me, showDecide = false }: {
 
 function ApplyModal({ onDone, onCancel }: { onDone: (who: string) => void; onCancel: () => void }) {
   const toast = useToast();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   const [employee, setEmployee] = useState<number | "">("");
   const [leaveType, setLeaveType] = useState<number | "">("");
   const [start, setStart] = useState(today);

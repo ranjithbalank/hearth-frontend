@@ -21,7 +21,7 @@ interface AppState {
   refreshProperty: () => Promise<void>;
   /** Re-fetch the logged-in user so shell (name, role, initials) reflects edits. */
   refreshUser: () => Promise<void>;
-  setup: (edition: string, name?: string) => Promise<void>;
+  setup: (fields: Record<string, unknown>) => Promise<void>;
   /** First-run only: create the owner / Super Admin on a fresh install. */
   bootstrapAdmin: (fields: { name: string; username: string; email: string; password: string }) => Promise<void>;
   canAccess: (module: string) => boolean;
@@ -111,14 +111,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setJustLoggedIn(false);
   }
 
-  async function setup(edition: string, name?: string) {
-    await api.post("/auth/setup/", { edition, name });
-    await refreshProperty();
+  /** Record the first-run business details. Deliberately does NOT refresh the
+   *  property: `setup_done` flipping is what closes the onboarding gate in
+   *  App.tsx, so refreshing here would unmount the wizard halfway through and
+   *  skip the starter-data step. The wizard refreshes once, at the end. */
+  async function setup(fields: Record<string, unknown>) {
+    await api.post("/auth/setup/", fields);
   }
 
   async function bootstrapAdmin(fields: { name: string; username: string; email: string; password: string }) {
     await api.post("/auth/bootstrap/", fields);
-    await refreshProperty(); // needs_admin flips to false once the owner exists
+    // No refresh here either — `needs_admin` flipping while `user` is still
+    // null would drop the wizard onto the Login screen for a render. The
+    // caller signs in immediately after, and login() refreshes the property
+    // once the user is already set.
   }
 
   function canAccess(module: string) {

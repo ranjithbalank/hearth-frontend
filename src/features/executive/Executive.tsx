@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { Card, PageHeader, Spinner, Stat } from "../../design/ui";
 import { LineChart } from "../../design/LineChart";
 import { Donut } from "../../design/Donut";
+import { STREAM_COLORS } from "../../design/series";
 import { api } from "../../lib/api";
 import { useApp } from "../../lib/app-context";
 import { fmtDate, greeting } from "../../lib/date";
@@ -40,8 +41,9 @@ const TABS: { key: View; label: string }[] = [
   { key: "restaurant", label: "Restaurant only" },
 ];
 
-/** Rooms / F&B / Banquets — same hues as the dashboard trend legend. */
-const MIX_COLORS = ["#2563EB", "#DC2626", "#D97706"];
+/** Rooms / F&B / Banquets — the shared, validated stream palette, so a stream
+ *  reads the same here as it does on the Dashboard. */
+const MIX_COLORS = STREAM_COLORS;
 
 export function Executive() {
   const { user } = useApp();

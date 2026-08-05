@@ -49,6 +49,9 @@ export const ALERT_ROUTES: Record<string, string> = {
   frontdesk: "/frontdesk",
   barpos: "/barpos",
   matreq: "/material-requests",
+  // The "new login needs pay set up" alert lands on the roster, where the
+  // outstanding people are listed with their pay forms one click away.
+  hr: "/hr?tab=roster",
 };
 
 export interface NavItem {
@@ -217,7 +220,28 @@ export const NAV: NavGroup[] = [
     items: [
       { key: "branchmaster", label: "Branch Master", path: "/config/branches" },
       { key: "roles", label: "Role Mapping", path: "/config/roles" },
+      // Its own entry, gated on "users" rather than "settings", so HR reaches
+      // the logins screen without the property/entitlement panels beside it.
+      { key: "users", label: "Users & Roles", path: "/settings?section=users" },
       { key: "settings", label: "Settings", path: "/settings" },
     ],
   },
 ];
+
+/** Human label for a module key, taken from the nav entry it unlocks — so the
+ *  role picker can say "Front Desk" rather than "frontdesk". Keys with no nav
+ *  of their own (shared services, config-only gates) are named here. */
+export const MODULE_LABEL: Record<string, string> = {
+  ...Object.fromEntries(NAV.flatMap((g) => g.items.map((i) => [i.module ?? i.key, i.label]))),
+  users: "Users & Roles",
+  employees: "Employees",
+  leave: "Leave",
+  matreq: "Material Requests",
+  approvals: "Approvals",
+  notifications: "Notifications",
+  reports: "Reports",
+  settings: "Settings",
+  roles: "Role Mapping",
+  kds: "Kitchen Display",
+  online: "Online Orders",
+};

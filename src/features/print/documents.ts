@@ -98,31 +98,40 @@ export function printInvoice(
   docFooterAlign: "left" | "center" | "right" = "center",
 ) {
   const showType = columns.includes("type");
-  const showRate = columns.includes("gst_rate");
+  // HSN/SAC and GST % are statutory (Rule 46(f)/(k)) — printed always, not
+  // driven by `columns`. The SAC itself is resolved server-side and arrives on
+  // the line, so this and invoice_pdf.py can't disagree about it.
   const rows = folio.lines.map((l) => `
     <tr><td>${esc(l.description)}</td>
         ${showType ? `<td>${esc(l.kind_label)}</td>` : ""}
-        ${showRate ? `<td class="r">${esc(l.gst_rate)}%</td>` : ""}
+        <td>${esc(l.hsn_sac)}</td>
+        <td class="r">${esc(l.gst_rate)}%</td>
         <td class="r">${money(l.taxable)}</td>
         <td class="r">${money(l.cgst)}</td>
         <td class="r">${money(l.sgst)}</td>
         <td class="r">${money(l.total)}</td></tr>`).join("");
   const cgst = folio.lines.reduce((s, l) => s + Number(l.cgst), 0);
   const sgst = folio.lines.reduce((s, l) => s + Number(l.sgst), 0);
-  const colCount = 5 + (showType ? 1 : 0) + (showRate ? 1 : 0);
+  const colCount = 7 + (showType ? 1 : 0);
+  // The date the invoice was ISSUED — reprinting a settled folio next month
+  // must not restamp it with today. Matches invoice_pdf.py's settled_at ?? opened_at.
+  const issued = folio.settled_at || folio.opened_at;
+  const issuedLabel = issued
+    ? new Date(issued).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "—";
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Invoice ${esc(folio.invoice_no || folio.id)}</title>
   <style>${BASE_CSS}</style></head><body>
     <div class="head">
       <div><div class="brand">${esc(propertyName)}</div><div class="muted">${gstin ? "GSTIN: " + esc(gstin) : ""}</div>
         ${letterheadBlock(docHeader, docHeaderAlign, "muted")}</div>
       <div class="doc"><h1>TAX INVOICE</h1>
-        <div class="muted">No. ${esc(folio.invoice_no) || "—"}<br>${new Date().toLocaleDateString("en-IN")}</div></div>
+        <div class="muted">No. ${esc(folio.invoice_no) || "—"}<br>Date: ${esc(issuedLabel)}</div></div>
     </div>
     <div style="margin-top:14px; font-size:13px;">
       <b>Bill to:</b> ${esc(folio.guest_name)}${folio.room_number ? ` &nbsp;·&nbsp; Room ${esc(folio.room_number)}` : ""}
     </div>
     <div className="overflow-x-auto"><table>
-      <thead><tr><th>Description</th>${showType ? "<th>Type</th>" : ""}${showRate ? '<th class="r">GST %</th>' : ""}<th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th><th class="r">Amount</th></tr></thead>
+      <thead><tr><th>Description</th>${showType ? "<th>Type</th>" : ""}<th>HSN/SAC</th><th class="r">GST %</th><th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th><th class="r">Amount</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="${colCount}">No charges</td></tr>`}</tbody>
     </table></div>
     <div class="tot">

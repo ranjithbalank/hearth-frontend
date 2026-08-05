@@ -1,15 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Settings as SettingsIcon } from "lucide-react";
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { PhoneInput, joinPhone, splitPhone } from "../../design/PhoneInput";
 import { usePrompt } from "../../design/Prompt";
 import { useToast } from "../../design/Toast";
 import { Card, Field, PageHeader } from "../../design/ui";
 import { api } from "../../lib/api";
-import { fmtDate } from "../../lib/date";
-import { amount, digits, gstin as gstinFilter, personName } from "../../lib/inputs";
+import { fmtDate, todayISO } from "../../lib/date";
+import { amount, digits, gstin as gstinFilter, personName, username as usernameFilter } from "../../lib/inputs";
+import { MODULE_LABEL } from "../../lib/modules";
 import { currencySymbol } from "../../lib/money";
 import { useApp } from "../../lib/app-context";
 import { AuditLogPanel } from "./AuditLog";
@@ -21,6 +22,59 @@ import type { Branch, BranchAccess, Entitlement, FeatureSpec, Role, User } from 
 
 const PROTECTED_ROLES: Role[] = ["Super Admin", "Managing Director", "General Manager"];
 
+/** One role the signed-in user is senior enough to hand out, with the modules
+ *  it unlocks — served by /auth/users/assignable-roles/. */
+interface RoleOption {
+  role: Role;
+  rank: number;
+  modules: string[] | "*";
+}
+
+/** The role picker's options come from the server rather than a hand-kept list
+ *  in this file: the backend already owns the seniority ladder (ROLE_RANK) and
+ *  the role → module mapping, and a copy here could only drift out of step
+ *  with it. Whoever creates a login sees exactly the roles they may grant and
+ *  exactly the access each one carries. */
+function useAssignableRoles() {
+  const { data } = useQuery({
+    queryKey: ["assignable-roles"],
+    queryFn: async () => (await api.get<RoleOption[]>("/auth/users/assignable-roles/")).data,
+  });
+  const options = data ?? [];
+  return {
+    options,
+    roles: options.map((o) => o.role),
+    modulesFor: (role: string): string[] | "*" =>
+      options.find((o) => o.role === role)?.modules ?? [],
+  };
+}
+
+/** What the role you just picked actually unlocks — the mapping made visible at
+ *  the moment of choosing, instead of buried in the role matrix screen. */
+function RoleAccessNote({ role, modules }: { role: string; modules: string[] | "*" }) {
+  if (modules === "*") {
+    return (
+      <div className="text-xs text-muted mb-4">
+        <span className="font-semibold text-ink">{role}</span> has full access to every
+        screen — grant it only to the owners of the business.
+      </div>
+    );
+  }
+  if (!modules.length) return null;
+  return (
+    <div className="text-xs text-muted mb-4">
+      <span className="font-semibold text-ink">{role}</span> can open{" "}
+      <span className="tabular-nums">{modules.length}</span>{" "}
+      {modules.length === 1 ? "screen" : "screens"}:
+      <span className="flex flex-wrap gap-1 mt-1.5">
+        {modules.map((m) => (
+          <span key={m} className="pill bg-cream text-muted">{MODULE_LABEL[m] ?? m}</span>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 /** Which branch(es) a user operates in, and as what role there — the
  * "where" layer on top of the role dropdown above, which only decides
  * "what". Super Admin/MD/GM need no rows: they're all-branch implicitly. */
@@ -31,6 +85,7 @@ function BranchAccessCell({ user, branches }: { user: User; branches: Branch[] }
   const [branchId, setBranchId] = useState<number | "">("");
   const [role, setRole] = useState<Role>(user.role);
   const [endDate, setEndDate] = useState("");
+  const { roles: assignable } = useAssignableRoles();
 
   const { data: access } = useQuery({
     queryKey: ["branch-access", user.id],
@@ -77,7 +132,7 @@ function BranchAccessCell({ user, branches }: { user: User; branches: Branch[] }
             {branches.map((b) => <option key={b.id} value={b.id}>{b.code}</option>)}
           </select>
           <select className="input py-1 text-xs" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            {ROLES.filter((r) => !PROTECTED_ROLES.includes(r)).map((r) => <option key={r}>{r}</option>)}
+            {assignable.filter((r) => !PROTECTED_ROLES.includes(r)).map((r) => <option key={r}>{r}</option>)}
           </select>
           <input type="date" className="input py-1 text-xs w-32" placeholder="Until (optional)"
             value={endDate} onChange={(e) => setEndDate(e.target.value)} title="Temporary — leave blank for standing" />
@@ -92,16 +147,10 @@ function BranchAccessCell({ user, branches }: { user: User; branches: Branch[] }
   );
 }
 
-const ROLES: Role[] = [
-  "Super Admin", "Admin", "Managing Director", "CEO", "General Manager",
-  "Finance", "Restaurant Manager", "Hotel Manager", "Front Office", "F&B Cashier", "Captain",
-  "Housekeeping", "Chef / Kitchen", "Store Keeper", "Bar Captain", "Bar Cashier", "HR Manager",
-];
-
 function UsersPanel() {
   const qc = useQueryClient();
   const toast = useToast();
-  const { user: me, refreshUser } = useApp();
+  const { user: me, refreshUser, canAccess } = useApp();
   const empty = { username: "", first_name: "", last_name: "", role: "F&B Cashier" as Role,
     password: "", passcode: "", discount_cap_type: "none", discount_cap_value: "0" };
   const [f, setF] = useState(empty);
@@ -113,9 +162,28 @@ function UsersPanel() {
     queryKey: ["branches"],
     queryFn: async () => (await api.get<Branch[]>("/auth/branches/")).data,
   });
+  const { roles, modulesFor } = useAssignableRoles();
+  // Whoever is signed in may not be senior enough to hand out the default
+  // role, so fall back to the most junior one they can — never leave the
+  // picker showing a role the server would reject on submit.
+  useEffect(() => {
+    if (roles.length && !roles.includes(f.role)) {
+      setF((cur) => ({ ...cur, role: roles[roles.length - 1] }));
+    }
+  }, [roles, f.role]);
+  // Creating a login is only half of taking someone on: HR still owes them a
+  // department, a designation and a pay scale before they exist to attendance
+  // or payroll. Say so at the moment of creation rather than letting the
+  // handover go unspoken.
+  const [handover, setHandover] = useState<{ id: number; name: string } | null>(null);
   const create = useMutation({
-    mutationFn: async () => (await api.post("/auth/users/", f)).data,
-    onSuccess: () => { setF(empty); toast("User created"); qc.invalidateQueries({ queryKey: ["users"] }); },
+    mutationFn: async () => (await api.post<User>("/auth/users/", f)).data,
+    onSuccess: (u) => {
+      setF(empty);
+      toast("Login created");
+      setHandover({ id: u.id, name: u.name || u.username });
+      qc.invalidateQueries({ queryKey: ["users"] });
+    },
     onError: (e: any) => toast(
       e?.response?.data?.username?.[0] ?? e?.response?.data?.password?.[0]
         ?? e?.response?.data?.detail ?? "Could not create user", "error"),
@@ -162,7 +230,8 @@ function UsersPanel() {
       <div className="font-semibold mb-3">Users &amp; roles</div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
         <Field label="Username" required>
-          <input className="input" value={f.username} onChange={(e) => set("username", e.target.value)} />
+          <input className="input" value={f.username} placeholder="e.g. arun.p"
+            onChange={(e) => set("username", usernameFilter(e.target.value))} />
         </Field>
         <Field label="First name">
           <input className="input" value={f.first_name} onChange={(e) => set("first_name", personName(e.target.value))} />
@@ -172,7 +241,7 @@ function UsersPanel() {
         </Field>
         <Field label="Role">
           <select className="input" value={f.role} onChange={(e) => set("role", e.target.value)}>
-            {ROLES.map((r) => <option key={r}>{r}</option>)}
+            {roles.map((r) => <option key={r}>{r}</option>)}
           </select>
         </Field>
         <Field label="Password" required>
@@ -192,6 +261,30 @@ function UsersPanel() {
           <input className="input" inputMode="decimal" value={f.discount_cap_value} onChange={(e) => set("discount_cap_value", amount(e.target.value))} disabled={f.discount_cap_type === "none"} />
         </Field>
       </div>
+      <RoleAccessNote role={f.role} modules={modulesFor(f.role)} />
+
+      {handover && (
+        <div className="rounded-card border border-amber/40 bg-amber/5 p-3 mb-4 flex items-start gap-3">
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium text-ink text-sm">
+              {handover.name} can sign in now — HR still owes them a pay scale
+            </span>
+            <span className="block text-xs text-muted mt-0.5">
+              Until someone sets their department, designation and pay, they won't appear in
+              attendance or in a payroll run. HR has been notified.
+            </span>
+          </span>
+          {canAccess("hr") || canAccess("employees") ? (
+            <Link className="btn-outline text-xs whitespace-nowrap" to={`/hr?onboard=${handover.id}`}
+              onClick={() => setHandover(null)}>
+              Set up pay →
+            </Link>
+          ) : null}
+          <button className="text-muted hover:text-ink text-sm" title="Dismiss"
+            onClick={() => setHandover(null)}>✕</button>
+        </div>
+      )}
+
       <button className="btn-primary mb-4" disabled={!f.username || !f.password || create.isPending} onClick={() => create.mutate()}>
         Add user
       </button>
@@ -229,7 +322,7 @@ function UsersPanel() {
                       <span className="text-xs text-muted">{u.role} (protected)</span>
                     ) : (
                       <select className="input py-1 text-xs" value={ef.role} onChange={(e) => setEf({ ...ef, role: e.target.value as Role })}>
-                        {ROLES.filter((r) => !PROTECTED_ROLES.includes(r)).map((r) => <option key={r}>{r}</option>)}
+                        {roles.filter((r) => !PROTECTED_ROLES.includes(r)).map((r) => <option key={r}>{r}</option>)}
                       </select>
                     )
                   ) : u.role}
@@ -458,7 +551,6 @@ function InvoiceBillTemplatePanel() {
   }
 
   const showType = cols.includes("type");
-  const showRate = cols.includes("gst_rate");
 
   return (
     <Card className="mb-4">
@@ -501,11 +593,11 @@ function InvoiceBillTemplatePanel() {
                 <input type="checkbox" checked={showType} onChange={() => toggle("type")} />
                 Show line type (Room / F&amp;B / Tax / Incidental)
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={showRate} onChange={() => toggle("gst_rate")} />
-                Show GST rate % per line
-              </label>
             </div>
+            <p className="text-xs text-muted mt-2">
+              HSN/SAC and GST&nbsp;% always print on a tax invoice — Rule&nbsp;46 requires both
+              against every line, so they aren't optional. SAC codes come from your GST Master.
+            </p>
           </div>
 
           <div className="flex items-center gap-3 mt-4">
@@ -537,7 +629,8 @@ function InvoiceBillTemplatePanel() {
               <tr className="text-muted border-b border-hairline">
                 <th className="text-left font-normal py-1">Description</th>
                 {showType && <th className="text-left font-normal py-1">Type</th>}
-                {showRate && <th className="text-right font-normal py-1">GST %</th>}
+                <th className="text-left font-normal py-1">HSN/SAC</th>
+                <th className="text-right font-normal py-1">GST %</th>
                 <th className="text-right font-normal py-1">Taxable</th>
                 <th className="text-right font-normal py-1">CGST</th>
                 <th className="text-right font-normal py-1">SGST</th>
@@ -548,7 +641,8 @@ function InvoiceBillTemplatePanel() {
               <tr className="border-b border-hairline/60">
                 <td className="py-1">Room charge</td>
                 {showType && <td className="py-1">Room</td>}
-                {showRate && <td className="text-right py-1">12%</td>}
+                <td className="py-1">996311</td>
+                <td className="text-right py-1">12%</td>
                 <td className="text-right py-1">4,000.00</td>
                 <td className="text-right py-1">240.00</td>
                 <td className="text-right py-1">240.00</td>
@@ -641,6 +735,11 @@ function PosBillTemplatePanel() {
                 Show unit rate per item (alongside qty &amp; amount)
               </label>
             </div>
+            <p className="text-xs text-muted mt-2">
+              The document title, GSTIN, bill number and date always print — a receipt without
+              them isn't a valid document to hand a guest. Change the number's prefix under
+              Document Numbering.
+            </p>
           </div>
 
           <div className="flex items-center gap-3 mt-4">
@@ -649,10 +748,22 @@ function PosBillTemplatePanel() {
           </div>
         </div>
 
-        {/* Live preview of the printed POS receipt */}
+        {/* Live preview of the printed POS receipt. The masthead below (title,
+            GSTIN, bill number, date) is fixed — it's what makes the slip a
+            valid document — so it's shown here but isn't editable. */}
         <div className="rounded-card border border-hairline bg-white p-5 text-ink mx-auto w-full max-w-[220px] text-center">
           <div className="font-display text-sm text-pine leading-tight">{property?.name}</div>
+          <div className="text-[9px] text-ink font-semibold mt-0.5">
+            {property?.gst_billing_mode === "without_gst" ? "BILL OF SUPPLY" : "TAX INVOICE"}
+          </div>
+          {property?.gst_billing_mode !== "without_gst" && property?.gstin && (
+            <div className="text-[9px] text-muted">GSTIN: {property.gstin}</div>
+          )}
           <div className="text-[9px] text-muted">Table 4</div>
+          <div className="text-[9px] text-muted">Bill No: <b>{property?.bill_prefix || "BILL"}-202608-00042</b></div>
+          <div className="text-[9px] text-muted">
+            Date: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} · 19:40
+          </div>
           <div className={`text-[9px] text-muted mt-1 text-${headerAlign}`}>{letterheadPreviewLines(header)}</div>
           <div className="border-t border-pine my-2" />
           <div className="overflow-x-auto"><table className="w-full text-[9px] text-left">
@@ -931,15 +1042,24 @@ function DocumentNumberingPanel() {
   });
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const period = new Date().toISOString().slice(0, 7).replace("-", "");
+  const period = todayISO().slice(0, 7).replace("-", "");
+
+  // The folio invoice and the POS bill are tax documents: GST Rule 46(b) caps
+  // the whole number at 16 characters and the format spends 13 of them, so
+  // their prefix can be at most 3. PO/GRN/BEO are internal and unrestricted.
+  const STATUTORY = new Set(["invoice_prefix", "bill_prefix"]);
+  const [err, setErr] = useState("");
 
   async function save() {
+    setErr("");
     setSaving(true);
     try {
       await api.patch("/auth/property/", f);
       await refreshProperty();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } catch (e: any) {
+      setErr(e?.response?.data?.detail ?? "Couldn't save the numbering settings.");
     } finally {
       setSaving(false);
     }
@@ -952,17 +1072,31 @@ function DocumentNumberingPanel() {
         The prefix each document type uses for its sequential number — {"{prefix}"}-{"{YYYYMM}"}-{"{00001}"}, resetting every month.
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg">
-        {FIELDS.map((field) => (
-          <div key={field.key}>
-            <label className="text-xs text-muted">{field.label} prefix</label>
-            <input className="input w-full" value={f[field.key]}
-              onChange={(e) => setF({ ...f, [field.key]: e.target.value.toUpperCase() })} />
-            <div className="text-xs text-muted mt-1">
-              Preview: {f[field.key] || "—"}-{period}-00001
+        {FIELDS.map((field) => {
+          const statutory = STATUTORY.has(field.key);
+          const preview = `${f[field.key] || "—"}-${period}-00001`;
+          return (
+            <div key={field.key}>
+              <label className="text-xs text-muted">
+                {field.label} prefix
+                {statutory && <span className="opacity-70"> · max 3 (tax document)</span>}
+              </label>
+              <input className="input w-full" value={f[field.key]}
+                maxLength={statutory ? 3 : 12}
+                onChange={(e) => setF({ ...f, [field.key]: e.target.value.toUpperCase() })} />
+              <div className="text-xs text-muted mt-1">
+                Preview: {preview}
+                {statutory && (
+                  <span className={preview.length > 16 ? "text-clay" : "opacity-70"}>
+                    {" "}· {preview.length}/16
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+      {err && <div className="text-sm text-clay mt-3">{err}</div>}
       <div className="flex items-center gap-3 mt-4">
         <button className="btn-primary" onClick={save} disabled={saving}>Save</button>
         {saved && <span className="text-sm text-pine">Saved ✓</span>}
@@ -1078,36 +1212,42 @@ const SECTIONS = [
 type SectionKey = (typeof SECTIONS)[number]["key"];
 
 export function Settings() {
-  const { property, refreshProperty } = useApp();
+  const { property, refreshProperty, canAccess } = useApp();
   const [saving, setSaving] = useState<string | null>(null);
+  // HR reaches this screen through "users" alone — the logins panel and
+  // nothing else. Everything here is property configuration, so it needs the
+  // full "settings" module.
+  const canConfigure = canAccess("settings");
   // ?section= deep-links straight to a panel (e.g. the audit alert
   // sends /settings?section=audit).
   const [params] = useSearchParams();
   const [section, setSection] = useState<SectionKey>(() => {
     const requested = params.get("section");
-    return SECTIONS.some((s) => s.key === requested)
-      ? (requested as SectionKey) : "property";
+    if (SECTIONS.some((s) => s.key === requested)) return requested as SectionKey;
+    return canConfigure ? "property" : "users";
   });
+  // Follow ?section= on every change, not just first mount: the sidebar's
+  // "Users & Roles" entry links to /settings?section=users, and arriving there
+  // from the Settings entry is a query change with no remount.
+  const requestedSection = params.get("section");
+  useEffect(() => {
+    if (requestedSection && SECTIONS.some((s) => s.key === requestedSection)) {
+      setSection(requestedSection as SectionKey);
+    }
+  }, [requestedSection]);
   const hasBar = !!property?.entitlement.restaurant;
   const RESTAURANT_ONLY = ["barmode", "commission", "integrations"];
-  const visibleSections = SECTIONS.filter((s) => !RESTAURANT_ONLY.includes(s.key) || hasBar);
-  const activeSection = RESTAURANT_ONLY.includes(section) && !hasBar ? "property" : section;
+  const visibleSections = SECTIONS.filter((s) =>
+    (canConfigure || s.key === "users") && (!RESTAURANT_ONLY.includes(s.key) || hasBar));
+  const activeSection = visibleSections.some((s) => s.key === section)
+    ? section
+    : (visibleSections[0]?.key ?? "users");
 
   async function toggle(flag: keyof Entitlement) {
     if (!property) return;
     setSaving(flag);
     try {
       await api.patch("/auth/entitlements/", { [flag]: !property.entitlement[flag] });
-      await refreshProperty();
-    } finally {
-      setSaving(null);
-    }
-  }
-
-  async function setEdition(edition: string) {
-    setSaving(edition);
-    try {
-      await api.post("/auth/setup/", { edition });
       await refreshProperty();
     } finally {
       setSaving(null);
@@ -1164,23 +1304,37 @@ export function Settings() {
 
           {activeSection === "edition" && (
             <Card>
-              <div className="font-semibold mb-1">Edition</div>
+              <div className="font-semibold mb-1">Your Hearth licence</div>
               <div className="text-sm text-muted mb-3">
-                Switch the whole property between Hotel, Restaurant, or both — this re-applies the
-                module entitlements below.
+                What this property is licensed to run. It's set when Hearth provisions your
+                install — changing plan is a conversation with us, not a switch in here, so
+                nobody can widen the licence by clicking.
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { k: "hotel", label: "Hotel only", desc: "Rooms, front office, distribution" },
                   { k: "restaurant", label: "Restaurant only", desc: "Standalone POS — no rooms" },
                   { k: "both", label: "Hotel + Restaurant", desc: "Everything on one core" },
-                ].map((e) => (
-                  <button key={e.k} onClick={() => setEdition(e.k)} disabled={saving === e.k}
-                    className={`text-left rounded-card border p-4 ${property?.edition === e.k ? "border-pine bg-pine-50" : "border-hairline"}`}>
-                    <div className="font-semibold">{e.label}</div>
-                    <div className="text-sm text-muted mt-1">{e.desc}</div>
-                  </button>
-                ))}
+                ].map((e) => {
+                  const active = property?.edition === e.k;
+                  return (
+                    <div key={e.k}
+                      className={`text-left rounded-card border p-4 ${
+                        active ? "border-pine bg-pine-50" : "border-hairline opacity-50"}`}>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{e.label}</span>
+                        {active && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide
+                            text-white bg-pine rounded-full px-2 py-0.5">Active</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted mt-1">{e.desc}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="text-xs text-muted mt-3">
+                Need a different plan? Contact Hearth and we'll re-provision this install.
               </div>
             </Card>
           )}
@@ -1239,28 +1393,31 @@ export function Settings() {
 
           {activeSection === "entitlements" && (
             <Card>
-              <div className="font-semibold mb-1">Edition entitlements</div>
+              <div className="font-semibold mb-1">What your licence covers</div>
               <div className="text-sm text-muted mb-4">
-                Toggling a flag hides its modules across the app (and blocks their APIs).
+                These four follow the edition you bought, so they're read-only here — the server
+                rejects changes to them whoever asks. To switch a module off for how <em>you</em>{" "}
+                work, use <button className="underline text-pine" onClick={() => setSection("features")}>
+                Features</button> instead: that's yours to change, and it can narrow what your
+                licence covers but never widen it.
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {FLAGS.map((f) => {
                   const on = property?.entitlement[f.key];
                   return (
-                    <button
+                    <div
                       key={f.key}
-                      onClick={() => toggle(f.key)}
-                      disabled={saving === f.key}
-                      className={`text-left rounded-card border p-4 ${on ? "border-pine bg-pine-50" : "border-hairline"}`}
+                      className={`text-left rounded-card border p-4 ${
+                        on ? "border-pine bg-pine-50" : "border-hairline opacity-60"}`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-semibold">{f.label}</span>
                         <span className={`pill ${on ? "bg-pine text-white" : "bg-hairline text-muted"}`}>
-                          {on ? "On" : "Off"}
+                          {on ? "Licensed" : "Not licensed"}
                         </span>
                       </div>
                       <div className="text-sm text-muted mt-1">{f.desc}</div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

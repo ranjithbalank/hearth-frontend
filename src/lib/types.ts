@@ -105,6 +105,8 @@ export interface Property {
   gstin: string;
   address: string;
   phone: string;
+  /** Dialling code the phone picker offers first on every screen. */
+  default_country_code?: string;
   logo: string;
   doc_header: string;
   doc_footer: string;
@@ -176,6 +178,8 @@ export interface FolioLine {
   sgst: string;
   total: string;
   gst_rate: string;
+  /** SAC code for this line, resolved server-side from GST Master (Rule 46(f)). */
+  hsn_sac: string;
 }
 
 export interface Folio {
@@ -184,6 +188,11 @@ export interface Folio {
   room_number: string | null;
   status: string;
   invoice_no: string;
+  /** Folio open / settle timestamps. The invoice DATE is settled_at (falling
+   *  back to opened_at for a proforma pulled mid-stay) — never "today", or a
+   *  reprint restamps a settled invoice. */
+  opened_at: string;
+  settled_at: string | null;
   lines: FolioLine[];
   settlements: { id: number; tender: string; amount: string; reference: string }[];
   charges_total: string;

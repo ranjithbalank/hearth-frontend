@@ -24,6 +24,18 @@ const DEMO = [
   { username: "hr", role: "HR Manager" },
 ];
 
+// Only a 401/400 from the token endpoint means the username or password was
+// wrong. A dead backend (the Vite proxy answers 5xx) or an offline network must
+// not masquerade as bad credentials — that sends people hunting for a password
+// problem that doesn't exist.
+function loginErrorMessage(e: any) {
+  const status = e?.response?.status;
+  if (!e?.response) return "Can't reach the server. Check your connection and try again.";
+  if (status >= 500) return "The server isn't responding. Please try again in a moment.";
+  if (status === 401 || status === 400) return "Invalid credentials";
+  return e.response.data?.detail || `Sign-in failed (error ${status}).`;
+}
+
 function EyeIcon({ off }: { off?: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -56,7 +68,7 @@ export function Login() {
         setMfaNeeded(true);
         setError(data.detail || "Enter your authenticator code");
       } else {
-        setError("Invalid credentials");
+        setError(loginErrorMessage(e));
       }
     } finally {
       setBusy(false);

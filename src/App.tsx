@@ -82,12 +82,17 @@ export default function App() {
 
   if (loading) return <Spinner />;
 
-  // First-run onboarding gate: create the owner account (if none yet), then the
-  // one-time property setup.
-  if (property?.needs_admin || !property?.setup_done) return <Onboarding />;
+  // First-run: no owner account exists yet. /auth/bootstrap/ is self-guarding
+  // (it 403s the moment a super admin exists), so this step is open by design.
+  if (property?.needs_admin) return <Onboarding />;
 
-  // Auth gate.
+  // Auth gate. It sits ABOVE property setup on purpose: setup used to render
+  // first, which handed a logged-out visitor the edition picker and let them
+  // POST their own licence.
   if (!user) return <Login />;
+
+  // Owner exists and is signed in, but hasn't finished first-run setup.
+  if (!property?.setup_done) return <Onboarding />;
 
   return (
     <AppShell>
@@ -154,7 +159,7 @@ export default function App() {
         <Route path="/tax" element={<RequireAccess module="tax"><TaxGst /></RequireAccess>} />
         <Route path="/engineering" element={<RequireAccess module="engineering"><Engineering /></RequireAccess>} />
         <Route path="/reports" element={<RequireAccess module="reports"><Reports /></RequireAccess>} />
-        <Route path="/settings" element={<RequireAccess module="settings"><Settings /></RequireAccess>} />
+        <Route path="/settings" element={<RequireAccess module={["settings", "users"]}><Settings /></RequireAccess>} />
         <Route path="/config/rooms" element={<RequireAccess module="roommaster"><RoomMaster /></RequireAccess>} />
         <Route path="/config/menu" element={<RequireAccess module="menumaster"><MenuMaster /></RequireAccess>} />
         <Route path="/config/tables" element={<RequireAccess module="tablemaster"><TableMaster /></RequireAccess>} />
