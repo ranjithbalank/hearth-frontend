@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { NavIcon } from "../../design/NavIcon";
@@ -22,10 +23,26 @@ const SEVERITY: Record<Alert["severity"], { tone: "clay" | "amber" | "info"; acc
 
 export function Notifications() {
   const nav = useNavigate();
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => (await api.get<{ count: number; alerts: Alert[] }>("/notifications/")).data,
   });
+
+  // Opening this screen IS the acknowledgement — that is what the bell's badge
+  // counts down. Fired once per visit (the ref guards React's double-invoke in
+  // StrictMode and any refetch), then the bell's own query is invalidated so
+  // the number drops immediately instead of at its next 15s poll.
+  const acked = useRef(false);
+  useEffect(() => {
+    if (!data || acked.current) return;
+    acked.current = true;
+    api.post("/notifications/")
+      .then(() => qc.invalidateQueries({ queryKey: ["notif-count"] }))
+      // A failed acknowledgement is not worth interrupting anyone over: the
+      // alerts are all still on screen, and the next visit tries again.
+      .catch(() => { acked.current = false; });
+  }, [data, qc]);
 
   if (isLoading || !data) return <Spinner />;
   const alerts = [...data.alerts].sort((a, b) => SEVERITY[a.severity].rank - SEVERITY[b.severity].rank);
@@ -36,7 +53,11 @@ export function Notifications() {
         icon={<Bell size={20} />}
         title="Notifications"
         subtitle="Operational alerts"
-        action={<Badge tone="clay">{data.count} active</Badge>}
+        // Alerts on screen, not the bell's unread count — those diverge the
+        // moment this page is opened, and "0 active" above a list of eleven
+        // live problems is the wrong thing to tell someone. The bell counts
+        // what still wants attention; this page reports what is true.
+        action={<Badge tone="clay">{alerts.length} active</Badge>}
       />
       {!alerts.length ? (
         <EmptyState title="All clear" hint="No operational alerts right now." />

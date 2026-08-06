@@ -14,4 +14,12 @@ export default defineConfig({
       },
     },
   },
+  test: {
+    // Node, not jsdom: everything under test here is a pure function — a date
+    // formatter, a money formatter, an input filter. Nothing renders. Keeping
+    // it that way is the point; the moment a case needs a DOM it belongs in a
+    // different kind of suite.
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+  },
 });

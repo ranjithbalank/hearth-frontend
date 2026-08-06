@@ -35,9 +35,16 @@ export const gstin = (v: string): string =>
 /** A person's name: letters (any script) plus spaces and the punctuation real
  *  names use — hyphen, apostrophe, period (e.g. "Mary-Jane", "O'Neil", "Jr.").
  *  No digits or other symbols. Use ONLY for human-name fields, never for
- *  business/item names or addresses, which legitimately contain numbers. */
+ *  business/item names or addresses, which legitimately contain numbers.
+ *
+ *  \p{M} (combining marks) is as load-bearing as \p{L} here. In Devanagari,
+ *  Tamil and most Indic scripts the vowel signs are marks, not letters — so
+ *  letters-only silently ate them and "मीरा राव" was stored as "मर रव", a
+ *  guest's name mangled as they typed it. Latin accents came through only
+ *  because é and Á happen to be single precomposed codepoints, which is why
+ *  this went unnoticed. Digits and symbols are still stripped. */
 export const personName = (v: string, max = 60): string =>
-  v.replace(/[^\p{L}\s.'-]/gu, "").replace(/\s{2,}/g, " ").slice(0, max);
+  v.replace(/[^\p{L}\p{M}\s.'-]/gu, "").replace(/\s{2,}/g, " ").slice(0, max);
 
 /** A login name: lower-case letters, digits, dot, underscore, hyphen.
  *  Case-folded here because the server stores usernames lower-case — typing
